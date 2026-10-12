@@ -61,7 +61,7 @@ Browser ──(password in a header)──▶ nginx container ──(your Firefl
 ## Requirements
 
 - A running **Firefly III** (built for 6.x; uses API v1).
-- A Firefly **Personal Access Token**: in Firefly go to *Options → Profile → OAuth → Personal access tokens → Create new token*.
+- A Firefly **Personal Access Token**: in Firefly go to *Profile → Remote access and tokens* and create a new Personal Access Token.
 - Docker (or any way to run `nginx:alpine`). It uses very little memory.
 
 ## Quick start (Docker)

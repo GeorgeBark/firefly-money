@@ -746,6 +746,7 @@ function fillIn(html) {
   olds.forEach((o, i) => { if (news[i].innerHTML !== o.innerHTML) o.replaceWith(news[i]); });
   S.pageHtml = html;
   bindSwipe();
+  if (App.fitSankey) App.fitSankey();
   return true;
 }
 function skeletonPanel(k) {
@@ -1177,7 +1178,7 @@ function balanceChart(groups, a, range) {
     if (after !== null) pts.push({ d, v: owed ? -after : after, desc: s.description, amt: s.source_id === a.id ? -s.amount : s.amount });
   });
   if (!pts.length) return '<p class="empty">No activity in this period.</p>';
-  const W = 960, H = 190, pl = 6, pr = 6, pt = 26, pb = 26;
+  const W = innerWidth < 600 ? 420 : 960, H = 190, pl = 6, pr = 6, pt = 26, pb = 26;
   const vals = pts.map(p => p.v), lo = Math.min(...vals, owed ? 0 : Infinity), hi = Math.max(...vals);
   const span = (hi - lo) || 1, n = pts.length, long = range && range !== 'month';
   const t0 = new Date(pts[0].d.slice(0, 10) + 'T12:00:00').getTime(), t1 = new Date(pts[n - 1].d.slice(0, 10) + 'T12:00:00').getTime();
@@ -1302,11 +1303,12 @@ VIEWS.budgets = async (r, paint) => {
   const totLim = visible.reduce((s, b) => s + (b.lim ? b.lim.amount : 0), 0), totSpent = visible.reduce((s, b) => s + b.spent, 0), unb = sumDiff(noBudget);
   const rows = visible.map(b => {
     const pct = b.lim && b.lim.amount ? b.spent / b.lim.amount * 100 : 0;
-    return '<tr' + (b.active ? '' : ' style="opacity:.5"') + '><td style="min-width:220px"><a class="desc" href="#/transactions?budget=' + b.id + '" style="text-decoration:none">' + esc(b.name) + '</a>' +
+    return '<tr' + (b.active ? '' : ' style="opacity:.5"') + '><td class="namecol"><a class="desc" href="#/transactions?budget=' + b.id + '" style="text-decoration:none">' + esc(b.name) + '</a>' +
       (b.lim ? '<div class="track" style="max-width:360px"><div class="fill ' + (pct > 100 ? 'over' : 'good') + '" style="width:' + Math.min(100, pct).toFixed(1) + '%"></div></div><div class="sub-s">' +
-        (pct > 100 ? '<span class="up">' + money(b.spent - b.lim.amount) + ' over</span>' : money(b.lim.amount - b.spent) + ' left · ' + pct.toFixed(0) + '% used') + '</div>' : all ? '' : '<div class="sub-s">No amount set for ' + cur.short + '</div>') +
+        '<span class="show-s">' + money(b.spent) + ' spent · </span>' + (pct > 100 ? '<span class="up">' + money(b.spent - b.lim.amount) + ' over</span>' : money(b.lim.amount - b.spent) + ' left · ' + pct.toFixed(0) + '% used') + '</div>' : all ? '' : '<div class="sub-s">No amount set for ' + cur.short + '</div>') +
+      (b.lim ? '' : '<div class="sub-s show-s">' + money(b.spent) + ' spent</div>') +
       (b.auto ? '<span class="chip" title="Auto-budget">Auto ' + esc(b.auto) + ' · ' + money0(b.autoAmt) + '/mo</span>' : '') + '</td>' +
-      '<td class="amt">' + money(b.spent) + '</td>' +
+      '<td class="amt hide-s">' + money(b.spent) + '</td>' +
       (all ? '' : '<td class="r"><input class="inline num" type="number" min="0" step="1" placeholder="Set…" value="' + (b.lim ? b.lim.amount : '') + '" data-onchange="App.setLimit(\'' + b.id + '\',this)" aria-label="Budget for ' + esc(b.name) + '"></td>') +
       '<td class="act"><button class="btn small" data-onclick="App.budgetForm(\'' + b.id + '\')">Edit</button></td></tr>';
   }).join('');
@@ -1318,7 +1320,7 @@ VIEWS.budgets = async (r, paint) => {
       '<div class="kpi"><div class="eyebrow">Spent in budgets</div><div class="val num">' + money0(totSpent) + '</div></div>' +
       (all ? '' : '<div class="kpi"><div class="eyebrow">Left</div><div class="val num ' + (totLim - totSpent < 0 ? 'neg' : '') + '">' + money0(totLim - totSpent) + '</div></div>') +
       '<div class="kpi"><div class="eyebrow">Spent outside budgets</div><div class="val num">' + money0(unb) + '</div></div></div>' +
-    '<section class="panel flush">' + (rows ? '<table class="tbl"><thead><tr><th>Budget</th><th class="r">Spent</th>' + (all ? '' : '<th class="r">Budget for ' + cur.short + '</th>') + '<th></th></tr></thead><tbody>' + rows + '</tbody></table>'
+    '<section class="panel flush">' + (rows ? '<table class="tbl"><thead><tr><th>Budget</th><th class="r hide-s">Spent</th>' + (all ? '' : '<th class="r"><span class="hide-s">Budget for ' + cur.short + '</span><span class="show-s">Amount</span></th>') + '<th></th></tr></thead><tbody>' + rows + '</tbody></table>'
       : '<div class="center-empty">No budgets yet. Create one to start tracking.</div>') + '</section>' +
     (inactiveCount ? '<p style="margin-top:14px"><a class="link" href="' + hashWith({ inactive: showInactive ? '' : '1' }) + '">' + (showInactive ? 'Hide' : 'Show') + ' ' + inactiveCount + ' inactive</a></p>' : '') +
     '<p class="sub-s" style="margin-top:14px">' + (all ? 'Budget amounts are set per month. Pick a month to set them.' : 'Type an amount in the right column and press Enter to set that month’s budget. Clear it to remove it.') + '</p>');

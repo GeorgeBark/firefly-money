@@ -544,7 +544,7 @@ VIEWS.reports = async (r, paint) => {
   paint(head('Reports', fmtDate(R.start) + ' – ' + fmtDate(R.end), '<button class="btn" data-onclick="App.print()">Print</button>') +
     '<div class="toolbar"><div style="display:flex;gap:6px;flex-wrap:wrap">' + presetBtn('this-month', 'This month') + presetBtn('last-month', 'Last month') + presetBtn('last-3', 'Last 3 months') +
       presetBtn('this-year', 'This year') + presetBtn('last-year', 'Last year') + presetBtn('last-12', 'Last 12 months') + '</div>' +
-      '<form style="display:flex;gap:8px;align-items:center" data-onsubmit="event.preventDefault();App.reportsRange(this)">' +
+      '<form class="range" data-onsubmit="event.preventDefault();App.reportsRange(this)">' +
       '<input type="date" name="s" value="' + R.start + '"><span class="neutral">to</span><input type="date" name="e" value="' + R.end + '"><button class="btn small">Apply</button></form></div>' +
     '<div class="kpis"><div class="kpi"><div class="eyebrow">Earned</div><div class="val num pos">' + money0(earned) + '</div></div>' +
       '<div class="kpi"><div class="eyebrow">Spent</div><div class="val num neg">' + money0(spent) + '</div></div>' +

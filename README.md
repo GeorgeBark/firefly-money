@@ -186,6 +186,6 @@ This is an independent project. It is not affiliated with or endorsed by Firefly
 
 ## License
 
-[PolyForm Strict 1.0.0](LICENSE): you may use Money for any noncommercial purpose, such as personal or household use or use by a charity or school. You may not change it, share or distribute copies, or sell it.
+[MIT](LICENSE): you may use, change, share and sell Money freely, as long as the copyright notice stays with it. It comes with no warranty.
 
-Want to use it commercially, change it, or contribute? Please ask first by opening an issue.
+Contributions are welcome. Please open an issue first for anything big.

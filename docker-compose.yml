@@ -13,7 +13,7 @@ services:
       # Where nginx reaches Firefly III (container name, LAN IP or URL; no trailing slash).
       # Also used for the "Open Firefly III" link in the sidebar.
       FIREFLY_URL: ${FIREFLY_URL}
-      # A Firefly III Personal Access Token (Options → Profile → OAuth → Personal access tokens).
+      # A Firefly III Personal Access Token (Profile → Remote access and tokens).
       # It stays on the server; the browser never sees it.
       FIREFLY_TOKEN: ${FIREFLY_TOKEN}
       # The password you type on the Money sign-in screen.

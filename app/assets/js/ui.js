@@ -330,6 +330,8 @@ function heatmapPanel(cur, groups) {
 }
 
 /* ---------- Money flow (income → spending categories + kept) ---------- */
+// The chart is laid out at the width it is shown at (one SVG unit = one pixel), so the labels keep their real
+// font size and spacing instead of being scaled up on a wide screen or down on a phone.
 function sankeyPanel(sources, income, cats, cur) {
   let left = sources.map(x => ({ name: x.name, v: absDiff(x) })).filter(x => x.v > 0).sort((a, b) => b.v - a.v);
   if (!left.length && income > 0) left = [{ name: 'Income', v: income }];
@@ -342,11 +344,34 @@ function sankeyPanel(sources, income, cats, cur) {
   right.forEach(x => { x.kind = 'out'; });
   if (spend > inc) left.push({ name: 'From savings', v: spend - inc, kind: 'save' });
   if (inc > spend) right.push({ name: 'Kept', v: inc - spend, kind: 'kept' });
-  const total = Math.max(inc, spend), narrow = innerWidth < 640;
-  const W = narrow ? 460 : 900, LW = narrow ? 118 : 190, NW = 12, GAP = 10, H = Math.max(220, 36 * Math.max(left.length, right.length) + 24);
-  const k = (H - 20 - GAP * (Math.max(left.length, right.length) - 1)) / total;
-  const stack = (nodes, x) => { const hh = nodes.reduce((s, n) => s + n.v * k, 0) + GAP * (nodes.length - 1); let y = (H - hh) / 2; nodes.forEach(n => { n.x = x; n.y = y; n.h = Math.max(2, n.v * k); y += n.h + GAP; }); };
-  const xl = LW, xm = W / 2 - NW / 2, xr = W - LW - NW;
+  const d = { left, right, inc, spend };
+  return '<section class="panel chart sankey" data-sk="' + esc(JSON.stringify(d)) + '"><h2>Money flow</h2><p class="lead">Where ' + (cur.all ? 'all your' : esc(cur.label) + '’s') + ' income went · hover a band for details</p>' +
+    sankeySvg(d, innerWidth < 900 ? innerWidth - 72 : 900) + '</section>';
+}
+// Shorten a label with … until it fits in px at the chart's label font
+let skCtx = null;
+function fitText(t, px) {
+  if (!skCtx) { skCtx = document.createElement('canvas').getContext('2d'); skCtx.font = '500 12.5px ' + getComputedStyle(document.body).fontFamily; }
+  if (skCtx.measureText(t).width <= px) return t;
+  let n = t.length;
+  while (n > 1 && skCtx.measureText(t.slice(0, n).trimEnd() + '…').width > px) n--;
+  return t.slice(0, n).trimEnd() + '…';
+}
+function sankeySvg({ left, right, inc, spend }, W) {
+  left = left.map(n => ({ ...n })); right = right.map(n => ({ ...n }));
+  W = Math.max(280, Math.round(W));
+  // On a very wide card the bands would stretch thin, so the chart keeps to 1100px in the middle of it
+  const CW = Math.min(W, 1100), ox = (W - CW) / 2;
+  const total = Math.max(inc, spend), narrow = CW < 560, rows = Math.max(left.length, right.length);
+  const LW = narrow ? Math.round(CW * .35) : Math.min(230, Math.max(160, Math.round(CW * .2))), NW = 12, GAP = 10, LINE = 34;
+  const H0 = Math.max(220, (LINE + 8) * rows + 24);
+  const k = (H0 - 20 - GAP * (rows - 1)) / total;
+  // Each side node gets at least a label's height of room, so its label can sit right beside it
+  left.concat(right).forEach(n => { n.h = Math.max(2, n.v * k); n.slot = Math.max(n.h + GAP, LINE); });
+  const tall = nodes => nodes.reduce((s, n) => s + n.slot, 0) - GAP;
+  const H = Math.max(H0, Math.ceil(Math.max(tall(left), tall(right))) + 20);
+  const stack = (nodes, x) => { let y = (H - tall(nodes)) / 2; nodes.forEach(n => { n.x = x; n.y = y + (n.slot - GAP - n.h) / 2; y += n.slot; }); };
+  const xl = ox + LW, xm = W / 2 - NW / 2, xr = ox + CW - LW - NW;
   stack(left, xl); stack(right, xr);
   const mh = total * k, my = (H - mh) / 2;
   const col = n => ({ in: 'var(--income)', save: 'var(--warn)', out: 'var(--spend)', kept: 'var(--good)' })[n.kind];
@@ -356,17 +381,35 @@ function sankeyPanel(sources, income, cats, cur) {
   left.forEach(n => { links += '<path class="lk" d="' + band(xl + NW, n.y, xm, my1, n.h) + '" fill="' + col(n) + '" data-tip="' + esc(n.name + ' → ' + money0(n.v) + share(n, total)) + '"/>'; my1 += n.h; });
   right.forEach(n => { links += '<path class="lk" d="' + band(xm + NW, my2, xr, n.y, n.h) + '" fill="' + col(n) + '" data-tip="' + esc(n.name + ' · ' + money0(n.v) + share(n, n.kind === 'kept' ? inc : spend) + (n.kind === 'kept' ? ' of income' : n.kind === 'out' ? ' of spending' : '')) + '"' +
     (n.id ? ' style="cursor:pointer" data-onclick="App.go(\'#/transactions?category=' + n.id + '\')"' : '') + '/>'; my2 += n.h; });
-  const label = (n, anchor, x) => '<text x="' + x + '" y="' + (n.ly - 2) + '" text-anchor="' + anchor + '" class="sk-name">' + esc(n.name.length > (narrow ? 14 : 24) ? n.name.slice(0, narrow ? 13 : 23) + '…' : n.name) + '</text>' +
+  const label = (n, anchor, x, nm = fitText(n.name, LW - 14)) => '<text x="' + x + '" y="' + (n.ly - 2) + '" text-anchor="' + anchor + '" class="sk-name">' + (nm !== n.name ? '<title>' + esc(n.name) + '</title>' : '') + esc(nm) + '</text>' +
     '<text x="' + x + '" y="' + (n.ly + 12) + '" text-anchor="' + anchor + '" class="sk-amt amtx">' + money0(n.v) + '</text>';
-  // Keep two-line labels from colliding: push each label down past the previous one, then pull the column back up if it overflows
-  const spread = nodes2 => { let prev = -Infinity; nodes2.forEach(n => { n.ly = Math.max(n.y + n.h / 2, prev + 30); prev = n.ly; });
-    const over = prev + 16 - H; if (over > 0) { let next = Infinity; [...nodes2].reverse().forEach(n => { n.ly = Math.min(n.ly - over, next - 30); next = n.ly; }); } };
+  // Keep two-line labels apart and inside the chart: centre each on its node, push it below the one above,
+  // pull any that run off the bottom back up, then make sure the first one still clears the top edge
+  const TOP = 14, BOT = H - 18;
+  const spread = col2 => {
+    let prev = -Infinity; col2.forEach(n => { n.ly = Math.max(n.y + n.h / 2, prev + LINE, TOP); prev = n.ly; });
+    let next = Infinity; [...col2].reverse().forEach(n => { n.ly = Math.min(n.ly, next - LINE, BOT); next = n.ly; });
+    prev = -Infinity; col2.forEach(n => { n.ly = Math.max(n.ly, prev + LINE, TOP); prev = n.ly; });
+  };
   spread(left); spread(right);
   left.forEach(n => { nodes += '<rect x="' + n.x + '" y="' + n.y + '" width="' + NW + '" height="' + n.h + '" rx="3" fill="' + col(n) + '"/>' + label(n, 'end', xl - 8); });
   right.forEach(n => { nodes += '<rect x="' + n.x + '" y="' + n.y + '" width="' + NW + '" height="' + n.h + '" rx="3" fill="' + col(n) + '"/>' + label(n, 'start', xr + NW + 8); });
   nodes += '<rect x="' + xm + '" y="' + my + '" width="' + NW + '" height="' + mh + '" rx="3" fill="var(--text)" opacity=".75"/>';
-  return '<section class="panel chart sankey"><h2>Money flow</h2><p class="lead">Where ' + (cur.all ? 'all your' : esc(cur.label) + '’s') + ' income went · hover a band for details</p>' +
-    '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Income flowing into spending categories">' + links + nodes + '</svg></section>';
+  return '<svg viewBox="0 0 ' + W + ' ' + H + '" data-w="' + W + '" role="img" aria-label="Income flowing into spending categories">' + links + nodes + '</svg>';
+}
+// Redraw each money-flow chart at the width its card actually has, now and whenever the card changes size
+const skSeen = new WeakSet();
+const skObs = 'ResizeObserver' in window ? new ResizeObserver(es => es.forEach(e => fitSankey1(e.target))) : null;
+function fitSankey1(sec) {
+  const svg = sec.querySelector('svg'), w = Math.round(sec.clientWidth - parseFloat(getComputedStyle(sec).paddingLeft) - parseFloat(getComputedStyle(sec).paddingRight));
+  if (!svg || !sec.isConnected || w <= 0 || Math.abs(w - +svg.dataset.w) < 2) return;
+  try { svg.outerHTML = sankeySvg(JSON.parse(sec.dataset.sk), w); } catch (e) { /* keep the chart as drawn */ }
+}
+function fitSankey() {
+  document.querySelectorAll('#view .sankey[data-sk]').forEach(sec => {
+    fitSankey1(sec);
+    if (skObs && !skSeen.has(sec)) { skSeen.add(sec); skObs.observe(sec); }
+  });
 }
 
 /* ---------- Natural-language quick add ---------- */
@@ -460,10 +503,10 @@ function nlParse(text, submit) {
 
 /* ---------- After each page paint ---------- */
 function afterPaint2(r) {
-  bindFeed(); bindDash(); drawToggles();
+  bindFeed(); bindDash(); drawToggles(); fitSankey();
   S.kIdx = -1;
 }
 Object.assign(window.App, {
-  buzz, togglePrivacy, toggleDensity, drawToggles, pick, pickFilter, pickKey, pickHover, pickChoose, afterPaint2, balanceSparks, sparkline, heatmapPanel, sankeyPanel,
+  buzz, togglePrivacy, toggleDensity, drawToggles, pick, pickFilter, pickKey, pickHover, pickChoose, afterPaint2, balanceSparks, sparkline, heatmapPanel, sankeyPanel, fitSankey,
   dashboard, dashButton, dashEdit, dashMove, dashWide, dashHide, dashReset, nlParse, shortcutsSheet,
 });

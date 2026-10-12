@@ -99,13 +99,14 @@
   label { display: block; font-size: 12.5px; color: var(--muted); margin-bottom: 14px; }
   label > input, label > select, label > textarea { display: block; width: 100%; margin-top: 5px; }
   input[type=text], input[type=number], input[type=date], input[type=password], input[type=search], select, textarea {
-    padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); font-size: 14.5px; outline: none; }
+    padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); font-size: 14.5px; outline: none; min-width: 0; max-width: 100%; }
   input:focus, select:focus, textarea:focus { border-color: var(--muted); }
   textarea { resize: vertical; }
   label.check { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--text); }
   label.check input { width: auto; margin: 0; }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
-  .seg { display: inline-flex; background: var(--faint); border-radius: 12px; padding: 3px; margin-bottom: 18px; }
+  .grid2 > * { min-width: 0; }
+  .seg { display: inline-flex; flex-wrap: wrap; max-width: 100%; background: var(--faint); border-radius: 12px; padding: 3px; margin-bottom: 18px; }
   .seg button { border: 0; background: none; padding: 7px 16px; border-radius: 9px; cursor: pointer; color: var(--muted); font-weight: 500; }
   .seg button.on { background: var(--panel); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
   .tabs { display: flex; gap: 22px; border-bottom: 1px solid var(--line); margin-bottom: 20px; overflow-x: auto; }
@@ -324,6 +325,10 @@
   .txmain .desc { overflow: hidden; text-overflow: ellipsis; }
   .tbl.feed .meta { display: flex; flex-wrap: wrap; gap: 4px 0; align-items: center; margin-top: 2px; }
   .cat-s { display: none; font-size: 12.5px; color: var(--muted); margin-right: 8px; }
+  .show-s { display: none; }
+  .tbl .namecol { min-width: 220px; }
+  form.range { display: flex; gap: 8px; align-items: center; flex: 0 1 460px; min-width: 0; }
+  form.range input { flex: 1 1 0; width: 0; }
   .tbl.feed .catcol { color: var(--muted); font-size: 13.5px; }
   .av { --h: 220; --c: hsl(var(--h) 62% 48%); flex: none; width: 36px; height: 36px; border-radius: 50%; display: inline-grid; place-items: center;
     font-size: 13px; font-weight: 650; letter-spacing: -.02em; line-height: 1;
@@ -648,6 +653,14 @@
     .panel { padding: 20px; }
     .tbl .hide-s { display: none; }
     .cat-s { display: inline; }
+    .show-s { display: initial; }
+    div.show-s { display: block; }
+    .tbl .namecol { min-width: 0; }
+    .tbl input.inline { width: 96px; }
+    .grid2.stack-s { grid-template-columns: 1fr; }
+    form.range { flex-basis: 100%; gap: 6px; }
+    form.range > span { display: none; }
+    .stat input { max-width: 100%; }
     .tbl.feed, .tbl.feed.has-sel { --cols: minmax(0, 1fr) auto; }
     .tbl.feed .hide-s, .tbl.feed .sel { display: none !important; }
     .tbl.feed tr.dayhead div { padding: 7px 12px; }
@@ -666,4 +679,7 @@
     .cards.editing > .w { cursor: default; }
     .wctl .grip { display: none; }
     .tbl td, .tbl th { padding-left: 12px; padding-right: 12px; }
+  }
+  @media (max-width: 400px) {
+    .tbl td, .tbl th { padding-left: 9px; padding-right: 9px; }
   }

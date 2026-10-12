@@ -8,7 +8,9 @@ ENV MONEY_VERSION="${MONEY_VERSION}"
 # Port nginx listens on inside the container. Change it when running as a non-root user on a host
 # that doesn't let such users bind ports below 1024.
 ENV LISTEN_PORT=80
-ENV NGINX_ENVSUBST_FILTER="^(FIREFLY_URL|FIREFLY_TOKEN|DASH_PASSWORD|MONEY_VERSION|LISTEN_PORT)$"
+# The nginx entrypoint reads the container's DNS servers into NGINX_LOCAL_RESOLVERS (for the /api/ proxy).
+ENV NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1
+ENV NGINX_ENVSUBST_FILTER="^(FIREFLY_URL|FIREFLY_TOKEN|DASH_PASSWORD|MONEY_VERSION|LISTEN_PORT|NGINX_LOCAL_RESOLVERS)$"
 
 COPY app/default.conf.template /etc/nginx/templates/default.conf.template
 COPY app/index.html /etc/nginx/templates/index.html.template

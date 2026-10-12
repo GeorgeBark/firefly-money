@@ -59,7 +59,11 @@ server {
         if ($dash_ok = 0)          { add_header X-Dash-Auth required always; return 401; }
 
         limit_except GET POST PUT DELETE { deny all; }
-        proxy_pass ${FIREFLY_URL}/api/;
+        # Through a variable, so nginx looks up Firefly's address per request instead of once at
+        # startup: Money starts even when Firefly is down or its name doesn't resolve yet.
+        resolver ${NGINX_LOCAL_RESOLVERS} valid=30s;
+        set $firefly "${FIREFLY_URL}";
+        proxy_pass $firefly$request_uri;
         proxy_set_header Authorization "Bearer ${FIREFLY_TOKEN}";
         proxy_set_header X-Dash-Key "";
         proxy_set_header Accept "application/vnd.api+json";

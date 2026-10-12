@@ -5,16 +5,25 @@ FROM nginx:1.31-alpine
 # Which build this is, e.g. "c78fd51 · 2026-09-30" (set by the GitHub workflow). Shown in Settings → About.
 ARG MONEY_VERSION=""
 ENV MONEY_VERSION="${MONEY_VERSION}"
-ENV NGINX_ENVSUBST_FILTER="^(FIREFLY_URL|FIREFLY_TOKEN|DASH_PASSWORD|MONEY_VERSION)$"
+# Port nginx listens on inside the container. Change it when running as a non-root user on a host
+# that doesn't let such users bind ports below 1024.
+ENV LISTEN_PORT=80
+ENV NGINX_ENVSUBST_FILTER="^(FIREFLY_URL|FIREFLY_TOKEN|DASH_PASSWORD|MONEY_VERSION|LISTEN_PORT)$"
 
 COPY app/default.conf.template /etc/nginx/templates/default.conf.template
 COPY app/index.html /etc/nginx/templates/index.html.template
 # Stylesheet and scripts: plain files, served as they are from /assets/
 COPY app/assets /usr/share/nginx/html/assets
 
+# Also runs as any non-root user (e.g. `user: "568:568"`): the pid file goes to /tmp, and the folders
+# nginx writes to at startup (the filled-in config and page, its cache) are writable by everyone.
+RUN sed -i -e 's,^pid .*,pid /tmp/nginx.pid;,' -e '/^user /d' /etc/nginx/nginx.conf \
+ && rm -f /etc/nginx/conf.d/default.conf \
+ && chmod 1777 /etc/nginx/conf.d /var/cache/nginx
+
 LABEL org.opencontainers.image.title="Money" \
       org.opencontainers.image.description="A modern, mobile-friendly frontend for Firefly III" \
       org.opencontainers.image.licenses="PolyForm-Strict-1.0.0"
 
 EXPOSE 80
-HEALTHCHECK --interval=60s --timeout=5s --retries=3 CMD wget -q -O /dev/null http://127.0.0.1/ || exit 1
+HEALTHCHECK --interval=60s --timeout=5s --retries=3 CMD wget -q -O /dev/null http://127.0.0.1:${LISTEN_PORT}/ || exit 1

@@ -13,7 +13,7 @@ map $arg_v $asset_cache {
 }
 
 server {
-    listen 80;
+    listen ${LISTEN_PORT};
 
     # Compress the page and API responses (much faster over Wi-Fi)
     gzip on;
@@ -34,7 +34,7 @@ server {
         add_header X-Content-Type-Options "nosniff";
     }
 
-    # The app page. Mounted as a template so nginx copies it at startup (as root),
+    # The app page. Mounted as a template so nginx copies it at startup,
     # which avoids file-permission problems on TrueNAS. Only index.html is ever served.
     location / {
         root /etc/nginx/conf.d;

@@ -84,6 +84,7 @@ Open `http://<your-server>:8090` and sign in with your `DASH_PASSWORD`.
 | `FIREFLY_TOKEN` | Your Firefly Personal Access Token. |
 | `DASH_PASSWORD` | The password for the Money sign-in screen. Use something long, and don't start it with `~`. |
 | `MONEY_PORT`    | Port on the host (default `8090`). |
+| `LISTEN_PORT`   | Port inside the container (default `80`). Only needed when you run the container as a non-root user (e.g. `user: "568:568"`) on a host that doesn't let such users use ports below 1024; then set something like `8080` and map the host port to it. |
 
 **Updating:** `docker compose pull && docker compose up -d`. To stay on a fixed version instead of `latest`, use a release tag such as `:1.2.0`. Those images are built when you push a tag like `v1.2.0`.
 

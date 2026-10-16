@@ -25,7 +25,7 @@ RUN sed -i -e 's,^pid .*,pid /tmp/nginx.pid;,' -e '/^user /d' /etc/nginx/nginx.c
 
 LABEL org.opencontainers.image.title="Money" \
       org.opencontainers.image.description="A modern, mobile-friendly frontend for Firefly III" \
-      org.opencontainers.image.licenses="PolyForm-Strict-1.0.0"
+      org.opencontainers.image.licenses="MIT"
 
 EXPOSE 80
 HEALTHCHECK --interval=60s --timeout=5s --retries=3 CMD wget -q -O /dev/null http://127.0.0.1:${LISTEN_PORT}/ || exit 1

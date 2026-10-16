@@ -38,10 +38,6 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=sha,format=short
-          # GitHub doesn't recognise the PolyForm license and would label the image NOASSERTION,
-          # overriding the Dockerfile's label, so set it here too.
-          labels: |
-            org.opencontainers.image.licenses=PolyForm-Strict-1.0.0
 
       # e.g. "c78fd51 · 2026-09-30", or "v1.2.0 (c78fd51 · 2026-09-30)" for a release tag (no commas: build-args may split on them)
       - name: Version stamp

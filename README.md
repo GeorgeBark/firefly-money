@@ -24,9 +24,9 @@ It's plain HTML, CSS and JavaScript served by a small nginx container. Nothing t
 ## Features
 
 **Everyday use**
-- **Overview:** net worth, spending by category against last month, budgets, balances with 30-day sparklines, loans, upcoming bills, cash flow, a daily-spending calendar and a money-flow chart.
+- **Overview:** net worth, spending by category against last month, budgets, balances with 30-day sparklines, loans, upcoming bills, top payees, income sources, savings goals, cash flow, a daily-spending calendar and a money-flow chart.
 - **Insight cards:** short notes like "Dining is 46% above usual", "Groceries budget may run out around the 24th" or "Card payment due in 4 days". They compare this month with the same point in each of the last three months.
-- **Customizable dashboard:** drag cards to reorder them, make them full width, or hide them.
+- **Customizable dashboard:** drag cards to reorder them, make them full width, or hide them. Pick 1 to 4 columns (or Auto), turn the net-worth summary and insight strip on or off, and add the Top payees, Income sources and Savings goals cards. The layout is saved on each device.
 - **Safe-to-spend forecast:** detects your paydays and subtracts upcoming bills, recurring transactions, card payoffs and loan payments.
 - **Transactions:** a feed grouped by day with sticky headers, merchant avatars and infinite scroll. You can change a category or budget inline, edit several at once, split, search, attach files and link transactions.
 - **Quick add in plain words:** type `coffee 5.40 amex yesterday`, `paycheck 2850 chase` or `transfer 400 from checking to savings last friday` and the form fills itself in. Payee memory then fills in the category and budget from the last time.

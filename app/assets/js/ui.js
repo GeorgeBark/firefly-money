@@ -225,8 +225,12 @@ function appendRows(gs, opts) {
 /* ---------- Customizable dashboard ---------- */
 const DASH_WIDE = ['flow', 'cashflow', 'recent'];
 const DASH_NAMES = { safe: 'Safe to spend', attention: 'Needs attention', spending: 'Where it went', budgets: 'Budgets', cash: 'Cash & savings', cards: 'Credit cards',
-  loans: 'Loans', bills: 'Coming up', heatmap: 'Daily spending', flow: 'Money flow', cashflow: 'Cash flow', recent: 'Recent transactions' };
-const dashLayout = () => ({ order: [], hidden: [], wide: null, ...LS.get('dash', {}) });
+  loans: 'Loans', bills: 'Coming up', heatmap: 'Daily spending', flow: 'Money flow', cashflow: 'Cash flow', recent: 'Recent transactions',
+  payees: 'Top payees', income: 'Income sources', goals: 'Savings goals' };
+const DASH_COLS = ['', 1, 2, 3, 4];      // '' = as many ~380px columns as fit (max 3)
+// hidden also holds the parts above the cards ('hero', 'insights'); cols is the number of card columns
+const dashLayout = () => ({ order: [], hidden: [], wide: null, cols: '', ...LS.get('dash', {}) });
+const dashShows = part => !dashLayout().hidden.includes(part);
 function dashButton() { return S.dashEdit ? '' : '<button class="btn small" data-onclick="App.dashEdit(true)" title="Reorder, resize or hide cards">Customize</button>'; }
 function dashboard(W) {
   const L = dashLayout(), keys = W.map(w => w[0]), map = Object.fromEntries(W), wide = L.wide || DASH_WIDE, edit = !!S.dashEdit;
@@ -240,9 +244,13 @@ function dashboard(W) {
         '<button type="button" data-onclick="App.dashWide(\'' + k + '\')">' + (wide.includes(k) ? 'Narrow' : 'Wide') + '</button>' +
         '<button type="button" data-onclick="App.dashHide(\'' + k + '\')">' + (off ? 'Show' : 'Hide') + '</button></div>' : '') + html + '</div>';
   };
+  const part = (p, label) => '<label class="check"><input type="checkbox"' + (L.hidden.includes(p) ? '' : ' checked') + ' data-onchange="App.dashPart(\'' + p + '\', this.checked)"> ' + label + '</label>';
   return (edit ? '<div class="dash-bar"><span>Drag cards (or use the arrows) to reorder. Wide cards span the full width.</span><span class="grow"></span>' +
-      '<button class="link" data-onclick="App.dashReset()">Reset</button><button class="btn small primary" data-onclick="App.dashEdit(false)">Done</button></div>' : '') +
-    '<div class="cards' + (edit ? ' editing' : '') + '" id="dash">' + order.map(card).join('') + '</div>';
+      '<button class="link" data-onclick="App.dashReset()">Reset</button><button class="btn small primary" data-onclick="App.dashEdit(false)">Done</button>' +
+      '<div class="dash-opts"><span>Columns</span><div class="seg mini" id="dashCols">' +
+        DASH_COLS.map(c => '<button type="button" class="' + (String(L.cols || '') === String(c) ? 'on' : '') + '" data-onclick="App.dashCols(\'' + c + '\')">' + (c || 'Auto') + '</button>').join('') + '</div>' +
+        '<span class="grow"></span>' + part('hero', 'Net worth summary') + part('insights', 'Insights') + '</div></div>' : '') +
+    '<div class="cards' + (edit ? ' editing' : '') + '" id="dash"' + (L.cols ? ' data-cols="' + esc(String(L.cols)) + '"' : '') + '>' + order.map(card).join('') + '</div>';
 }
 function dashSave(mut) {
   const L = dashLayout(), d = el('dash');
@@ -271,8 +279,32 @@ function dashHide(k) {
   const w = document.querySelector('#dash > [data-w="' + k + '"]'), off = L.hidden.includes(k);
   w.classList.toggle('off', off); w.querySelector('.wctl button:nth-of-type(4)').textContent = off ? 'Show' : 'Hide';
 }
+function dashCols(c) {
+  const L = dashSave(x => { x.cols = DASH_COLS.map(String).includes(String(c)) ? (c ? +c : '') : ''; });
+  const d = el('dash'); if (!d) return;
+  dashAnimate(() => { L.cols ? d.dataset.cols = L.cols : delete d.dataset.cols; dashMasonry(); });
+  document.querySelectorAll('#dashCols button').forEach((b, i) => b.classList.toggle('on', String(DASH_COLS[i]) === String(L.cols || '')));
+}
+// The net-worth summary and the insight strip sit above the cards, so showing or hiding them redraws the page
+function dashPart(p, on) {
+  dashSave(x => { x.hidden = x.hidden.filter(y => y !== p).concat(on ? [] : [p]); });
+  S.pageKey = ''; PAGES.clear(); route();
+}
 function dashReset() { LS.set('dash', {}); S.pageKey = ''; PAGES.clear(); route(); }
+// With a chosen column count the cards sit in a grid of 4px rows; each card spans enough rows for its height
+// (plus the gap), and is re-measured whenever it resizes or the cards are replaced.
+let dashRO = null, dashMO = null;
+function dashMasonry() {
+  if (dashRO) { dashRO.disconnect(); dashMO.disconnect(); dashRO = dashMO = null; }
+  const d = el('dash'); if (!d || !d.dataset.cols || !window.ResizeObserver) return;
+  const fit = w => { const gap = parseFloat(getComputedStyle(d).columnGap) || 20; w.style.setProperty('--rows', Math.ceil((w.getBoundingClientRect().height + gap) / 4)); };
+  dashRO = new ResizeObserver(es => es.forEach(e => fit(e.target)));
+  const watch = () => d.querySelectorAll(':scope > .w').forEach(w => { fit(w); dashRO.observe(w); });
+  dashMO = new MutationObserver(watch); dashMO.observe(d, { childList: true });
+  watch();
+}
 function bindDash() {
+  dashMasonry();
   const d = el('dash'); if (!d || !d.classList.contains('editing')) return;
   let drag = null;
   d.addEventListener('dragstart', e => { drag = e.target.closest('.w'); if (!drag) return; drag.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', drag.dataset.w); });
@@ -508,5 +540,5 @@ function afterPaint2(r) {
 }
 Object.assign(window.App, {
   buzz, togglePrivacy, toggleDensity, drawToggles, pick, pickFilter, pickKey, pickHover, pickChoose, afterPaint2, balanceSparks, sparkline, heatmapPanel, sankeyPanel, fitSankey,
-  dashboard, dashButton, dashEdit, dashMove, dashWide, dashHide, dashReset, nlParse, shortcutsSheet,
+  dashboard, dashButton, dashEdit, dashMove, dashWide, dashHide, dashReset, dashCols, dashPart, dashShows, nlParse, shortcutsSheet,
 });

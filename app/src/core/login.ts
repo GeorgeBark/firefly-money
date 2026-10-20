@@ -26,14 +26,15 @@ export const THEMES = [
   ['ocean', 'Ocean', 'linear-gradient(135deg,#14b8a6,#3b9eff)'], ['sunrise', 'Sunrise', 'linear-gradient(135deg,#e8452c,#f59e0b)'],
 ];
 function currentTheme() { return document.documentElement.getAttribute('data-theme') || 'auto'; }
+// border-box origin: otherwise the gradient tiles under the 2px border and a sliver of the opposite colour shows at the edge
 function drawThemes() {
-  el('themes').innerHTML = htmlList(THEMES.map(([k, label, sw]) => html`<button type="button" title="${label}" aria-label="${label} theme" class="${k === currentTheme() ? 'on' : ''}" style="background:${sw}" data-onclick="App.setTheme('${k}')"></button>`));
+  el('themes').innerHTML = htmlList(THEMES.map(([k, label, sw]) => html`<button type="button" title="${label}" aria-label="${label} theme" class="${k === currentTheme() ? 'on' : ''}" style="background:${sw};background-origin:border-box" data-onclick="App.setTheme('${k}')"></button>`));
 }
 export function setTheme(k) {
   if (k === currentTheme()) return;
   const apply = () => {
     if (k === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', k);
-    drawThemes(); if (el('themes2')) { el('themes2').innerHTML = el('themes').innerHTML; el('themes2').querySelectorAll('button').forEach(b => b.style.cssText += ';width:34px;height:34px;border-radius:50%;border:2px solid var(--line);display:inline-block;padding:0'); }
+    drawThemes(); if (el('themes2')) el('themes2').innerHTML = el('themes').innerHTML;
   };
   try { localStorage.setItem('moneyTheme', k); } catch (e) { /* storage blocked */ }
   const t = vt('theme', apply);

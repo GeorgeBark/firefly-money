@@ -1,8 +1,15 @@
 # Money: a modern frontend for Firefly III
 
+[![Latest release](https://img.shields.io/github/v/release/Muffy0906/firefly-money)](https://github.com/Muffy0906/firefly-money/releases)
+[![Smoke test](https://github.com/Muffy0906/firefly-money/actions/workflows/smoke-test.yml/badge.svg)](https://github.com/Muffy0906/firefly-money/actions/workflows/smoke-test.yml)
+[![Docker image](https://img.shields.io/badge/image-ghcr.io%2Fmuffy0906%2Ffirefly--money-blue?logo=docker&logoColor=white)](https://github.com/Muffy0906/firefly-money/pkgs/container/firefly-money)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
 Money is a fast, mobile-friendly web app for [Firefly III](https://www.firefly-iii.org/), the self-hosted personal finance manager. It sits beside your existing Firefly server and talks to it through the Firefly API. It doesn't change or replace Firefly, and your data never leaves your server.
 
 It's a small static web app (TypeScript bundled into one script) served by a small nginx container, with no server code of its own.
+
+**[Try the live demo →](https://muffy0906.github.io/firefly-money/)** It runs entirely in your browser with made-up data, so there's nothing to install and no sign-in.
 
 ![Overview](docs/screenshots/overview.png)
 
@@ -20,6 +27,16 @@ It's a small static web app (TypeScript bundled into one script) served by a sma
 </p>
 
 *Screenshots use the built-in demo data (all names and amounts are made up), shown in the Liquid glass neon theme and, bottom right, Calm light.*
+
+## Why Money?
+
+Firefly III is a great engine for your finances. Money is a faster, friendlier way to use it every day:
+
+- **Built for your phone as much as your desktop:** bottom tabs, swipe gestures, bottom sheets, and installable as an app.
+- **Add a transaction in one line:** type `coffee 5.40 amex yesterday` and it fills in the rest, including the category from last time.
+- **Answers at a glance:** how much is safe to spend until payday, which categories are running hot this month, and which bills are coming up.
+- **Nothing to migrate:** it uses your existing Firefly data and works alongside Firefly's own interface. Stop using it any time.
+- **One small container:** no database and no server code. Your Firefly token stays on the server.
 
 ## Features
 
@@ -126,6 +143,17 @@ Open `http://<your-server>:8090` and sign in with your `DASH_PASSWORD`.
    ```
    Save and refresh the Apps page. Edit this per-app file, not `/mnt/.ix-apps/metadata.yaml`, which TrueNAS rewrites on updates. The logo is also in `docs/icon.svg`.
 
+### Unraid
+
+Until Money is in Community Applications, add it from the template in this repo. Open the Unraid terminal (the `>_` icon at the top right) and run:
+
+```bash
+wget -O /boot/config/plugins/dockerMan/templates-user/my-firefly-money.xml \
+  https://raw.githubusercontent.com/Muffy0906/firefly-money/main/unraid/firefly-money.xml
+```
+
+Then go to **Docker → Add Container**, pick **firefly-money** under **Template**, fill in the Firefly URL, token and dashboard password, and click **Apply**. Updates show up on the Docker tab like any other container.
+
 ### Running behind a reverse proxy
 
 Point your proxy (Caddy, Traefik, Nginx Proxy Manager, Cloudflare Tunnel…) at the container's port. Two things to know:
@@ -142,7 +170,7 @@ Point your proxy (Caddy, Traefik, Nginx Proxy Manager, Cloudflare Tunnel…) at 
 
 ## Try it without Firefly (demo mode)
 
-A small Python server with made-up data is included:
+The quickest way is the [online demo](https://muffy0906.github.io/firefly-money/). To run the same demo locally, a small Python server with made-up data is included:
 
 ```bash
 npm install && npm run build      # once, and again after changing app/src (or keep npm run watch running)
@@ -151,6 +179,8 @@ python3 dev/mock_server.py
 ```
 
 It implements only the endpoints the UI needs. Writes are accepted but not saved (deletes are the exception).
+
+The online demo is the same data ported to TypeScript (`app/src/demo/mockapi.ts`), answered in the browser by `demo.ts`, so it's plain files on GitHub Pages. `npm run build:demo` builds it into `site/`, and `.github/workflows/pages.yml` publishes it on every push to `main` (one-time setup: **Settings → Pages → Source: GitHub Actions**). If you change the demo data, change both copies.
 
 ## Development
 
@@ -161,6 +191,7 @@ It implements only the endpoints the UI needs. Writes are accepted but not saved
     - `core/`: `base` (state and formatting helpers), `helpers`, `api` (requests, caching, the on-device copy), `feed` (transaction rows), `lists` (accounts, categories, budgets…), `dom` (drawer, toasts, view transitions), `auth` (sign-in/out), `router`, `login` (sign-in screen, themes, startup) and `events` (attaches the markup's `data-on*` handlers).
     - `pages/`: one module per page (overview, transactions, accounts, budgets, rules, forecast, inbox, …).
     - `features/`: things used across pages (transaction form, bulk edit, dashboard, charts, quick add, palette, gestures, the iPhone app shell, …).
+    - `demo/`: the online demo only (`npm run build:demo`), not part of the app itself.
   - A module only imports from modules listed above it in `main.ts`, so modules run in a fixed order. Code that needs something from further down calls it through `App` instead.
   - Markup is built with the `html` template tag from `core/html.ts`: ``html`<b>${name}</b>` `` escapes `name`, while nested `html` results (and arrays of them, or `htmlList(…)`) go in as markup. Don't join `html` results with `+`, which turns them back into plain text that gets escaped; put them side by side in a template instead. The smoke test turns on a check that reports both mistakes.
   - Markup handlers are written as `data-onclick="App.name('arg', this.value)"` (also `data-onchange`, `data-onsubmit`, …), never `onclick=`: the Content-Security-Policy blocks inline script, and `events.ts` only runs calls to methods of the global `App` object. Each module adds the methods its markup needs with `Object.assign(App, { … })`.

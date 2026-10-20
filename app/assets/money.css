@@ -365,27 +365,27 @@
   .insight .x:hover { background: var(--faint); color: var(--text); }
   @media (hover: none) { .insight .x { opacity: .7; } }
   /* ---------- Part 2: widgets, sheets, pickers, charts ---------- */
-  .cards > .w { break-inside: avoid; display: inline-block; width: 100%; margin-bottom: 20px; vertical-align: top; }
-  .cards > .w > .panel { contain: layout paint; }
-  .cards > .w.wide { column-span: all; display: block; }
+  .cards .w { break-inside: avoid; display: inline-block; width: 100%; margin-bottom: 20px; vertical-align: top; }
+  .cards .w > .panel { contain: layout paint; }
+  .cards .w.wide { column-span: all; display: block; }
   .dash-bar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; background: var(--panel); border: 1px dashed var(--accent); border-radius: 14px; padding: 10px 14px; margin-bottom: 18px; font-size: 13px; color: var(--muted); }
   .dash-bar .grow, .wctl .grow { flex: 1; }
   .dash-opts { display: flex; gap: 10px 16px; align-items: center; flex-wrap: wrap; flex-basis: 100%; padding-top: 10px; border-top: 1px solid var(--line); }
   .dash-opts .grow { flex: 1; }
   .dash-opts label.check { font-size: 13px; }
   .seg.mini { margin: 0; } .seg.mini button { padding: 4px 12px; font-size: 12.5px; }
-  /* A chosen column count: a grid of that many columns (fewer on narrow windows), read left to right. Each card spans as
-     many 4px rows as it is tall (set by dashMasonry in ui.js), so short cards don't leave holes under them. */
-  .cards[data-cols] { columns: auto; display: grid; align-items: start; grid-auto-rows: 4px; --cols: 3;
-    grid-template-columns: repeat(auto-fill, minmax(max(260px, calc((100% - (var(--cols) - 1) * 20px) / var(--cols))), 1fr)); }
-  .cards[data-cols="1"] { --cols: 1; } .cards[data-cols="2"] { --cols: 2; } .cards[data-cols="4"] { --cols: 4; }
-  .cards[data-cols] > .w { margin-bottom: 0; grid-row-end: span var(--rows, 50); }
-  .cards[data-cols] > .w.wide { grid-column: 1 / -1; }
-  .cards.editing > .w { position: relative; border-radius: var(--radius); outline: 1.5px dashed color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 3px; cursor: grab; }
-  .cards.editing > .w > :not(.wctl) { pointer-events: none; }
-  .cards.editing > .w.off > :not(.wctl) { opacity: .35; filter: grayscale(1); }
-  .cards.editing > .w { user-select: none; -webkit-user-select: none; }
-  .cards.editing > .w.dragging { opacity: .3; }
+  /* Customizable overview (ui.js): bands of --n columns you arrange yourself, with wide cards between the bands */
+  .cards.free { columns: auto; }
+  .cards.free .band { display: grid; grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr)); gap: 20px; align-items: start; margin-bottom: 20px; }
+  .cards.free .dcol { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+  .cards.free .w { display: block; margin-bottom: 0; }
+  .cards.free > .w { margin-bottom: 20px; }
+  .cards.free.editing .dcol { min-height: 110px; border-radius: var(--radius); background: color-mix(in srgb, var(--accent) 5%, transparent); }
+  .cards.editing .w { position: relative; border-radius: var(--radius); outline: 1.5px dashed color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 3px; cursor: grab; }
+  .cards.editing .w > :not(.wctl) { pointer-events: none; }
+  .cards.editing .w.off > :not(.wctl) { opacity: .35; filter: grayscale(1); }
+  .cards.editing .w { user-select: none; -webkit-user-select: none; }
+  .cards.editing .w.dragging { opacity: .3; }
   .cards.moving, .cards.moving * { cursor: grabbing !important; }
   .dash-ghost { position: fixed; z-index: 60; margin: 0; pointer-events: none; opacity: .92; box-shadow: 0 18px 40px rgba(0,0,0,.22); border-radius: var(--radius); }
   .dash-ghost > :not(.wctl) { pointer-events: none; }
@@ -467,7 +467,8 @@
   html.compact body { font-size: 13.5px; }
   html.compact main { padding-top: 24px; }
   html.compact .panel { padding: 18px 20px; }
-  html.compact .cards { column-gap: 14px; } html.compact .cards > .w { margin-bottom: 14px; }
+  html.compact .cards { column-gap: 14px; } html.compact .cards:not(.free) .w, html.compact .cards.free > .w, html.compact .cards.free .band { margin-bottom: 14px; }
+  html.compact .cards.free .band, html.compact .cards.free .dcol { gap: 14px; }
   html.compact .tbl.feed td { padding-top: 6px; padding-bottom: 6px; }
   html.compact .tbl.feed tr.dayhead div { padding-top: 5px; padding-bottom: 5px; }
   html.compact .av { width: 28px; height: 28px; font-size: 11px; }
@@ -691,7 +692,7 @@
     .drawer footer { padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
     html.vt-drawer-open::view-transition-new(drawer) { animation-name: vtInSheet; }
     html.vt-drawer-close::view-transition-old(drawer) { animation-name: vtOutSheet; }
-    .cards.editing > .w { cursor: default; }
+    .cards.editing .w { cursor: default; }
     .wctl .grip { touch-action: none; font-size: 20px; padding: 4px 8px 4px 2px; margin: -4px 0; }
     .tbl td, .tbl th { padding-left: 12px; padding-right: 12px; }
   }

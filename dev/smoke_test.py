@@ -106,15 +106,20 @@ async def check(pw, width, height, mobile):
         await page.wait_for_timeout(600)
         if await page.evaluate("el('dash').dataset.cols + '/' + JSON.parse(localStorage.getItem('money.dash')).cols") != '2/2':
             errors.append('picking 2 columns did not apply or save')
-        # drag a card with the mouse: the tall "Where it went" card up onto "Safe to spend" swaps them
-        await page.locator('#dashCols button', has_text='Auto').click(); await page.wait_for_timeout(1500)   # and let the slow cards fill in
-        a = await page.locator('#dash > [data-w="spending"] .wctl strong').bounding_box(); b = await page.locator('#dash > [data-w="safe"]').bounding_box()
+        # drag a card with the mouse into another column, right under a card there: it lands in that column at that height
+        await page.locator('#dashCols button', has_text='3').click(); await page.wait_for_function(PAINTED, timeout=15000)
+        await page.wait_for_selector('#dash.editing'); await page.wait_for_timeout(1500)   # and let the slow cards fill in
+        src, dst = await page.evaluate("""() => { const cols = [...document.querySelectorAll('#dash .band:first-child .dcol')];
+          scrollTo(0, scrollY + cols[0].getBoundingClientRect().top - 120); return [cols[0].firstElementChild.dataset.w, cols[2].firstElementChild.dataset.w]; }""")
+        a = await page.locator(f'#dash [data-w="{src}"] .wctl strong').bounding_box(); b = await page.locator(f'#dash [data-w="{dst}"]').bounding_box()
+        tx, ty = b['x'] + b['width'] / 2, min(b['y'] + b['height'] - 10, 800)
         await page.mouse.move(a['x'] + 5, a['y'] + 5); await page.mouse.down()
-        for i in range(1, 11): await page.mouse.move(a['x'] + 5 + (b['x'] + 40 - a['x'] - 5) * i / 10, a['y'] + 5 + (b['y'] + 40 - a['y'] - 5) * i / 10); await page.wait_for_timeout(30)
+        for i in range(1, 16): await page.mouse.move(a['x'] + 5 + (tx - a['x'] - 5) * i / 15, a['y'] + 5 + (ty - a['y'] - 5) * i / 15); await page.wait_for_timeout(30)
         await page.wait_for_timeout(250); await page.mouse.up(); await page.wait_for_timeout(400)
-        if await page.evaluate("JSON.parse(localStorage.getItem('money.dash')).order.slice(0, 2).join()") != 'spending,safe':
-            errors.append('dragging a card did not move it: ' + await page.evaluate("localStorage.getItem('money.dash')"))
-        await page.locator('#dashCols button', has_text='2').click(); await page.wait_for_timeout(600)
+        got = await page.evaluate("JSON.parse(localStorage.getItem('money.dash')).place['3'][0][2]")
+        if src not in got[:2] or dst not in got[:2]:
+            errors.append(f'dragging {src} onto {dst} in the third column gave {got}')
+        await page.locator('#dashCols button', has_text='2').click(); await page.wait_for_function(PAINTED, timeout=15000); await page.wait_for_selector('#dashCols')
         await page.locator('.dash-opts input[type=checkbox]').first.uncheck(); await page.wait_for_function(PAINTED, timeout=15000)
         await page.wait_for_selector('#dashCols')
         if await page.locator('#view .hero').count() or await page.evaluate("el('dash').dataset.cols") != '2':

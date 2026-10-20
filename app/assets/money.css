@@ -375,11 +375,16 @@
   .dash-opts label.check { font-size: 13px; }
   .seg.mini { margin: 0; } .seg.mini button { padding: 4px 12px; font-size: 12.5px; }
   /* Customizable overview (ui.js): bands of --n columns you arrange yourself, with wide cards between the bands */
+  .dash-wrap { --gap: 20px; }
   .cards.free { columns: auto; }
-  .cards.free .band { display: grid; grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr)); gap: 20px; align-items: start; margin-bottom: 20px; }
-  .cards.free .dcol { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+  /* The insight strip uses the same columns and gutters as the cards, so their edges line up (it still scrolls sideways
+     when there are more insights than columns; on phones it keeps its peek-at-the-next-card width) */
+  .dash-wrap:not([data-n="1"]) .insights { grid-auto-columns: calc((100% - (var(--n) - 1) * var(--gap)) / var(--n)); gap: var(--gap); padding: 2px 0; margin-bottom: calc(var(--gap) - 2px); }
+  .dash-wrap .insight { border-radius: var(--radius); }
+  .cards.free .band { display: grid; grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr)); gap: var(--gap); align-items: start; margin-bottom: var(--gap); }
+  .cards.free .dcol { display: flex; flex-direction: column; gap: var(--gap); min-width: 0; }
   .cards.free .w { display: block; margin-bottom: 0; }
-  .cards.free > .w { margin-bottom: 20px; }
+  .cards.free > .w { margin-bottom: var(--gap); }
   .cards.free.editing .dcol { min-height: 110px; border-radius: var(--radius); background: color-mix(in srgb, var(--accent) 5%, transparent); }
   .cards.editing .w { position: relative; border-radius: var(--radius); outline: 1.5px dashed color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 3px; cursor: grab; }
   .cards.editing .w > :not(.wctl) { pointer-events: none; }
@@ -467,8 +472,7 @@
   html.compact body { font-size: 13.5px; }
   html.compact main { padding-top: 24px; }
   html.compact .panel { padding: 18px 20px; }
-  html.compact .cards { column-gap: 14px; } html.compact .cards:not(.free) .w, html.compact .cards.free > .w, html.compact .cards.free .band { margin-bottom: 14px; }
-  html.compact .cards.free .band, html.compact .cards.free .dcol { gap: 14px; }
+  html.compact .cards { column-gap: 14px; } html.compact .cards:not(.free) .w { margin-bottom: 14px; } html.compact .dash-wrap { --gap: 14px; }
   html.compact .tbl.feed td { padding-top: 6px; padding-bottom: 6px; }
   html.compact .tbl.feed tr.dayhead div { padding-top: 5px; padding-bottom: 5px; }
   html.compact .av { width: 28px; height: 28px; font-size: 11px; }

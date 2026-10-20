@@ -13,7 +13,8 @@ permissions:
 
 concurrency:
   group: pages-${{ github.ref }}
-  cancel-in-progress: true
+  # Superseded PR builds stop, but a deploy from main always finishes (a cancelled one left the site out of date)
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:

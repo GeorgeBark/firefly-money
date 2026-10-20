@@ -1,7 +1,7 @@
 /* The online demo (npm run build:demo, published to GitHub Pages). It runs before the app and answers the
    app's /api/v1 calls in the browser with made-up data from mockapi.ts, so the demo needs no server at all.
    It also signs in by itself and adds a small "Demo" badge that links to the repo. */
-import { createMockApi } from './mockapi';
+import { NotFound, createMockApi } from './mockapi';
 
 const handle = createMockApi();
 const realFetch = window.fetch.bind(window);
@@ -15,10 +15,13 @@ window.fetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
   const method = (init.method || 'GET').toUpperCase();
   const q = Object.fromEntries(u.searchParams);
   try {
-    const out = handle(u.pathname.slice(at + '/api/v1'.length), q, method);
+    let body = {};
+    try { body = typeof init.body === 'string' ? JSON.parse(init.body) : {}; } catch (e) { /* not JSON */ }
+    const out = handle(u.pathname.slice(at + '/api/v1'.length), q, method, body && typeof body === 'object' ? body : {});
     if (out === null) return new Response(null, { status: 204 });
     return new Response(JSON.stringify(out), { status: 200, headers: json });
   } catch (e) {
+    if (e instanceof NotFound) return new Response(JSON.stringify({ message: 'Resource not found' }), { status: 404, headers: json });
     return new Response(JSON.stringify({ message: 'The demo doesn’t support that.' }), { status: 500, headers: json });
   }
 };

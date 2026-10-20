@@ -34,7 +34,7 @@ if (demo) {
     .replaceAll('href="/', 'href="').replaceAll('src="/', 'src="')  // GitHub Pages serves the site from /<repo>/
     .replace('<script src="assets/js/boot.js', `<meta http-equiv="Content-Security-Policy" content="${csp}">
 <style>.demo-badge { position: fixed; left: 50%; transform: translateX(-50%); bottom: 12px; white-space: nowrap; z-index: 50; padding: 6px 12px; border-radius: 999px; font: 600 12px/1.4 system-ui, sans-serif;
-  background: var(--accent, #6d5efc); color: #fff; text-decoration: none; box-shadow: 0 4px 14px rgba(0,0,0,.25); }
+  background: #1c1c1e; color: #fff; border: 1px solid rgba(255,255,255,.22); text-decoration: none; box-shadow: 0 4px 14px rgba(0,0,0,.3); }
   @media (max-width: 900px) { .demo-badge { left: auto; right: 12px; transform: none; bottom: calc(100px + env(safe-area-inset-bottom)); } }</style>
 <script src="assets/js/demo.js"></script>
 <script src="assets/js/boot.js`);

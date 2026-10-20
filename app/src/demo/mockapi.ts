@@ -18,6 +18,8 @@ const iso = (t: number) => new Date(t).toISOString().slice(0, 10);
 const ymd = (t: number) => { const d = new Date(t); return [d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()]; };
 const utc = (y: number, m: number, d: number) => Date.UTC(y, m, d);
 
+export class NotFound extends Error {}
+
 export function createMockApi(now = new Date()) {
   const random = seeded(7);
   const uniform = (a: number, b: number) => a + (b - a) * random();
@@ -69,7 +71,14 @@ export function createMockApi(now = new Date()) {
   for (let d = utc(sy, sm, 1); d <= TODAY; d += DAY) {
     const [y, m, day] = ymd(d);
     if (day === 15 || d === utc(y, m + 1, 0)) addTx(d, 'deposit', 2850, 'ACME CORP PAYROLL', '6', '1', 'Salary');
-    for (const [name, cat, bud, amt, per] of PAYEES) {
+    for (const [i, [name, cat, bud, amt, per]] of PAYEES.entries()) {
+      if (cat === 'Subscriptions' || cat === 'Utilities') {       // these come on the same day every month
+        if (day === 4 + i) {
+          const price = cat === 'Utilities' ? amt * uniform(0.85, 1.15) : name === 'StreamFlix' && (TODAY - d) / DAY < 20 ? 17.99 : amt;
+          addTx(d, 'withdrawal', Math.round(price * 100) / 100, name, '3', PID[name], cat, bud);
+        }
+        continue;
+      }
       if (random() < per / 30) {
         let mult = 1.0;
         if (cat === 'Dining' && y === ty && m === tm) mult = 1.9;        // dining spike this month
@@ -107,11 +116,36 @@ export function createMockApi(now = new Date()) {
     return [{ difference: v.toFixed(2), difference_float: v, currency_code: 'USD' }];
   };
 
-  // Answers one API call (path without /api/v1). Returns the JSON body, or null for 204 No Content.
-  return function handle(path: string, q: Record<string, string>, method = 'GET') {
+  // An account as it stood at the end of a past day: today's balance minus everything that moved it since
+  const balanceOn = (a, day: string) => {
+    const t = a.attributes;
+    if (t.type !== 'asset' && t.type !== 'liability') return a;
+    let moved = 0;
+    for (const g of TX) {
+      const j = jd(g);
+      if (j.date.slice(0, 10) <= day) continue;
+      if (j.destination_id === a.id) moved += +j.amount;
+      if (j.source_id === a.id) moved -= +j.amount;
+    }
+    return { ...a, attributes: { ...t, current_balance: (+t.current_balance - moved).toFixed(2) } };
+  };
+  const PREFS = {};       // Firefly user preferences (Money keeps its synced settings in one), kept until the page reloads
+
+  // Answers one API call (path without /api/v1). Returns the JSON body, or null for 204 No Content;
+  // throws NotFound for a 404.
+  return function handle(path: string, q: Record<string, string>, method = 'GET', body: any = {}) {
     let m;
+    body = body || {};
     if (path === '/about') return { data: { version: '6.2.0' } };
-    if (path === '/accounts') return page(ACC, q);
+    if (path === '/accounts') return page(q.date ? ACC.map(a => balanceOn(a, q.date)) : ACC, q);
+    if ((m = path.match(/^\/preferences\/([\w.-]+)$/))) {
+      if (method === 'PUT' || method === 'POST') PREFS[m[1]] = body.data;
+      if (!(m[1] in PREFS)) throw new NotFound();
+      return { data: { id: '1', attributes: { name: m[1], data: PREFS[m[1]] } } };
+    }
+    if (path === '/preferences' && method === 'POST') {
+      PREFS[body.name] = body.data; return { data: { id: '1', attributes: { name: body.name, data: body.data } } };
+    }
     if ((m = path.match(/^\/accounts\/(\d+)\/transactions$/))) return page(TX.filter(g => [jd(g).source_id, jd(g).destination_id].includes(m[1]) && inRange(g, q)), q);
     if ((m = path.match(/^\/accounts\/(\d+)$/))) return { data: ACC_BY[m[1]] };
     if (path === '/categories') return page(CATS.map(c => ({ id: CAT_ID[c], attributes: { name: c } })), q);

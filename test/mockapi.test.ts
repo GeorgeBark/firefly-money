@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createMockApi } from '../app/src/demo/mockapi';
+import { NotFound, createMockApi } from '../app/src/demo/mockapi';
 
 describe('demo API', () => {
   const now = new Date(2026, 9, 20);
@@ -30,5 +30,17 @@ describe('demo API', () => {
     const api = createMockApi(now);
     expect(api('/transactions/1', {}, 'DELETE')).toBeNull();
     expect(api('/transactions/1', {})).toEqual({ data: undefined });
+  });
+  it('keeps preferences, and answers 404 for one never saved', () => {
+    const api = createMockApi(now);
+    expect(() => api('/preferences/money_settings', {})).toThrow(NotFound);
+    api('/preferences', {}, 'POST', { name: 'money_settings', data: { a: 1 } });
+    expect((api('/preferences/money_settings', {}) as any).data.attributes.data).toEqual({ a: 1 });
+  });
+  it('gives balances as of a past date', () => {
+    const api = createMockApi(now);
+    const bal = (q) => +(api('/accounts', q) as any).data[0].attributes.current_balance;
+    expect(bal({ date: '2026-10-20' })).toBeCloseTo(bal({}), 2);
+    expect(bal({ date: '2026-06-01' })).not.toBeCloseTo(bal({}), 2);
   });
 });

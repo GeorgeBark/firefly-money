@@ -57,7 +57,7 @@ export async function api(path, opt: any = {}) {
     return pr;
   }
   const out = await apiRaw(u, opt);
-  if (method !== 'GET') clearCache();
+  if (method !== 'GET' && !opt.keepCache) clearCache();
   return out;
 }
 // Firefly (often a small PHP server on a NAS) drops requests when too many arrive at once: the proxy then

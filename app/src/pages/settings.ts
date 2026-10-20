@@ -1,9 +1,9 @@
 import { html, htmlList } from '../core/html';
 import { AuthError, api, getAll } from '../core/api';
 import { withAuth } from '../core/auth';
-import { App, S, el, fmtDate, num, todayIso } from '../core/base';
+import { App, S, el, fmtDate, isoDate, num, todayIso } from '../core/base';
 import { confirmBox, head, opt, toast } from '../core/dom';
-import { saveBlob } from '../core/helpers';
+import { LS, saveBlob } from '../core/helpers';
 import { invalidate, lists } from '../core/lists';
 import { VIEWS, route } from '../core/router';
 
@@ -28,7 +28,9 @@ VIEWS.settings = async (r, paint) => {
   const ab = (about && about.data) || {};
   const aboutHtml = html`<section class="panel"><h2>About</h2><div class="list"><div class="row"><span class="name">Money version</span><span>${moneyVersion() || 'Not stamped (local build or plain files)'}</span></div><div class="row"><span class="name">Firefly III version</span><span>${ab.version || '—'}</span></div><div class="row"><span class="name">API version</span><span>${ab.api_version || '—'}</span></div><div class="row"><span class="name">Main currency</span><span>${S.currency}</span></div></div><p class="sub-s" style="margin-top:14px">Your Firefly profile, password, two-factor login, API tokens and user administration aren’t available through Firefly’s API, so change those in Firefly III itself.</p></section>`;
   const recalcHtml = html`<section class="panel"><h2>Recalculate</h2><p class="lead">If a total looks wrong, throw away everything this app has saved and fetch every number fresh from Firefly III. Your data in Firefly isn’t changed.</p><button class="btn" type="button" data-onclick="App.recalcAll(this)">Recalculate everything</button></section>`;
-  paint(html`${head('Settings', '', '')}<div class="cards">${recalcHtml}${cur}${rateHtml}${exp}${hookHtml}${aboutHtml}</div>`);
+  const syncOff = !!LS.get('syncOff', false), syncAt = LS.get('syncAt', 0);
+  const syncHtml = html`<section class="panel"><h2>Sync between devices</h2><p class="lead">Your Overview layout, dismissed insights, forecast, loan plan and subscription choices are saved in Firefly III, so they follow you to every device. Theme, hidden amounts and density stay with each device.</p><label class="check"><input type="checkbox"${syncOff ? '' : ' checked'} data-onchange="App.toggleSync(this.checked)"> Sync this device’s settings</label><p class="sub-s">${syncOff ? 'Off: this device keeps its own settings.' : S.syncError ? html`<span class="up">Couldn’t sync: ${S.syncError}</span>` : syncAt ? 'Last synced ' + fmtDate(isoDate(new Date(syncAt))) + ' at ' + new Date(syncAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) + '.' : 'Nothing synced yet.'}</p>${syncOff ? '' : html`<button class="btn small" type="button" data-onclick="App.syncNow()">Sync now</button>`}</section>`;
+  paint(html`${head('Settings', '', '')}<div class="cards">${recalcHtml}${syncHtml}${cur}${rateHtml}${exp}${hookHtml}${aboutHtml}</div>`);
 };
 // The build stamped into the Docker image by GitHub, e.g. "c78fd51 · 2026-09-30". Empty for a local build or plain files.
 function moneyVersion() {

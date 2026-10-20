@@ -1,4 +1,4 @@
-import { App, isoDate } from './base';
+import { App, isoDate, pad } from './base';
 
 /* Small shared helpers: dates, local settings, downloads. */
 export function saveBlob(blob, name) {
@@ -10,8 +10,17 @@ export const addDays = (iso, n) => { const d = new Date(iso + 'T12:00:00'); d.se
 export const fmtSize = b => b > 1048576 ? (b / 1048576).toFixed(1) + ' MB' : b > 1024 ? Math.round(b / 1024) + ' KB' : (b || 0) + ' B';
 export const LS = {
   get(k, d) { try { const v = localStorage.getItem('money.' + k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
-  set(k, v) { try { localStorage.setItem('money.' + k, JSON.stringify(v)); } catch (e) { /* storage blocked */ } },
+  set(k, v) { try { localStorage.setItem('money.' + k, JSON.stringify(v)); } catch (e) { /* storage blocked */ } if (App.prefChanged) App.prefChanged(k); },
 };
+// n days for a chart over time: today and the last day of each period of `step` months before it, oldest first
+export function monthEnds(today: string, n: number, step = 1) {
+  const y = +today.slice(0, 4), m = +today.slice(5, 7) - 1, out = [today];
+  for (let i = 1; i < n; i++) {
+    const d = new Date(y, m - (i - 1) * step, 0);      // day 0 = the last day of the month before
+    out.unshift(d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()));
+  }
+  return out;
+}
 export const daysBetween = (a, b) => Math.round((+new Date(b + 'T12:00:00') - +new Date(a + 'T12:00:00')) / 864e5);
 export function bizDay(y, m, day) {            // that day of the month (clamped), moved back to Friday if it's a weekend
   const d = new Date(y, m, Math.min(day, new Date(y, m + 1, 0).getDate()), 12);

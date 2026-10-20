@@ -13,9 +13,9 @@ import { GRID, ROW, gridSettle } from './grid';
 const DASH_WIDE = ['flow', 'cashflow', 'recent'];
 export const DASH_NAMES = { safe: 'Safe to spend', attention: 'Needs attention', spending: 'Where it went', budgets: 'Budgets', cash: 'Cash & savings', cards: 'Credit cards',
   loans: 'Loans', bills: 'Coming up', heatmap: 'Daily spending', flow: 'Money flow', cashflow: 'Cash flow', recent: 'Recent transactions',
-  payees: 'Top payees', income: 'Income sources', goals: 'Savings goals' };
+  payees: 'Top payees', income: 'Income sources', goals: 'Savings goals', networth: 'Net worth' };
 // Rough card heights, only used to deal cards into columns evenly the first time
-const DASH_EST = { safe: 200, attention: 200, spending: 640, budgets: 300, cash: 300, cards: 290, loans: 250, bills: 220, heatmap: 420, payees: 640, income: 260, goals: 260 };
+const DASH_EST = { safe: 200, attention: 200, spending: 640, budgets: 300, cash: 300, cards: 290, loans: 250, bills: 220, heatmap: 420, payees: 640, income: 260, goals: 260, networth: 330 };
 const DASH_COLS = ['', 1, 2, 3, 4];      // '' = as many ~380px columns as fit (max 3)
 // hidden also holds the parts above the cards ('hero', 'insights'); cols is the chosen column count; place[n] the arrangement
 const dashLayout = () => ({ order: [], hidden: [], wide: null, cols: '', place: {}, ...LS.get('dash', {}) });

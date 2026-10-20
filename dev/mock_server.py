@@ -67,7 +67,12 @@ d = (TODAY.replace(day=1) - timedelta(days=150)).replace(day=1)
 while d <= TODAY:
     if d.day in (15,) or d == (d.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1):
         add_tx(d, 'deposit', 2850, 'ACME CORP PAYROLL', '6', '1', 'Salary')
-    for name, cat, bud, amt, per in PAYEES:
+    for i, (name, cat, bud, amt, per) in enumerate(PAYEES):
+        if cat in ('Subscriptions', 'Utilities'):         # these come on the same day every month
+            if d.day == 4 + i:
+                price = amt * random.uniform(.85, 1.15) if cat == 'Utilities' else 17.99 if name == 'StreamFlix' and (TODAY - d).days < 20 else amt
+                add_tx(d, 'withdrawal', round(price, 2), name, '3', PID[name], cat, bud)
+            continue
         if random.random() < per / 30:
             mult = 1.0
             if cat == 'Dining' and (d.year, d.month) == (TODAY.year, TODAY.month): mult = 1.9          # dining spike this month
@@ -105,9 +110,32 @@ def total(q, typ):
     v = sum(float(jd(g)['amount']) for g in TX if jd(g)['type'] == typ and in_range(g, q))
     return [{'difference': '%.2f' % v, 'difference_float': v, 'currency_code': 'USD'}]
 
-def handle(path, q, method):
+# An account as it stood at the end of a past day: today's balance minus everything that moved it since
+def balance_on(a, day):
+    t = a['attributes']
+    if t['type'] not in ('asset', 'liability'): return a
+    moved = 0.0
+    for g in TX:
+        j = jd(g)
+        if j['date'][:10] <= day: continue
+        if j['destination_id'] == a['id']: moved += float(j['amount'])
+        if j['source_id'] == a['id']: moved -= float(j['amount'])
+    return {**a, 'attributes': {**t, 'current_balance': '%.2f' % (float(t['current_balance']) - moved)}}
+
+PREFS = {}       # Firefly user preferences (Money keeps its synced settings in one), kept until the server stops
+class NotFound(Exception): pass
+
+def handle(path, q, method, body=None):
+    body = body or {}
     if path == '/about': return {'data': {'version': '6.2.0'}}
-    if path == '/accounts': return page(ACC, q)
+    if path == '/accounts': return page([balance_on(a, q['date']) for a in ACC] if q.get('date') else ACC, q)
+    m = re.match(r'/preferences/([\w.-]+)$', path)
+    if m:
+        if method in ('PUT', 'POST'): PREFS[m.group(1)] = body.get('data')
+        if m.group(1) not in PREFS: raise NotFound()
+        return {'data': {'id': '1', 'attributes': {'name': m.group(1), 'data': PREFS[m.group(1)]}}}
+    if path == '/preferences' and method == 'POST':
+        PREFS[body.get('name')] = body.get('data'); return {'data': {'id': '1', 'attributes': {'name': body.get('name'), 'data': body.get('data')}}}
     m = re.match(r'/accounts/(\d+)/transactions$', path)
     if m:
         aid = m.group(1)
@@ -190,8 +218,14 @@ class H(BaseHTTPRequestHandler):
             self.send_response(502); self.send_header('Content-Type', 'text/html'); self.end_headers(); self.wfile.write(b'<html><body>502 Bad Gateway</body></html>'); return
         if self.headers.get('X-Dash-Key') != 'demo':
             self.send_response(401); self.send_header('X-Dash-Auth', 'required'); self.end_headers(); return
-        if method in ('POST', 'PUT'): self.rfile.read(int(self.headers.get('Content-Length', 0)))
-        out = handle(u.path[len('/api/v1'):], q, method)
+        body = {}
+        if method in ('POST', 'PUT'):
+            raw = self.rfile.read(int(self.headers.get('Content-Length', 0)))
+            try: body = json.loads(raw or b'{}')
+            except ValueError: pass
+        try: out = handle(u.path[len('/api/v1'):], q, method, body if isinstance(body, dict) else {})
+        except NotFound:
+            self.send_response(404); self.send_header('Content-Type', 'application/json'); self.end_headers(); self.wfile.write(b'{"message":"Resource not found"}'); return
         if out is None: self.send_response(204); self.end_headers(); return
         b = json.dumps(out).encode(); self.send_response(200); self.send_header('Content-Type', 'application/json'); self.end_headers(); self.wfile.write(b)
     def do_GET(self): self._go('GET')

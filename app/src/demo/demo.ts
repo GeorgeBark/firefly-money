@@ -1,0 +1,40 @@
+/* The online demo (npm run build:demo, published to GitHub Pages). It runs before the app and answers the
+   app's /api/v1 calls in the browser with made-up data from mockapi.ts, so the demo needs no server at all.
+   It also signs in by itself and adds a small "Demo" badge that links to the repo. */
+import { createMockApi } from './mockapi';
+
+const handle = createMockApi();
+const realFetch = window.fetch.bind(window);
+const json = { 'Content-Type': 'application/json' };
+
+window.fetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
+  const u = new URL(input instanceof Request ? input.url : String(input), location.href);
+  const at = u.pathname.indexOf('/api/v1/');
+  if (at < 0) return realFetch(input, init);
+  await new Promise(r => setTimeout(r, 60 + Math.random() * 120));   // feels like a real server
+  const method = (init.method || 'GET').toUpperCase();
+  const q = Object.fromEntries(u.searchParams);
+  try {
+    const out = handle(u.pathname.slice(at + '/api/v1'.length), q, method);
+    if (out === null) return new Response(null, { status: 204 });
+    return new Response(JSON.stringify(out), { status: 200, headers: json });
+  } catch (e) {
+    return new Response(JSON.stringify({ message: 'The demo doesn’t support that.' }), { status: 500, headers: json });
+  }
+};
+
+// No offline service worker: the app registers /sw.js at the site root, which on GitHub Pages isn't the demo's
+try { if (navigator.serviceWorker) navigator.serviceWorker.register = () => Promise.reject(new Error('Not in the demo')); } catch (e) { /* ignore */ }
+
+// Sign in with the demo password for this tab, unless the visitor already has a session
+try { if (!localStorage.getItem('moneyKey') && !sessionStorage.getItem('moneyKey')) sessionStorage.setItem('moneyKey', 'demo'); } catch (e) { /* storage blocked */ }
+
+addEventListener('DOMContentLoaded', () => {
+  const a = document.createElement('a');
+  a.className = 'demo-badge';
+  a.href = 'https://github.com/Muffy0906/firefly-money';
+  a.target = '_blank';
+  a.rel = 'noopener';
+  a.textContent = 'Demo · made-up data · Get Money ↗';
+  document.body.append(a);
+});

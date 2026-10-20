@@ -1,0 +1,55 @@
+# Publishes the online demo (npm run build:demo: the app with made-up data, no server needed) to GitHub Pages
+# on every push to main. Pull requests build it and run the smoke test on it, without publishing.
+# One-time setup: Settings → Pages → Source: GitHub Actions.
+name: Demo site
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "26"
+          cache: npm
+      - run: npm ci
+      - run: npm run build:demo
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: pip install playwright && python -m playwright install --with-deps chromium
+      # Served from a subfolder, like GitHub Pages serves it from /firefly-money/
+      - name: Serve the demo
+        run: mkdir -p /tmp/pages && ln -s "$PWD/site" /tmp/pages/demo && (python3 -m http.server 8777 -d /tmp/pages &)
+      - name: Smoke test the demo
+        run: sleep 2 && BASE=http://127.0.0.1:8777/demo/ python3 dev/smoke_test.py
+      - uses: actions/upload-pages-artifact@v4
+        if: github.event_name != 'pull_request'
+        with:
+          path: site
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

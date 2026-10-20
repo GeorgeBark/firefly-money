@@ -6,3 +6,5 @@ __pycache__/
 node_modules/
 # built by npm run build from app/src
 app/assets/js/
+# the online demo, built by npm run build:demo
+site/

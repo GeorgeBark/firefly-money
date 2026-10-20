@@ -3,6 +3,7 @@ import { App, S, el, esc } from '../core/base';
 import { vt, vtName } from '../core/dom';
 import { LS, buzz } from '../core/helpers';
 import { route } from '../core/router';
+import { GRID, ROW, gridSettle } from './grid';
 
 /* ---------- Customizable dashboard ----------
    Cards sit in columns you arrange yourself: each card stays in the column and at the height you put it. A wide card
@@ -45,26 +46,7 @@ function dashPlace(L, keys, n, wide, est) {
   });
   return blocks.filter(b => !Array.isArray(b) || b.some(c => c.length));
 }
-/* Freeform tiles (wide screens): every card is a tile on a grid of 24 columns and 8px rows. You can drop it anywhere
-   and drag its corner to make it wider or narrower; its height follows its content. Tiles never overlap: when one
-   lands on or grows into another, the other moves down. Saved positions live in money.dash free {key: [x, y, w]};
-   until you move something the tiles are packed tidily from the column arrangement. Phones keep the single column. */
-const GRID = 24, ROW = 8;
 const gridMode = () => { const v = el('view'); return ((v && v.clientWidth) || innerWidth) >= 700; };
-// Settle tiles so none overlap. `first` keeps its spot; the rest keep their order (top to bottom, left to right) and
-// move down just far enough. A floating tile (not placed by you yet) first rises as high as it can.
-function gridSettle(ts, first?) {
-  const order = [...ts].sort((a, b) => +(b.k === first) - +(a.k === first) || a.y - b.y || a.x - b.x), placed = [];
-  for (const t of order) {
-    if (t.float && t.k !== first) t.y = 0;
-    for (let hit = true; hit;) {
-      hit = false;
-      for (const p of placed) if (t.x < p.x + p.w && p.x < t.x + t.w && t.y < p.y + p.h && p.y < t.y + t.h) { t.y = p.y + p.h; hit = true; }
-    }
-    placed.push(t);
-  }
-  return ts;
-}
 // Lay the tiles on the page out from their saved spots (data-gx/gy/gw), their measured heights and `over` (the tile
 // being dragged or resized, at its new spot). Always starts from the saved spots, so nothing drifts.
 function gridLayout(d, over?) {
@@ -82,7 +64,7 @@ function gridLayout(d, over?) {
 }
 // Keep where the tiles are now as their saved spots
 function gridKeep(d) {
-  const L = dashLayout(), free = { ...(L.free || {}) };
+  const L = dashLayout(), free = { ...L.free };
   d.querySelectorAll(':scope > .w').forEach(el => {
     const t = el._g; if (!t) return;
     el.dataset.gx = t.x; el.dataset.gy = t.y; el.dataset.gw = t.w; delete el.dataset.float;
@@ -231,7 +213,7 @@ function gridMove(d, over?) {
     const a = was.get(w), b = w.getBoundingClientRect(), dx = a.left - b.left, dy = a.top - b.top;
     if (!dx && !dy) return;
     w.style.transition = 'none'; w.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
-    w.offsetWidth; w.style.transition = 'transform .2s ease'; w.style.transform = '';
+    void w.offsetWidth; w.style.transition = 'transform .2s ease'; w.style.transform = '';
   });
 }
 // The arrows nudge a tile one column sideways, or a card's worth of rows up or down
@@ -282,7 +264,7 @@ export function bindDash() {
       const a = was.get(w), b = w.getBoundingClientRect(), dx = a.left - b.left, dy = a.top - b.top;
       if (!dx && !dy) return;
       w.style.transition = 'none'; w.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
-      w.offsetWidth; w.style.transition = 'transform .2s ease'; w.style.transform = '';
+      void w.offsetWidth; w.style.transition = 'transform .2s ease'; w.style.transform = '';
     });
   };
   const put = (parent, ref) => {
@@ -372,7 +354,7 @@ function bindGrid(d) {
       const a = was.get(w), b = w.getBoundingClientRect(), dx = a.left - b.left, dy = a.top - b.top;
       if (!dx && !dy) return;
       w.style.transition = 'none'; w.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
-      w.offsetWidth; w.style.transition = 'transform .2s ease'; w.style.transform = '';
+      void w.offsetWidth; w.style.transition = 'transform .2s ease'; w.style.transform = '';
     });
   };
   const place = () => {

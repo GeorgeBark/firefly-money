@@ -3,13 +3,20 @@
   "private": true,
   "description": "Money: a modern frontend for Firefly III",
   "license": "MIT",
+  "type": "module",
   "scripts": {
     "build": "node build.mjs",
     "watch": "node build.mjs --watch",
-    "check": "tsc -p ."
+    "check": "tsc -p .",
+    "lint": "oxlint --deny-warnings app/src test",
+    "test": "vitest run"
   },
   "devDependencies": {
     "esbuild": "0.28.2",
-    "typescript": "7.0.2"
+    "jsdom": "30.1.2",
+    "oxlint": "1.87.0",
+    "typescript": "7.0.2",
+    "vite": "8.3.4",
+    "vitest": "5.0.3"
   }
 }

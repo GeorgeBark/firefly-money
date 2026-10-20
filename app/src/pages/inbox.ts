@@ -35,7 +35,7 @@ function suggest(s, h) {
   return { cats, pickBud, generic };
 }
 VIEWS.inbox = async (r, paint) => {
-  const L = await lists();
+  await lists();
   const q = 'has_no_category:true';
   const [found, h] = await Promise.all([getAll('/search/transactions', { query: q, search: q }), inboxHistory()]);
   const items = [];

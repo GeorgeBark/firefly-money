@@ -1,0 +1,11 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  // oxlint's default rules catch likely bugs. These settings fit how the code is written:
+  // short-circuit and ternary calls as statements (a && b(), c ? d() : e()), and unused
+  // parameters and catch variables kept for their position or readability.
+  "rules": {
+    "no-unused-vars": ["warn", { "args": "none", "caughtErrors": "none", "ignoreRestSiblings": true }],
+    "no-unused-expressions": ["warn", { "allowShortCircuit": true, "allowTernary": true }]
+  },
+  "ignorePatterns": ["app/assets/js/**"]
+}

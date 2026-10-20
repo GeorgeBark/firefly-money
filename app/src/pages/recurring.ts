@@ -9,7 +9,7 @@ import { accountOptions } from '../features/txform';
 /* ================= Recurring ================= */
 const REPEAT_LABEL = { daily: 'day', weekly: 'week', monthly: 'month', yearly: 'year' };
 VIEWS.recurring = async (r, paint) => {
-  const L = await lists();
+  await lists();
   const recs = await getAll('/recurrences');
   S.recCache = Object.fromEntries(recs.map(x => [String(x.id), x.attributes]));
   const rows = recs.map(x => {

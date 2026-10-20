@@ -163,10 +163,10 @@ It implements only the endpoints the UI needs. Writes are accepted but not saved
     - `features/`: things used across pages (transaction form, bulk edit, dashboard, charts, quick add, palette, gestures, the iPhone app shell, …).
   - A module only imports from modules listed above it in `main.ts`, so modules run in a fixed order. Code that needs something from further down calls it through `App` instead.
   - Markup handlers are written as `data-onclick="App.name('arg', this.value)"` (also `data-onchange`, `data-onsubmit`, …), never `onclick=`: the Content-Security-Policy blocks inline script, and `events.ts` only runs calls to methods of the global `App` object. Each module adds the methods its markup needs with `Object.assign(App, { … })`.
-- **Commands:** `npm run build` builds once, `npm run watch` rebuilds on every save, and `npm run check` type-checks with `tsc`. The types are loose for now (the code came from plain JavaScript) and get stricter over time.
-- A few settings sit at the top of `app/src/core/base.ts` (for example `LOAN_MONTHLY_PAYMENT`).
+- **Commands:** `npm run build` builds once, `npm run watch` rebuilds on every save, `npm run check` type-checks with `tsc`, `npm run lint` runs [oxlint](https://oxc.rs/docs/guide/usage/linter), and `npm test` runs the unit tests in `test/` (Vitest). The types are loose for now (the code came from plain JavaScript) and get stricter over time.
 - Per-device preferences (theme, dashboard layout, privacy/density, forecast options, dismissed insights) are stored in `localStorage` under `money.*` / `moneyTheme`. Everything else lives in Firefly.
 - **Publishing a new version:** push to `main`, and GitHub Actions builds a new `latest` image in a few minutes (see the repo's **Actions** tab). For a numbered release, push a tag: `git tag v1.2.0 && git push --tags`.
+- **Unit tests** (`test/*.test.ts`) cover the logic that doesn't need a server: the `data-on*` handler parser, date helpers, quick-add date words, the Overview's snap grid, loan payment plans and payee names. Pure logic like that lives in modules without side effects (for example `features/grid.ts`, `features/nldate.ts`) so it can be tested on its own.
 - **Smoke test:** opens every page and every "new …" form on desktop and phone sizes against the demo server, and fails on any JavaScript error:
 
   ```bash

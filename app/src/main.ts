@@ -14,6 +14,7 @@ import './features/txform';
 import './features/bulk';
 import './features/attachments';
 import './features/charts';
+import './features/grid';
 import './features/dashboard';
 import './pages/loans';
 import './pages/bills';
@@ -41,6 +42,7 @@ import './features/prefs';
 import './features/gestures';
 import './features/picker';
 import './features/keyboard';
+import './features/nldate';
 import './features/nlparse';
 import './features/shell';
 

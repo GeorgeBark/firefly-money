@@ -730,7 +730,7 @@ VIEWS[''] = async (r, paint) => {
           txRows(arr(recent).map(normGroup)) + '</section>'],
     ];
     const ins = !App.dashShows('insights') ? '' : slow ? insights : monthOnly ? '' : '<div class="insights" id="insights" aria-hidden="true">' + '<div class="insight"><div class="sk" style="width:100%;height:42px"></div></div>'.repeat(3) + '</div>';
-    return head('Overview', '', monthNav() + App.dashButton()) + (App.dashShows('hero') ? heroHtml(netWorth, last, before, prev.short, future) : '') + ins + App.dashboard(W);
+    return head('Overview', '', monthNav() + App.dashButton()) + (App.dashShows('hero') ? heroHtml(netWorth, last, before, prev.short, future) : '') + App.dashboard(W, ins);
   };
   // Saved data (or a fast server): everything is here already, draw once.
   const quick = await Promise.race([slowP, sleep(60).then(() => null)]);

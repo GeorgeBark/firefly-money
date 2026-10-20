@@ -264,7 +264,8 @@ function dashPlace(L, keys, n, wide, est) {
   return blocks.filter(b => !Array.isArray(b) || b.some(c => c.length));
 }
 function dashButton() { return S.dashEdit ? '' : '<button class="btn small" data-onclick="App.dashEdit(true)" title="Move, resize or hide cards">Customize</button>'; }
-function dashboard(W) {
+// top: the insight strip, which shares the cards' column grid so its cards line up with the columns below
+function dashboard(W, top = '') {
   const L = dashLayout(), keys = W.map(w => w[0]), map = Object.fromEntries(W), wide = L.wide || DASH_WIDE, edit = !!S.dashEdit, n = dashCount(L);
   const blocks = dashPlace(L, keys, n, wide, k => map[k] ? (DASH_EST[k] || 250) + 20 : 0);
   const card = k => {
@@ -284,12 +285,12 @@ function dashboard(W) {
     return !edit && cols.every(c => !c) ? '' : '<div class="band">' + cols.map(c => '<div class="dcol">' + c + '</div>').join('') + '</div>';
   }).join('');
   const part = (p, label) => '<label class="check"><input type="checkbox"' + (L.hidden.includes(p) ? '' : ' checked') + ' data-onchange="App.dashPart(\'' + p + '\', this.checked)"> ' + label + '</label>';
-  return (edit ? '<div class="dash-bar"><span>Drag a card to any column and height (on a touch screen, by its ⠿ handle), or use the arrows. Wide cards span every column.</span><span class="grow"></span>' +
+  return '<div class="dash-wrap" data-n="' + n + '" style="--n:' + n + '">' + top + (edit ? '<div class="dash-bar"><span>Drag a card to any column and height (on a touch screen, by its ⠿ handle), or use the arrows. Wide cards span every column.</span><span class="grow"></span>' +
       '<button class="link" data-onclick="App.dashReset()">Reset</button><button class="btn small primary" data-onclick="App.dashEdit(false)">Done</button>' +
       '<div class="dash-opts"><span>Columns</span><div class="seg mini" id="dashCols">' +
         DASH_COLS.map(c => '<button type="button" class="' + (String(L.cols || '') === String(c) ? 'on' : '') + '" data-onclick="App.dashCols(\'' + c + '\')">' + (c || 'Auto') + '</button>').join('') + '</div>' +
         '<span class="grow"></span>' + part('hero', 'Net worth summary') + part('insights', 'Insights') + '</div></div>' : '') +
-    '<div class="cards free' + (edit ? ' editing' : '') + '" id="dash" data-n="' + n + '" style="--n:' + n + '"' + (L.cols ? ' data-cols="' + esc(String(L.cols)) + '"' : '') + '>' + body + '</div>';
+    '<div class="cards free' + (edit ? ' editing' : '') + '" id="dash" data-n="' + n + '"' + (L.cols ? ' data-cols="' + esc(String(L.cols)) + '"' : '') + '>' + body + '</div></div>';
 }
 // Read the arrangement back from the page (only while customizing, when hidden cards are on the page too)
 function dashSave(mut) {

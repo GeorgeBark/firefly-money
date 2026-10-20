@@ -1,5 +1,6 @@
+import { Html, html, htmlList } from '../core/html';
 import { getAll } from '../core/api';
-import { App, absDiff, esc, fmtDay, money, money0, pad, todayIso } from '../core/base';
+import { App, absDiff, fmtDay, money, money0, pad, todayIso } from '../core/base';
 import { normGroup, signed } from '../core/feed';
 import { addDays } from '../core/helpers';
 
@@ -21,8 +22,7 @@ function sparkline(vals, owed) {
   const pts = v.map((y, i) => [(i / (v.length - 1)) * W, H - 2 - ((y - lo) / rng) * (H - 4)]);
   const up = v[v.length - 1] >= v[0], good = owed ? !up : up;
   const tip = (owed ? 'Owed ' : 'Balance ') + money0(v[0]) + ' → ' + money0(v[v.length - 1]) + ' over 30 days';
-  return '<svg class="spark ' + (hi === lo ? 'flat' : good ? 'good' : 'bad') + '" viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H + '" data-tip="' + esc(tip) + '" aria-hidden="true">' +
-    '<polyline points="' + pts.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ') + '"/><circle cx="' + pts[pts.length - 1][0] + '" cy="' + pts[pts.length - 1][1].toFixed(1) + '" r="2"/></svg>';
+  return html`<svg class="spark ${hi === lo ? 'flat' : good ? 'good' : 'bad'}" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" data-tip="${tip}" aria-hidden="true"><polyline points="${pts.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ')}"/><circle cx="${pts[pts.length - 1][0]}" cy="${pts[pts.length - 1][1].toFixed(1)}" r="2"/></svg>`;
 }
 
 /* ---------- Daily spending heatmap ---------- */
@@ -31,20 +31,16 @@ function heatmapPanel(cur, groups) {
   groups.forEach(g => { const d = String(g.date).slice(0, 10); by[d] = (by[d] || 0) + g.total; cnt[d] = (cnt[d] || 0) + 1; });
   const dim = new Date(cur.y, cur.m + 1, 0).getDate(), lead = new Date(cur.y, cur.m, 1).getDay(), t = todayIso();
   const max = Math.max(1, ...Object.values<any>(by)), days = Object.keys(by).length;
-  let cells = '';
-  for (let i = 0; i < lead; i++) cells += '<span class="hm-cell pad"></span>';
+  let cells: Html | string = '';
+  for (let i = 0; i < lead; i++) cells = html`${cells}<span class="hm-cell pad"></span>`;
   for (let d = 1; d <= dim; d++) {
     const iso = cur.start.slice(0, 8) + pad(d), v = by[iso] || 0, fut = iso > t;
     const pct = v ? Math.round(18 + 82 * Math.sqrt(v / max)) : 0;
-    cells += '<button type="button" class="hm-cell' + (fut ? ' fut' : '') + (iso === t ? ' today' : '') + '"' + (v ? ' style="--p:' + pct + '%"' : '') +
-      ' data-tip="' + esc(fmtDay(iso) + (v ? ' · ' + money(v) + ' · ' + cnt[iso] + ' purchase' + (cnt[iso] === 1 ? '' : 's') : fut ? '' : ' · nothing spent')) + '"' +
-      (v ? ' data-onclick="App.go(\'#/transactions?search=date_on:' + iso + '\')"' : ' disabled') + '><span>' + d + '</span></button>';
+    cells = html`${cells}<button type="button" class="hm-cell${fut ? ' fut' : ''}${iso === t ? ' today' : ''}"${v ? html` style="--p:${pct}%"` : ''} data-tip="${fmtDay(iso) + (v ? ' · ' + money(v) + ' · ' + cnt[iso] + ' purchase' + (cnt[iso] === 1 ? '' : 's') : fut ? '' : ' · nothing spent')}"${v ? html` data-onclick="App.go('#/transactions?search=date_on:${iso}')"` : ' disabled'}><span>${d}</span></button>`;
   }
   const top = Object.entries<any>(by).sort((a, b) => b[1] - a[1])[0];
   const passed = cur.start.slice(0, 7) === t.slice(0, 7) ? +t.slice(8, 10) : dim, free = Math.max(0, passed - days);
-  return '<section class="panel"><h2>Daily spending</h2><p class="lead">Darker days cost more · tap one to see it</p>' +
-    '<div class="hm"><div class="hm-dow">' + ['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(x => '<span>' + x + '</span>').join('') + '</div><div class="hm-grid">' + cells + '</div></div>' +
-    '<div class="hm-foot"><span>' + (top ? 'Biggest day: <strong class="num">' + money0(top[1]) + '</strong> on ' + fmtDay(top[0]) : 'No spending yet') + '</span><span>' + free + ' no-spend day' + (free === 1 ? '' : 's') + '</span></div></section>';
+  return html`<section class="panel"><h2>Daily spending</h2><p class="lead">Darker days cost more · tap one to see it</p><div class="hm"><div class="hm-dow">${htmlList(['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(x => html`<span>${x}</span>`))}</div><div class="hm-grid">${cells}</div></div><div class="hm-foot"><span>${top ? html`Biggest day: <strong class="num">${money0(top[1])}</strong> on ${fmtDay(top[0])}` : 'No spending yet'}</span><span>${free} no-spend day${free === 1 ? '' : 's'}</span></div></section>`;
 }
 
 /* ---------- Money flow (income → spending categories + kept) ---------- */
@@ -63,8 +59,7 @@ function sankeyPanel(sources, income, cats, cur) {
   if (spend > inc) left.push({ name: 'From savings', v: spend - inc, kind: 'save' });
   if (inc > spend) right.push({ name: 'Kept', v: inc - spend, kind: 'kept' });
   const d = { left, right, inc, spend };
-  return '<section class="panel chart sankey" data-sk="' + esc(JSON.stringify(d)) + '"><h2>Money flow</h2><p class="lead">Where ' + (cur.all ? 'all your' : esc(cur.label) + '’s') + ' income went · hover a band for details</p>' +
-    sankeySvg(d, innerWidth < 900 ? innerWidth - 72 : 900) + '</section>';
+  return html`<section class="panel chart sankey" data-sk="${JSON.stringify(d)}"><h2>Money flow</h2><p class="lead">Where ${cur.all ? 'all your' : cur.label + '’s'} income went · hover a band for details</p>${sankeySvg(d, innerWidth < 900 ? innerWidth - 72 : 900)}</section>`;
 }
 // Shorten a label with … until it fits in px at the chart's label font
 let skCtx = null;
@@ -94,13 +89,11 @@ function sankeySvg({ left, right, inc, spend }, W) {
   const mh = total * k, my = (H - mh) / 2;
   const col = n => ({ in: 'var(--income)', save: 'var(--warn)', out: 'var(--spend)', kept: 'var(--good)' })[n.kind];
   const band = (x0, y0, x1, y1, h) => { const c = (x0 + x1) / 2; return 'M' + x0 + ',' + y0 + 'C' + c + ',' + y0 + ' ' + c + ',' + y1 + ' ' + x1 + ',' + y1 + 'L' + x1 + ',' + (y1 + h) + 'C' + c + ',' + (y1 + h) + ' ' + c + ',' + (y0 + h) + ' ' + x0 + ',' + (y0 + h) + 'Z'; };
-  let links = '', nodes = '', my1 = my, my2 = my;
+  let links: Html | string = '', nodes: Html | string = '', my1 = my, my2 = my;
   const share = (n, of) => of ? ' (' + Math.round(n.v / of * 100) + '%)' : '';
-  left.forEach(n => { links += '<path class="lk" d="' + band(xl + NW, n.y, xm, my1, n.h) + '" fill="' + col(n) + '" data-tip="' + esc(n.name + ' → ' + money0(n.v) + share(n, total)) + '"/>'; my1 += n.h; });
-  right.forEach(n => { links += '<path class="lk" d="' + band(xm + NW, my2, xr, n.y, n.h) + '" fill="' + col(n) + '" data-tip="' + esc(n.name + ' · ' + money0(n.v) + share(n, n.kind === 'kept' ? inc : spend) + (n.kind === 'kept' ? ' of income' : n.kind === 'out' ? ' of spending' : '')) + '"' +
-    (n.id ? ' style="cursor:pointer" data-onclick="App.go(\'#/transactions?category=' + n.id + '\')"' : '') + '/>'; my2 += n.h; });
-  const label = (n, anchor, x, nm = fitText(n.name, LW - 14)) => '<text x="' + x + '" y="' + (n.ly - 2) + '" text-anchor="' + anchor + '" class="sk-name">' + (nm !== n.name ? '<title>' + esc(n.name) + '</title>' : '') + esc(nm) + '</text>' +
-    '<text x="' + x + '" y="' + (n.ly + 12) + '" text-anchor="' + anchor + '" class="sk-amt amtx">' + money0(n.v) + '</text>';
+  left.forEach(n => { links = html`${links}<path class="lk" d="${band(xl + NW, n.y, xm, my1, n.h)}" fill="${col(n)}" data-tip="${n.name + ' → ' + money0(n.v) + share(n, total)}"/>`; my1 += n.h; });
+  right.forEach(n => { links = html`${links}<path class="lk" d="${band(xm + NW, my2, xr, n.y, n.h)}" fill="${col(n)}" data-tip="${n.name + ' · ' + money0(n.v) + share(n, n.kind === 'kept' ? inc : spend) + (n.kind === 'kept' ? ' of income' : n.kind === 'out' ? ' of spending' : '')}"${n.id ? html` style="cursor:pointer" data-onclick="App.go('#/transactions?category=${n.id}')"` : ''}/>`; my2 += n.h; });
+  const label = (n, anchor, x, nm = fitText(n.name, LW - 14)) => html`<text x="${x}" y="${n.ly - 2}" text-anchor="${anchor}" class="sk-name">${nm !== n.name ? html`<title>${n.name}</title>` : ''}${nm}</text><text x="${x}" y="${n.ly + 12}" text-anchor="${anchor}" class="sk-amt amtx">${money0(n.v)}</text>`;
   // Keep two-line labels apart and inside the chart: centre each on its node, push it below the one above,
   // pull any that run off the bottom back up, then make sure the first one still clears the top edge
   const TOP = 14, BOT = H - 18;
@@ -110,10 +103,10 @@ function sankeySvg({ left, right, inc, spend }, W) {
     prev = -Infinity; col2.forEach(n => { n.ly = Math.max(n.ly, prev + LINE, TOP); prev = n.ly; });
   };
   spread(left); spread(right);
-  left.forEach(n => { nodes += '<rect x="' + n.x + '" y="' + n.y + '" width="' + NW + '" height="' + n.h + '" rx="3" fill="' + col(n) + '"/>' + label(n, 'end', xl - 8); });
-  right.forEach(n => { nodes += '<rect x="' + n.x + '" y="' + n.y + '" width="' + NW + '" height="' + n.h + '" rx="3" fill="' + col(n) + '"/>' + label(n, 'start', xr + NW + 8); });
-  nodes += '<rect x="' + xm + '" y="' + my + '" width="' + NW + '" height="' + mh + '" rx="3" fill="var(--text)" opacity=".75"/>';
-  return '<svg viewBox="0 0 ' + W + ' ' + H + '" data-w="' + W + '" role="img" aria-label="Income flowing into spending categories">' + links + nodes + '</svg>';
+  left.forEach(n => { nodes = html`${nodes}<rect x="${n.x}" y="${n.y}" width="${NW}" height="${n.h}" rx="3" fill="${col(n)}"/>${label(n, 'end', xl - 8)}`; });
+  right.forEach(n => { nodes = html`${nodes}<rect x="${n.x}" y="${n.y}" width="${NW}" height="${n.h}" rx="3" fill="${col(n)}"/>${label(n, 'start', xr + NW + 8)}`; });
+  nodes = html`${nodes}<rect x="${xm}" y="${my}" width="${NW}" height="${mh}" rx="3" fill="var(--text)" opacity=".75"/>`;
+  return html`<svg viewBox="0 0 ${W} ${H}" data-w="${W}" role="img" aria-label="Income flowing into spending categories">${links}${nodes}</svg>`;
 }
 // Redraw each money-flow chart at the width its card actually has, now and whenever the card changes size
 const skSeen = new WeakSet();

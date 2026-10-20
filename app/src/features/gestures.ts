@@ -73,7 +73,7 @@ function dayNet(tbody) {
 }
 function appendRows(gs, opts) {
   const table = document.querySelector<HTMLElement>('#view table.feed'); if (!table || !gs.length) return;
-  const t = document.createElement('template'); t.innerHTML = txRows(gs, opts);
+  const t = document.createElement('template'); t.innerHTML = String(txRows(gs, opts));
   const bodies = [...t.content.querySelectorAll('tbody.day')], last = table.querySelector('tbody.day:last-of-type');
   if (bodies.length && last && bodies[0].querySelector<HTMLElement>('.dayhead').dataset.day === last.querySelector<HTMLElement>('.dayhead').dataset.day) {
     bodies.shift().querySelectorAll('tr[data-gid]').forEach(r => last.appendChild(r));

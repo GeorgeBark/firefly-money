@@ -1,6 +1,7 @@
+import { html, htmlList } from '../core/html';
 import { AuthError, api } from '../core/api';
 import { showLogin } from '../core/auth';
-import { App, S, el, esc, fmtDate, money, num, sameName, todayIso } from '../core/base';
+import { App, S, el, fmtDate, money, num, sameName, todayIso } from '../core/base';
 import { closeDrawer, formError, icon, openDrawer, opt, toast, vt, vtName } from '../core/dom';
 import { avatarHtml, normGroup, payeeOf, signed } from '../core/feed';
 import { invalidate, isAsset, isCard, isLiab, lists } from '../core/lists';
@@ -23,7 +24,7 @@ export async function editTx(id) {
     S.drawerHero = { id, av: avatarHtml(g, 'lg'), name: payeeOf(g).name, date: g.date, kicker: 'Transaction',
       amount: !meta.accountId && g.type === 'transfer' ? money(g.total) : (v > 0 ? '+' : '') + money(v) };
   } else S.drawerHero = null;
-  const loading = '<div style="padding:8px 0">' + ['60%', '100%', '100%', '80%'].map(w => '<div class="sk" style="width:' + w + ';height:38px;margin-bottom:16px"></div>').join('') + '</div>';
+  const loading = html`<div style="padding:8px 0">${htmlList(['60%', '100%', '100%', '80%'].map(w => html`<div class="sk" style="width:${w};height:38px;margin-bottom:16px"></div>`))}</div>`;
   const rowAv = row && row.querySelector('.av') as HTMLElement;
   const opening = vt('drawer-open', () => { if (rowAv) rowAv.style.viewTransitionName = ''; openDrawer('Loading…', loading); vtName(el('drawer').querySelector('.dhero .av'), 'txav'); },
     () => vtName(rowAv, 'txav'));
@@ -42,61 +43,36 @@ export async function editTx(id) {
       }),
     };
     if (!['withdrawal', 'deposit', 'transfer'].includes(g.type)) {
-      openDrawer('Transaction', '<p>This is a <strong>' + esc(g.type) + '</strong> transaction (' + money(g.total) + ' on ' + fmtDate(g.date) + '). Edit it in Firefly III.</p>',
-        '<button class="btn danger" data-onclick="App.deleteTx()">Delete</button><span class="grow"></span><button class="btn" data-onclick="App.closeDrawer()">Close</button>');
+      openDrawer('Transaction', html`<p>This is a <strong>${g.type}</strong> transaction (${money(g.total)} on ${fmtDate(g.date)}). Edit it in Firefly III.</p>`,
+        html`<button class="btn danger" data-onclick="App.deleteTx()">Delete</button><span class="grow"></span><button class="btn" data-onclick="App.closeDrawer()">Close</button>`);
       return;
     }
     renderTxForm();
   } catch (e) {
     if (e instanceof AuthError) return showLogin(e.message);
-    openDrawer('Transaction', '<div class="form-err">' + esc(e.message) + '</div>');
+    openDrawer('Transaction', html`<div class="form-err">${e.message}</div>`);
   }
 }
 export function accountOptions(sel, allowEmpty) {
   const L = S.lists;
-  const group = (label, list) => list.length ? '<optgroup label="' + label + '">' + list.map(a => opt(a.id, a.name, sel)).join('') + '</optgroup>' : '';
-  return (allowEmpty ? opt('', 'Choose…', sel) : '') + group('Bank accounts', L.own.filter(a => isAsset(a) && !isCard(a))) + group('Credit cards', L.own.filter(isCard)) + group('Loans & debts', L.own.filter(isLiab));
+  const group = (label, list) => list.length ? html`<optgroup label="${label}">${htmlList(list.map(a => opt(a.id, a.name, sel)))}</optgroup>` : '';
+  return html`${allowEmpty ? opt('', 'Choose…', sel) : ''}${group('Bank accounts', L.own.filter(a => isAsset(a) && !isCard(a)))}${group('Credit cards', L.own.filter(isCard))}${group('Loans & debts', L.own.filter(isLiab))}`;
 }
 export function renderTxForm() {
   const f = S.form, L = S.lists, multi = f.splits.length > 1;
-  const typeBtn = (t, label) => '<button type="button" class="' + (f.type === t ? 'on' : '') + '" data-onclick="App.txType(\'' + t + '\')">' + label + '</button>';
+  const typeBtn = (t, label) => html`<button type="button" class="${f.type === t ? 'on' : ''}" data-onclick="App.txType('${t}')">${label}</button>`;
   const counterList = f.type === 'withdrawal' ? [...L.expense, ...L.own.filter(isLiab)] : [...L.revenue, ...L.own.filter(isLiab)];
   let accountsHtml;
   if (f.type === 'transfer') {
-    accountsHtml = '<div class="grid2"><label>From<select id="f-src" required>' + accountOptions(f.src, true) + '</select></label><label>To<select id="f-dst" required>' + accountOptions(f.dst, true) + '</select></label></div>';
+    accountsHtml = html`<div class="grid2"><label>From<select id="f-src" required>${accountOptions(f.src, true)}</select></label><label>To<select id="f-dst" required>${accountOptions(f.dst, true)}</select></label></div>`;
   } else {
-    accountsHtml = '<label>' + (f.type === 'withdrawal' ? 'Paid from' : 'Deposited into') + '<select id="f-main" required>' + accountOptions(f.main, true) + '</select></label>';
+    accountsHtml = html`<label>${f.type === 'withdrawal' ? 'Paid from' : 'Deposited into'}<select id="f-main" required>${accountOptions(f.main, true)}</select></label>`;
   }
-  const splitHtml = f.splits.map((s, i) =>
-    '<div class="split" data-i="' + i + '">' +
-      (multi ? '<div class="split-head"><span>Split ' + (i + 1) + '</span><button type="button" class="link" data-onclick="App.removeSplit(' + i + ')">Remove</button></div>' : '') +
-      '<label>Description<input type="text" data-k="description" value="' + esc(s.description) + '" required></label>' +
-      '<div class="grid2"><label>Amount<input type="number" data-k="amount" value="' + esc(s.amount) + '" step="0.01" min="0.01" inputmode="decimal" required></label>' +
-        (f.type !== 'transfer' ? '<label>' + (f.type === 'withdrawal' ? 'Paid to' : 'Received from') + '<input type="text" data-k="counter" list="dl-counter" value="' + esc(s.counter) + '" placeholder="Name" data-onchange="App.payeeFill(' + i + ', this.value)"></label>' : '<span></span>') + '</div>' +
-      '<div class="grid2"><label>Category<input type="text" data-k="category" list="dl-cat" value="' + esc(s.category) + '" placeholder="None"></label>' +
-        (f.type === 'withdrawal' ? '<label>Budget<select data-k="budget">' + opt('', 'None', s.budget) + L.budgets.filter(b => b.active || b.id === s.budget).map(b => opt(b.id, b.name, s.budget)).join('') + '</select></label>' : '<span></span>') + '</div>' +
-      '<div class="grid2">' + (f.type === 'withdrawal' ? '<label>Bill<select data-k="bill">' + opt('', 'None', s.bill) + L.bills.map(b => opt(b.id, b.name, s.bill)).join('') + '</select></label>' : '<span></span>') +
-        '<label>Tags<input type="text" data-k="tags" list="dl-tags" value="' + esc(s.tags) + '" placeholder="Comma separated"></label></div>' +
-      (L.foreign.length ? '<div class="grid2"><label>Foreign amount (optional)<input type="number" data-k="fa" step="0.01" min="0" value="' + esc(s.fa) + '"></label>' +
-        '<label>Foreign currency<select data-k="fc">' + opt('', 'None', s.fc) + L.foreign.map(c => opt(c.code, c.code + ' · ' + c.name, s.fc)).join('') + '</select></label></div>' : '') +
-      '<label>Notes<textarea data-k="notes" rows="2">' + esc(s.notes) + '</textarea></label>' +
-    '</div>').join('');
+  const splitHtml = htmlList(f.splits.map((s, i) =>
+    html`<div class="split" data-i="${i}">${multi ? html`<div class="split-head"><span>Split ${i + 1}</span><button type="button" class="link" data-onclick="App.removeSplit(${i})">Remove</button></div>` : ''}<label>Description<input type="text" data-k="description" value="${s.description}" required></label><div class="grid2"><label>Amount<input type="number" data-k="amount" value="${s.amount}" step="0.01" min="0.01" inputmode="decimal" required></label>${f.type !== 'transfer' ? html`<label>${f.type === 'withdrawal' ? 'Paid to' : 'Received from'}<input type="text" data-k="counter" list="dl-counter" value="${s.counter}" placeholder="Name" data-onchange="App.payeeFill(${i}, this.value)"></label>` : html`<span></span>`}</div><div class="grid2"><label>Category<input type="text" data-k="category" list="dl-cat" value="${s.category}" placeholder="None"></label>${f.type === 'withdrawal' ? html`<label>Budget<select data-k="budget">${opt('', 'None', s.budget)}${htmlList(L.budgets.filter(b => b.active || b.id === s.budget).map(b => opt(b.id, b.name, s.budget)))}</select></label>` : html`<span></span>`}</div><div class="grid2">${f.type === 'withdrawal' ? html`<label>Bill<select data-k="bill">${opt('', 'None', s.bill)}${htmlList(L.bills.map(b => opt(b.id, b.name, s.bill)))}</select></label>` : html`<span></span>`}<label>Tags<input type="text" data-k="tags" list="dl-tags" value="${s.tags}" placeholder="Comma separated"></label></div>${L.foreign.length ? html`<div class="grid2"><label>Foreign amount (optional)<input type="number" data-k="fa" step="0.01" min="0" value="${s.fa}"></label><label>Foreign currency<select data-k="fc">${opt('', 'None', s.fc)}${htmlList(L.foreign.map(c => opt(c.code, c.code + ' · ' + c.name, s.fc)))}</select></label></div>` : ''}<label>Notes<textarea data-k="notes" rows="2">${s.notes}</textarea></label></div>`));
   const body =
-    '<form id="txForm" data-onsubmit="event.preventDefault();App.saveTx(this)">' +
-    (f.id ? '' : '<div class="nlq">' + icon('spark') + '<input type="text" id="nlq" value="' + esc(f.nl || '') + '" placeholder="Describe it — e.g. starbucks 5.40 amex yesterday" autocomplete="off" enterkeyhint="done" ' +
-      'data-oninput="App.nlParse(this.value)" data-onkeydown="App.nlKey(event,this)"><div id="nlChips" class="nlchips">' + (f.nlChips || '') + '</div></div>') +
-    '<div class="seg">' + typeBtn('withdrawal', 'Expense') + typeBtn('deposit', 'Income') + typeBtn('transfer', 'Transfer') + '</div>' +
-    '<label>Date<input type="date" id="f-date" value="' + esc(f.date) + '" required></label>' + accountsHtml +
-    (multi ? '<label>Title for the whole transaction<input type="text" id="f-title" value="' + esc(f.title) + '" required></label>' : '') +
-    splitHtml +
-    '<button type="button" class="btn small" data-onclick="App.addSplit()" style="margin-bottom:18px">+ Split into another part</button>' +
-    '<label class="check"><input type="checkbox" id="f-rules"' + (f.rules ? ' checked' : '') + '> Run my Firefly rules on this transaction</label>' +
-    '<datalist id="dl-counter">' + counterList.map(a => '<option value="' + esc(a.name) + '">').join('') + '</datalist>' +
-    '<datalist id="dl-cat">' + L.categories.map(c => '<option value="' + esc(c.name) + '">').join('') + '</datalist>' +
-    '<datalist id="dl-tags">' + L.tags.map(t => '<option value="' + esc(t.name) + '">').join('') + '</datalist>' +
-    '<button type="submit" hidden></button></form>' + (f.id ? '<div id="txExtras"><p class="sub-s">Loading attachments and links…</p></div>' : '');
-  const foot = (f.id ? '<button class="btn danger" type="button" data-onclick="App.deleteTx()">Delete</button>' : '') + '<span class="grow"></span>' +
-    '<button class="btn" type="button" data-onclick="App.closeDrawer()">Cancel</button><button class="btn primary" type="button" id="txSave" data-onclick="App.submit(\'txForm\')">' + (f.id ? 'Save changes' : 'Add transaction') + '</button>';
+    html`<form id="txForm" data-onsubmit="event.preventDefault();App.saveTx(this)">${f.id ? '' : html`<div class="nlq">${icon('spark')}<input type="text" id="nlq" value="${f.nl || ''}" placeholder="Describe it — e.g. starbucks 5.40 amex yesterday" autocomplete="off" enterkeyhint="done" data-oninput="App.nlParse(this.value)" data-onkeydown="App.nlKey(event,this)"><div id="nlChips" class="nlchips">${f.nlChips || ''}</div></div>`}<div class="seg">${typeBtn('withdrawal', 'Expense')}${typeBtn('deposit', 'Income')}${typeBtn('transfer', 'Transfer')}</div><label>Date<input type="date" id="f-date" value="${f.date}" required></label>${accountsHtml}${multi ? html`<label>Title for the whole transaction<input type="text" id="f-title" value="${f.title}" required></label>` : ''}${splitHtml}<button type="button" class="btn small" data-onclick="App.addSplit()" style="margin-bottom:18px">+ Split into another part</button><label class="check"><input type="checkbox" id="f-rules"${f.rules ? ' checked' : ''}> Run my Firefly rules on this transaction</label><datalist id="dl-counter">${htmlList(counterList.map(a => html`<option value="${a.name}">`))}</datalist><datalist id="dl-cat">${htmlList(L.categories.map(c => html`<option value="${c.name}">`))}</datalist><datalist id="dl-tags">${htmlList(L.tags.map(t => html`<option value="${t.name}">`))}</datalist><button type="submit" hidden></button></form>${f.id ? html`<div id="txExtras"><p class="sub-s">Loading attachments and links…</p></div>` : ''}`;
+  const foot = html`${f.id ? html`<button class="btn danger" type="button" data-onclick="App.deleteTx()">Delete</button>` : ''}<span class="grow"></span><button class="btn" type="button" data-onclick="App.closeDrawer()">Cancel</button><button class="btn primary" type="button" id="txSave" data-onclick="App.submit('txForm')">${f.id ? 'Save changes' : 'Add transaction'}</button>`;
   const wasOpen = el('drawer').classList.contains('open') && el('txForm');
   const scroll = wasOpen ? el('drawerBody').scrollTop : 0;
   openDrawer(f.id ? 'Edit transaction' : 'New transaction', body, foot);

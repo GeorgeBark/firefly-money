@@ -1,6 +1,7 @@
+import { html, htmlList } from '../core/html';
 import { AuthError, api } from '../core/api';
 import { showLogin } from '../core/auth';
-import { App, S, el, esc } from '../core/base';
+import { App, S, el } from '../core/base';
 import { toast } from '../core/dom';
 import { txRows } from '../core/feed';
 import { buzz } from '../core/helpers';
@@ -18,7 +19,7 @@ export function pick(node) {
     : [{ v: '', l: 'No budget' }, ...L.budgets.filter(b => b.active || b.id === sp.budget_id).map(b => ({ v: b.id, l: b.name }))];
   pickCtx = { tr, meta, k, items, cur: k === 'category' ? sp.category : sp.budget_id, idx: 0, q: '' };
   const box = el('pickpop');
-  box.innerHTML = '<input type="text" id="pkq" autocomplete="off" placeholder="' + (k === 'category' ? 'Find or create a category' : 'Find a budget') + '" data-oninput="App.pickFilter(this.value)" data-onkeydown="App.pickKey(event)"><div class="pk-list" id="pkList"></div>';
+  box.innerHTML = html`<input type="text" id="pkq" autocomplete="off" placeholder="${k === 'category' ? 'Find or create a category' : 'Find a budget'}" data-oninput="App.pickFilter(this.value)" data-onkeydown="App.pickKey(event)"><div class="pk-list" id="pkList"></div>`;
   box.hidden = false;
   const r = node.getBoundingClientRect(), w = Math.min(280, innerWidth - 24);
   box.style.width = w + 'px';
@@ -38,8 +39,7 @@ function pickList() {
 function pickFilter(q) { pickCtx.q = q; pickCtx.idx = q ? 0 : Math.max(0, pickList().findIndex(x => String(x.v) === String(pickCtx.cur || ''))); drawPick(); }
 function drawPick() {
   const c = pickCtx, list = pickList();
-  el('pkList').innerHTML = list.map((x, i) => '<div class="pal-item' + (i === c.idx ? ' on' : '') + '" data-onmouseenter="App.pickHover(' + i + ')" data-onmousedown="event.preventDefault();App.pickChoose(' + i + ')">' +
-    '<span>' + esc(x.l) + '</span>' + (String(x.v) === String(c.cur) && !x.create ? '<span class="k">✓</span>' : '') + '</div>').join('') || '<div class="empty" style="padding:10px 14px">Nothing matches.</div>';
+  el('pkList').innerHTML = htmlList(list.map((x, i) => html`<div class="pal-item${i === c.idx ? ' on' : ''}" data-onmouseenter="App.pickHover(${i})" data-onmousedown="event.preventDefault();App.pickChoose(${i})"><span>${x.l}</span>${String(x.v) === String(c.cur) && !x.create ? html`<span class="k">✓</span>` : ''}</div>`)) || html`<div class="empty" style="padding:10px 14px">Nothing matches.</div>`;
   const on = el('pkList').querySelector('.on'); if (on) on.scrollIntoView({ block: 'nearest' });
 }
 function pickHover(i) { if (pickCtx && i !== pickCtx.idx) { pickCtx.idx = i; drawPick(); } }
@@ -55,7 +55,7 @@ function closePick() { const a = document.activeElement as HTMLElement; if (a &&
 document.addEventListener('mousedown', e => { if (!el('pickpop').hidden && !(e.target as HTMLElement).closest('#pickpop')) closePick(); });
 document.addEventListener('scroll', e => { if (!el('pickpop').hidden && !((e.target as HTMLElement).closest && (e.target as HTMLElement).closest('#pickpop'))) closePick(); }, true);
 function rowFor(g, opts) {
-  const t = document.createElement('template'); t.innerHTML = txRows([g], opts);
+  const t = document.createElement('template'); t.innerHTML = String(txRows([g], opts));
   return t.content.querySelector('tr[data-gid]');
 }
 function swapRow(tr, g, opts) {

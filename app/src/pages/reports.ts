@@ -1,5 +1,6 @@
+import { html, htmlList, raw } from '../core/html';
 import { api } from '../core/api';
-import { absDiff, arr, esc, fmtDate, fmtDay, isoDate, money, money0, monthRange, num, sumDiff, todayIso } from '../core/base';
+import { absDiff, arr, fmtDate, fmtDay, isoDate, money, money0, monthRange, num, sumDiff, todayIso } from '../core/base';
 import { head } from '../core/dom';
 import { addDays } from '../core/helpers';
 import { isAsset, isLiab, lists } from '../core/lists';
@@ -23,10 +24,8 @@ function shareTable(title, rows, opts: any = {}) {
   const total = rows.reduce((s, r) => s + r.v, 0), top = rows.slice(0, opts.limit || 12), rest = rows.slice(opts.limit || 12);
   if (rest.length) top.push({ name: rest.length + ' others', v: rest.reduce((s, r) => s + r.v, 0) });
   const max = Math.max(1, ...top.map(r => r.v));
-  return '<section class="panel"><div class="panel-head"><h2>' + title + '</h2><span class="num">' + money0(total) + '</span></div><p class="lead">' + (opts.lead || '') + '</p>' +
-    (top.length ? top.map(r => '<div class="cat"><div class="row"><span class="name">' + (r.href ? '<a href="' + r.href + '" style="text-decoration:none">' + esc(r.name) + '</a>' : esc(r.name)) + '</span><span class="num">' + money0(r.v) +
-      ' <span class="neutral">' + (total ? (r.v / total * 100).toFixed(0) : 0) + '%</span></span></div><div class="track"><div class="fill' + (opts.good ? ' good' : '') + '" style="width:' + (r.v / max * 100).toFixed(1) + '%"></div></div></div>').join('')
-      : '<p class="empty">Nothing in this period.</p>') + '</section>';
+  return html`<section class="panel"><div class="panel-head"><h2>${title}</h2><span class="num">${money0(total)}</span></div><p class="lead">${opts.lead || ''}</p>${top.length ? htmlList(top.map(r => html`<div class="cat"><div class="row"><span class="name">${r.href ? html`<a href="${r.href}" style="text-decoration:none">${r.name}</a>` : r.name}</span><span class="num">${money0(r.v)} <span class="neutral">${total ? (r.v / total * 100).toFixed(0) : 0}%</span></span></div><div class="track"><div class="fill${opts.good ? ' good' : ''}" style="width:${(r.v / max * 100).toFixed(1)}%"></div></div></div>`))
+      : html`<p class="empty">Nothing in this period.</p>`}</section>`;
 }
 VIEWS.reports = async (r, paint) => {
   const L = await lists();
@@ -49,29 +48,8 @@ VIEWS.reports = async (r, paint) => {
   const earned = sumDiff(inc), spent = sumDiff(exp), net = earned - spent;
   const rowsOf = (res, link) => arr(res).map(x => ({ name: x.name, v: absDiff(x), href: link && x.id ? link + x.id : '' }));
   const nwS = own.reduce((s, a, i) => s + (balStart[i] ?? 0), 0), nwE = own.reduce((s, a, i) => s + (balEnd[i] ?? 0), 0);
-  const presetBtn = (k, l) => '<a class="btn small' + (R.preset === k ? ' primary' : '') + '" href="#/reports?preset=' + k + '">' + l + '</a>';
-  const accRows = own.map((a, i) => ({ a, s: balStart[i], e: balEnd[i] })).filter(x => x.s !== null && x.e !== null && (x.s || x.e))
-    .map(({ a, s, e }) => '<tr><td class="desc">' + esc(a.name) + '</td><td class="amt hide-s">' + money(s) + '</td><td class="amt">' + money(e) + '</td><td class="amt ' + (e - s > 0 ? 'pos' : e - s < 0 ? 'neg' : 'neutral') + '">' + (e - s > 0 ? '+' : '') + money(e - s) + '</td></tr>').join('');
-  paint(head('Reports', fmtDate(R.start) + ' – ' + fmtDate(R.end), '<button class="btn" data-onclick="App.print()">Print</button>') +
-    '<div class="toolbar"><div style="display:flex;gap:6px;flex-wrap:wrap">' + presetBtn('this-month', 'This month') + presetBtn('last-month', 'Last month') + presetBtn('last-3', 'Last 3 months') +
-      presetBtn('this-year', 'This year') + presetBtn('last-year', 'Last year') + presetBtn('last-12', 'Last 12 months') + '</div>' +
-      '<form class="range" data-onsubmit="event.preventDefault();App.reportsRange(this)">' +
-      '<input type="date" name="s" value="' + R.start + '"><span class="neutral">to</span><input type="date" name="e" value="' + R.end + '"><button class="btn small">Apply</button></form></div>' +
-    '<div class="kpis"><div class="kpi"><div class="eyebrow">Earned</div><div class="val num pos">' + money0(earned) + '</div></div>' +
-      '<div class="kpi"><div class="eyebrow">Spent</div><div class="val num neg">' + money0(spent) + '</div></div>' +
-      '<div class="kpi"><div class="eyebrow">Net</div><div class="val num ' + (net < 0 ? 'neg' : '') + '">' + money0(net) + '</div><div class="sub-s">' + (earned ? (net / earned * 100).toFixed(0) + '% of income kept' : '') + '</div></div>' +
-      '<div class="kpi"><div class="eyebrow">Moved between accounts</div><div class="val num">' + money0(sumDiff(xfer)) + '</div></div>' +
-      '<div class="kpi"><div class="eyebrow">Balance change</div><div class="val num ' + (nwE - nwS < 0 ? 'neg' : 'pos') + '">' + (nwE - nwS > 0 ? '+' : '') + money0(nwE - nwS) + '</div><div class="sub-s">across your accounts</div></div></div>' +
-    (months.length > 1 ? '<section class="panel chart" style="margin-bottom:20px">' + cashFlow(trend).replace('over the last six months · click a month to open it', 'by month · click a month to report on it') + '</section>' : '') +
-    '<div class="cards">' +
-      shareTable('Spending by category', [...rowsOf(byCat, '#/transactions?category='), { name: 'Uncategorized', v: sumDiff(noCat) }]) +
-      shareTable('Spending by budget', [...rowsOf(byBud, '#/transactions?budget='), { name: 'No budget', v: sumDiff(noBud) }]) +
-      shareTable('Top payees', rowsOf(byPayee, '#/account/'), { limit: 15 }) +
-      shareTable('Income by source', rowsOf(bySrc, '#/account/'), { good: true }) +
-      shareTable('Income by category', rowsOf(byIncCat, '#/transactions?category='), { good: true }) +
-      shareTable('Spending by tag', rowsOf(byTag, '#/transactions?tag='), { lead: 'Tagged spending only' }) +
-    '</div>' +
-    '<section class="panel flush"><div style="padding:22px 26px 6px"><h2 style="font-size:15px;margin:0">Account balances</h2></div>' +
-      (accRows ? '<table class="tbl"><thead><tr><th>Account</th><th class="r hide-s">' + fmtDay(addDays(R.start, -1)) + '</th><th class="r">' + fmtDay(R.end > todayIso() ? todayIso() : R.end) + '</th><th class="r">Change</th></tr></thead><tbody>' + accRows + '</tbody></table>' : '<div class="center-empty">No balances.</div>') +
-    '</section>');
+  const presetBtn = (k, l) => html`<a class="btn small${R.preset === k ? ' primary' : ''}" href="#/reports?preset=${k}">${l}</a>`;
+  const accRows = htmlList(own.map((a, i) => ({ a, s: balStart[i], e: balEnd[i] })).filter(x => x.s !== null && x.e !== null && (x.s || x.e))
+    .map(({ a, s, e }) => html`<tr><td class="desc">${a.name}</td><td class="amt hide-s">${money(s)}</td><td class="amt">${money(e)}</td><td class="amt ${e - s > 0 ? 'pos' : e - s < 0 ? 'neg' : 'neutral'}">${e - s > 0 ? '+' : ''}${money(e - s)}</td></tr>`));
+  paint(html`${head('Reports', fmtDate(R.start) + ' – ' + fmtDate(R.end), html`<button class="btn" data-onclick="App.print()">Print</button>`)}<div class="toolbar"><div style="display:flex;gap:6px;flex-wrap:wrap">${presetBtn('this-month', 'This month')}${presetBtn('last-month', 'Last month')}${presetBtn('last-3', 'Last 3 months')}${presetBtn('this-year', 'This year')}${presetBtn('last-year', 'Last year')}${presetBtn('last-12', 'Last 12 months')}</div><form class="range" data-onsubmit="event.preventDefault();App.reportsRange(this)"><input type="date" name="s" value="${R.start}"><span class="neutral">to</span><input type="date" name="e" value="${R.end}"><button class="btn small">Apply</button></form></div><div class="kpis"><div class="kpi"><div class="eyebrow">Earned</div><div class="val num pos">${money0(earned)}</div></div><div class="kpi"><div class="eyebrow">Spent</div><div class="val num neg">${money0(spent)}</div></div><div class="kpi"><div class="eyebrow">Net</div><div class="val num ${net < 0 ? 'neg' : ''}">${money0(net)}</div><div class="sub-s">${earned ? (net / earned * 100).toFixed(0) + '% of income kept' : ''}</div></div><div class="kpi"><div class="eyebrow">Moved between accounts</div><div class="val num">${money0(sumDiff(xfer))}</div></div><div class="kpi"><div class="eyebrow">Balance change</div><div class="val num ${nwE - nwS < 0 ? 'neg' : 'pos'}">${nwE - nwS > 0 ? '+' : ''}${money0(nwE - nwS)}</div><div class="sub-s">across your accounts</div></div></div>${months.length > 1 ? html`<section class="panel chart" style="margin-bottom:20px">${raw(String(cashFlow(trend)).replace('over the last six months · click a month to open it', 'by month · click a month to report on it'))}</section>` : ''}<div class="cards">${shareTable('Spending by category', [...rowsOf(byCat, '#/transactions?category='), { name: 'Uncategorized', v: sumDiff(noCat) }])}${shareTable('Spending by budget', [...rowsOf(byBud, '#/transactions?budget='), { name: 'No budget', v: sumDiff(noBud) }])}${shareTable('Top payees', rowsOf(byPayee, '#/account/'), { limit: 15 })}${shareTable('Income by source', rowsOf(bySrc, '#/account/'), { good: true })}${shareTable('Income by category', rowsOf(byIncCat, '#/transactions?category='), { good: true })}${shareTable('Spending by tag', rowsOf(byTag, '#/transactions?tag='), { lead: 'Tagged spending only' })}</div><section class="panel flush"><div style="padding:22px 26px 6px"><h2 style="font-size:15px;margin:0">Account balances</h2></div>${accRows ? html`<table class="tbl"><thead><tr><th>Account</th><th class="r hide-s">${fmtDay(addDays(R.start, -1))}</th><th class="r">${fmtDay(R.end > todayIso() ? todayIso() : R.end)}</th><th class="r">Change</th></tr></thead><tbody>${accRows}</tbody></table>` : html`<div class="center-empty">No balances.</div>`}</section>`);
 };

@@ -1,6 +1,7 @@
+import { html, htmlList } from '../core/html';
 import { api, getAll } from '../core/api';
 import { withAuth } from '../core/auth';
-import { App, S, arr, el, esc, fmtDay, money } from '../core/base';
+import { App, S, arr, el, fmtDay, money } from '../core/base';
 import { confirmBox, opt, toast } from '../core/dom';
 import { normGroup } from '../core/feed';
 import { fmtSize, saveBlob } from '../core/helpers';
@@ -22,28 +23,19 @@ async function loadTxExtras(gid, jids) {
       return api('/transaction-journals/' + otherId).then(r => ({ l, mine, g: normGroup(r.data) })).catch(() => ({ l, mine, g: null }));
     }));
     if (!el('txExtras')) return;
-    const attHtml = atts.length ? '<div class="list">' + atts.map(a => {
+    const attHtml = atts.length ? html`<div class="list">${htmlList(atts.map(a => {
       const at = a.attributes;
-      return '<div class="row"><span class="name"><button class="link" data-onclick="App.downloadAtt(\'' + a.id + '\',\'' + esc(String(at.filename).replace(/'/g, '')) + '\')">' + esc(at.title || at.filename) + '</button> <span class="sub-s">' + fmtSize(at.size) + '</span></span>' +
-        '<button class="link" data-onclick="App.deleteAtt(\'' + a.id + '\')">Remove</button></div>';
-    }).join('') + '</div>' : '<p class="empty" style="padding-top:0">No files attached.</p>';
-    const linkHtml = others.length ? '<div class="list">' + others.map(({ l, mine, g }) => {
+      return html`<div class="row"><span class="name"><button class="link" data-onclick="App.downloadAtt('${a.id}','${String(at.filename).replace(/'/g, '')}')">${at.title || at.filename}</button> <span class="sub-s">${fmtSize(at.size)}</span></span><button class="link" data-onclick="App.deleteAtt('${a.id}')">Remove</button></div>`;
+    }))}</div>` : html`<p class="empty" style="padding-top:0">No files attached.</p>`;
+    const linkHtml = others.length ? html`<div class="list">${htmlList(others.map(({ l, mine, g }) => {
       const t = typeById[String(l.attributes.link_type_id)] || {}, phrase = mine ? t.outward : t.inward;
-      return '<div class="row"><span class="name"><span class="sub-s">' + esc(phrase || 'linked to') + '</span><br>' +
-        (g ? '<button class="link" data-onclick="App.editTx(\'' + g.id + '\')">' + esc(g.title || g.splits[0].description) + '</button> <span class="sub-s">' + fmtDay(g.date) + ' · ' + money(g.total) + '</span>' : 'Transaction #' + esc(mine ? l.attributes.inward_id : l.attributes.outward_id)) +
-        '</span><button class="link" data-onclick="App.deleteLink(\'' + l.id + '\')">Unlink</button></div>';
-    }).join('') + '</div>' : '<p class="empty" style="padding-top:0">Not linked to anything.</p>';
-    const dirOpts = types.flatMap(t => { const a = t.attributes; return a.inward === a.outward ? [opt(t.id + ':out', a.outward, '')] : [opt(t.id + ':out', a.outward, ''), opt(t.id + ':in', a.inward, '')]; }).join('');
+      return html`<div class="row"><span class="name"><span class="sub-s">${phrase || 'linked to'}</span><br>${g ? html`<button class="link" data-onclick="App.editTx('${g.id}')">${g.title || g.splits[0].description}</button> <span class="sub-s">${fmtDay(g.date)} · ${money(g.total)}</span>` : 'Transaction #' + (mine ? l.attributes.inward_id : l.attributes.outward_id)}</span><button class="link" data-onclick="App.deleteLink('${l.id}')">Unlink</button></div>`;
+    }))}</div>` : html`<p class="empty" style="padding-top:0">Not linked to anything.</p>`;
+    const dirOpts = htmlList(types.flatMap(t => { const a = t.attributes; return a.inward === a.outward ? [opt(t.id + ':out', a.outward, '')] : [opt(t.id + ':out', a.outward, ''), opt(t.id + ':in', a.inward, '')]; }));
     box.innerHTML =
-      '<div class="extra"><h3>Attachments</h3>' + attHtml +
-        '<label style="margin:12px 0 0">Add files<input type="file" id="attFile" multiple data-onchange="App.uploadAtt(\'' + jids[0] + '\', this)"></label></div>' +
-      '<div class="extra"><h3>Linked transactions</h3>' + linkHtml +
-        (types.length ? '<div style="margin-top:12px"><div class="grid2"><label>This transaction…<select id="lnkType">' + dirOpts + '</select></label>' +
-          '<label>…this one<input type="search" id="lnkQ" placeholder="Search description" data-onkeydown="App.linkKey(event)"></label></div>' +
-          '<button class="btn small" type="button" data-onclick="App.findLink()">Find</button><div id="lnkResults" style="margin-top:10px"></div></div>' : '') +
-      '</div>';
+      html`<div class="extra"><h3>Attachments</h3>${attHtml}<label style="margin:12px 0 0">Add files<input type="file" id="attFile" multiple data-onchange="App.uploadAtt('${jids[0]}', this)"></label></div><div class="extra"><h3>Linked transactions</h3>${linkHtml}${types.length ? html`<div style="margin-top:12px"><div class="grid2"><label>This transaction…<select id="lnkType">${dirOpts}</select></label><label>…this one<input type="search" id="lnkQ" placeholder="Search description" data-onkeydown="App.linkKey(event)"></label></div><button class="btn small" type="button" data-onclick="App.findLink()">Find</button><div id="lnkResults" style="margin-top:10px"></div></div>` : ''}</div>`;
     S.extrasCtx = { gid, jids };
-  } catch (e) { if (el('txExtras')) el('txExtras').innerHTML = '<p class="sub-s">' + esc(e.message) + '</p>'; }
+  } catch (e) { if (el('txExtras')) el('txExtras').innerHTML = html`<p class="sub-s">${e.message}</p>`; }
 }
 const refreshExtras = () => S.extrasCtx && loadTxExtras(S.extrasCtx.gid, S.extrasCtx.jids);
 async function uploadAtt(jid, input) {
@@ -67,8 +59,7 @@ async function findLink() {
   await withAuth(async () => {
     const res = await api('/search/transactions', { params: { query: q, search: q, limit: 8, page: 1 } });
     const gs = arr(res).map(normGroup).filter(g => g.id !== S.extrasCtx.gid);
-    el('lnkResults').innerHTML = gs.length ? '<div class="list">' + gs.map(g => '<div class="row"><span class="name">' + esc(g.title || g.splits[0].description) + ' <span class="sub-s">' + fmtDay(g.date) + ' · ' + money(g.total) + '</span></span>' +
-      '<button class="btn small" type="button" data-onclick="App.makeLink(\'' + g.splits[0].jid + '\')">Link</button></div>').join('') + '</div>' : '<p class="empty">No matches.</p>';
+    el('lnkResults').innerHTML = gs.length ? html`<div class="list">${htmlList(gs.map(g => html`<div class="row"><span class="name">${g.title || g.splits[0].description} <span class="sub-s">${fmtDay(g.date)} · ${money(g.total)}</span></span><button class="btn small" type="button" data-onclick="App.makeLink('${g.splits[0].jid}')">Link</button></div>`))}</div>` : html`<p class="empty">No matches.</p>`;
   });
 }
 async function makeLink(otherJid) {

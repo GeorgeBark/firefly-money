@@ -1,14 +1,15 @@
+import { html, htmlList } from './html';
 import { AuthError, CACHE, INFLIGHT, PAGES, PDB } from './api';
 import { showLogin } from './auth';
-import { App, S, el, esc, setToday, today } from './base';
+import { App, S, el, setToday, today } from './base';
 import { VT_OK, drawNav, toast, vt, vtName } from './dom';
 import { lists } from './lists';
 
 /* ================= Router ================= */
 function skeleton() {
-  const bar = (w, h) => '<div class="sk" style="width:' + w + ';height:' + h + 'px"></div>';
-  const card = n => '<section class="panel">' + bar('40%', 14) + '<div style="height:18px"></div>' + Array.from({ length: n }, () => bar('100%', 12) + '<div style="height:16px"></div>').join('') + '</section>';
-  return '<div class="head"><div>' + bar('200px', 26) + '</div></div><div class="cards">' + card(5) + card(3) + card(4) + '</div>';
+  const bar = (w, h) => html`<div class="sk" style="width:${w};height:${h}px"></div>`;
+  const card = n => html`<section class="panel">${bar('40%', 14)}<div style="height:18px"></div>${htmlList(Array.from({ length: n }, () => html`${bar('100%', 12)}<div style="height:16px"></div>`))}</section>`;
+  return html`<div class="head"><div>${bar('200px', 26)}</div></div><div class="cards">${card(5)}${card(3)}${card(4)}</div>`;
 }
 export function parseHash() {
   const h = location.hash.replace(/^#\/?/, '');
@@ -85,17 +86,17 @@ export async function route(opts: any = {}) {
   }
   S.feed = null; S.kIdx = -1;
   if (!opts.quiet) S.skelT = setTimeout(() => { if (tok === S.tok) { stashPage(prevFeed); v.innerHTML = skeleton(); } }, 140);
-  const paint = html => {
+  const paint = markup => {
     if (tok !== S.tok) return;
     clearTimeout(S.skelT);
-    if (S.vtRun && S.vtRun.kind !== 'page') { S.vtRun.finished.catch(() => {}).then(() => paint(html)); return; }   // let a drawer animation finish first
+    if (S.vtRun && S.vtRun.kind !== 'page') { S.vtRun.finished.catch(() => {}).then(() => paint(markup)); return; }   // let a drawer animation finish first
     const fresh = key !== S.pageKey;
     const from = S.vtFrom && S.vtFrom.node.isConnected && Date.now() - S.vtFrom.t < 4000 ? S.vtFrom.node : null; S.vtFrom = null;
     const swap = () => {
       const keep = fresh ? 0 : scrollY;
       if (fresh) stashPage(prevFeed);
-      v.innerHTML = html;
-      S.pageKey = key; S.pageHtml = html; S.pageCacheable = cacheable && !v.querySelector(':scope > .error'); S.pageLive = true;
+      v.innerHTML = markup;
+      S.pageKey = key; S.pageHtml = markup; S.pageCacheable = cacheable && !v.querySelector(':scope > .error'); S.pageLive = true;
       if (from) vtName(v.querySelector('.head h1'), 'ptitle');
       if (!fresh || !VT_OK || opts.quiet || instant) { v.classList.remove('enter'); if (fresh && !opts.quiet && !instant) { void v.offsetWidth; v.classList.add('enter'); } }
       scrollTo(0, fresh ? 0 : keep);          // new pages start at the top; a refresh keeps your place
@@ -114,18 +115,18 @@ export async function route(opts: any = {}) {
   } catch (e) {
     if (e instanceof AuthError) return showLogin(e.message);
     if (opts.quiet && S.pageLive) { toast('Couldn’t refresh: ' + e.message); return; }
-    paint('<div class="error"><strong>Couldn’t load this page.</strong><br>' + esc(e.message) + '<br><br><button class="btn small" data-onclick="App.reload()">Try again</button></div>');
+    paint(html`<div class="error"><strong>Couldn’t load this page.</strong><br>${e.message}<br><br><button class="btn small" data-onclick="App.reload()">Try again</button></div>`);
   }
 }
 // The page on screen was drawn from out-of-date data: fetch what it needs again and redraw only if it changed.
 async function revalidate() {
-  const r = parseHash(), key = S.pageKey, tok = S.tok; let html = null;
+  const r = parseHash(), key = S.pageKey, tok = S.tok; let markup = null;
   S.swrOff = (S.swrOff || 0) + 1;
-  try { await (VIEWS[r.name] || VIEWS[''])(r, h => { html = h; }); }
+  try { await (VIEWS[r.name] || VIEWS[''])(r, h => { markup = h; }); }
   catch (e) { if (e instanceof AuthError) showLogin(e.message); return; }
   finally { S.swrOff--; }
   const busyHere = el('drawer').classList.contains('open') || (S.sel && S.sel.size) || !el('pickpop').hidden;
-  if (tok === S.tok && key === S.pageKey && html !== null && html !== S.pageHtml && !busyHere) route({ quiet: true });
+  if (tok === S.tok && key === S.pageKey && markup !== null && markup !== S.pageHtml && !busyHere) route({ quiet: true });
 }
 /* Fetch everything again. visible: show it right away (pull to refresh).
    Otherwise quietly re-fetch the current page and only redraw if something actually changed. */
@@ -136,11 +137,11 @@ export async function refreshAll(opts: any = {}) {
     try {
       if (opts.visible) { await route({ quiet: true }); return; }
       const r = parseHash(), key = S.pageKey, tok = S.tok;
-      let html = null;
-      try { await (VIEWS[r.name] || VIEWS[''])(r, h => { html = h; }); }
+      let markup = null;
+      try { await (VIEWS[r.name] || VIEWS[''])(r, h => { markup = h; }); }
       catch (e) { if (e instanceof AuthError) showLogin(e.message); return; }
       const busyHere = el('drawer').classList.contains('open') || (S.sel && S.sel.size) || !el('pickpop').hidden;
-      if (tok === S.tok && key === S.pageKey && html !== null && html !== S.pageHtml && !busyHere) await route({ quiet: true });
+      if (tok === S.tok && key === S.pageKey && markup !== null && markup !== S.pageHtml && !busyHere) await route({ quiet: true });
     } finally {
       S.refreshing = null;
       warmTabs();

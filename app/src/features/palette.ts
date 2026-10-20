@@ -1,4 +1,5 @@
-import { App, S, el, esc } from '../core/base';
+import { html, htmlList } from '../core/html';
+import { App, S, el } from '../core/base';
 import { NAV, closeDrawer } from '../core/dom';
 import { isAsset, isCard, isLiab, lists } from '../core/lists';
 import { THEMES, setTheme } from '../core/login';
@@ -42,8 +43,8 @@ function palFilter() {
   palIdx = 0; drawPal();
 }
 function drawPal() {
-  el('palList').innerHTML = palShown.length ? palShown.map((it, i) => '<div class="pal-item' + (i === palIdx ? ' on' : '') + '" data-i="' + i + '" data-onmousemove="App.palHover(' + i + ')" data-onclick="App.palRun(' + i + ')"><span>' + esc(it.label) + '</span><span class="k">' + esc(it.kind) + '</span></div>').join('')
-    : '<div class="pal-item"><span class="neutral">No matches</span></div>';
+  el('palList').innerHTML = palShown.length ? htmlList(palShown.map((it, i) => html`<div class="pal-item${i === palIdx ? ' on' : ''}" data-i="${i}" data-onmousemove="App.palHover(${i})" data-onclick="App.palRun(${i})"><span>${it.label}</span><span class="k">${it.kind}</span></div>`))
+    : html`<div class="pal-item"><span class="neutral">No matches</span></div>`;
   const on = el('palList').querySelector('.on'); if (on) on.scrollIntoView({ block: 'nearest' });
 }
 function palHover(i) { if (i !== palIdx) { palIdx = i; drawPal(); } }

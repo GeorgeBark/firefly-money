@@ -1,3 +1,4 @@
+import { html, htmlList } from './html';
 import { AuthError, CACHE, PDB, api } from './api';
 import { clearKey, saveKey, showLogin, storedKey } from './auth';
 import { App, S, el, today } from './base';
@@ -26,8 +27,7 @@ export const THEMES = [
 ];
 function currentTheme() { return document.documentElement.getAttribute('data-theme') || 'auto'; }
 function drawThemes() {
-  el('themes').innerHTML = THEMES.map(([k, label, sw]) => '<button type="button" title="' + label + '" aria-label="' + label + ' theme" class="' + (k === currentTheme() ? 'on' : '') +
-    '" style="background:' + sw + '" data-onclick="App.setTheme(\'' + k + '\')"></button>').join('');
+  el('themes').innerHTML = htmlList(THEMES.map(([k, label, sw]) => html`<button type="button" title="${label}" aria-label="${label} theme" class="${k === currentTheme() ? 'on' : ''}" style="background:${sw}" data-onclick="App.setTheme('${k}')"></button>`));
 }
 export function setTheme(k) {
   if (k === currentTheme()) return;

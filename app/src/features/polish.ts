@@ -1,5 +1,6 @@
+import { html } from '../core/html';
 import { api, eachLimited } from '../core/api';
-import { App, S, arr, el, esc, money0, sameName } from '../core/base';
+import { App, S, arr, el, money0, sameName } from '../core/base';
 import { toast } from '../core/dom';
 import { normGroup, tidyDays } from '../core/feed';
 import { lists } from '../core/lists';
@@ -46,7 +47,7 @@ function bindChart() {
       const hit = (e.target as HTMLElement).closest && (e.target as HTMLElement).closest<HTMLElement>('[data-i]'); const tip = el('tip');
       if (!hit) { tip.hidden = true; return; }
       const d = (S.chartData || [])[+hit.dataset.i]; if (!d) return;
-      tip.innerHTML = '<strong>' + esc(d.label) + '</strong><br>Earned ' + money0(d.income) + '<br>Spent ' + money0(d.spend) + '<br>Kept ' + money0(d.income - d.spend);
+      tip.innerHTML = html`<strong>${d.label}</strong><br>Earned ${money0(d.income)}<br>Spent ${money0(d.spend)}<br>Kept ${money0(d.income - d.spend)}`;
       tip.hidden = false; tip.style.left = Math.min(innerWidth - 170, e.clientX + 14) + 'px'; tip.style.top = (e.clientY + 14) + 'px';
     });
     svg.addEventListener('mouseleave', () => { el('tip').hidden = true; });
@@ -120,7 +121,7 @@ function softDeleteTx(ids) {
   };
   if (S.undoCommit) S.undoCommit();              // finish any earlier pending delete first
   S.undoCommit = () => { clearTimeout(S.undoT); S.undoCommit = null; commit(); };
-  box.innerHTML = '<span>' + (ids.length === 1 ? 'Transaction deleted' : ids.length + ' transactions deleted') + '</span><button type="button">Undo</button><span class="bar"></span>';
+  box.innerHTML = html`<span>${ids.length === 1 ? 'Transaction deleted' : ids.length + ' transactions deleted'}</span><button type="button">Undo</button><span class="bar"></span>`;
   box.hidden = false;
   box.querySelector('button').onclick = () => {
     undone = true; clearTimeout(S.undoT); S.undoCommit = null; box.hidden = true;

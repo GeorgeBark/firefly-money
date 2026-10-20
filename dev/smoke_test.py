@@ -106,19 +106,27 @@ async def check(pw, width, height, mobile):
         await page.wait_for_timeout(600)
         if await page.evaluate("el('dash').dataset.cols + '/' + JSON.parse(localStorage.getItem('money.dash')).cols") != '2/2':
             errors.append('picking 2 columns did not apply or save')
-        # drag a card with the mouse into another column, right under a card there: it lands in that column at that height
+        # freeform tiles: drag one across and down with the mouse, then resize it by its corner; tiles never overlap
         await page.locator('#dashCols button', has_text='3').click(); await page.wait_for_function(PAINTED, timeout=15000)
-        await page.wait_for_selector('#dash.editing'); await page.wait_for_timeout(1500)   # and let the slow cards fill in
-        src, dst = await page.evaluate("""() => { const cols = [...document.querySelectorAll('#dash .band:first-child .dcol')];
-          scrollTo(0, scrollY + cols[0].getBoundingClientRect().top - 120); return [cols[0].firstElementChild.dataset.w, cols[2].firstElementChild.dataset.w]; }""")
-        a = await page.locator(f'#dash [data-w="{src}"] .wctl strong').bounding_box(); b = await page.locator(f'#dash [data-w="{dst}"]').bounding_box()
-        tx, ty = b['x'] + b['width'] / 2, min(b['y'] + b['height'] - 10, 800)
+        await page.wait_for_selector('#dash.grid.editing'); await page.wait_for_timeout(1500)   # and let the slow cards fill in
+        await page.evaluate("scrollTo(0, scrollY + el('dash').getBoundingClientRect().top - 120)")
+        a = await page.locator('#dash [data-w="safe"] .wctl strong').bounding_box(); dw = (await page.locator('#dash').bounding_box())['width']
         await page.mouse.move(a['x'] + 5, a['y'] + 5); await page.mouse.down()
-        for i in range(1, 16): await page.mouse.move(a['x'] + 5 + (tx - a['x'] - 5) * i / 15, a['y'] + 5 + (ty - a['y'] - 5) * i / 15); await page.wait_for_timeout(30)
-        await page.wait_for_timeout(250); await page.mouse.up(); await page.wait_for_timeout(400)
-        got = await page.evaluate("JSON.parse(localStorage.getItem('money.dash')).place['3'][0][2]")
-        if src not in got[:2] or dst not in got[:2]:
-            errors.append(f'dragging {src} onto {dst} in the third column gave {got}')
+        for i in range(1, 16): await page.mouse.move(a['x'] + 5 + dw * .45 * i / 15, a['y'] + 5 + 60 * i / 15); await page.wait_for_timeout(30)
+        await page.wait_for_timeout(250); await page.mouse.up(); await page.wait_for_timeout(500)
+        moved = await page.evaluate("JSON.parse(localStorage.getItem('money.dash')).free.safe")
+        if not moved or moved[0] < 8:
+            errors.append(f'dragging a tile across did not move it: {moved}')
+        c = await page.locator('#dash [data-w="safe"] .rsz').bounding_box()
+        await page.mouse.move(c['x'] + 8, c['y'] + 8); await page.mouse.down()
+        for i in range(1, 11): await page.mouse.move(c['x'] + 8 - dw * .15 * i / 10, c['y'] + 8); await page.wait_for_timeout(30)
+        await page.wait_for_timeout(250); await page.mouse.up(); await page.wait_for_timeout(500)
+        sized = await page.evaluate("JSON.parse(localStorage.getItem('money.dash')).free.safe")
+        if not sized or sized[2] >= moved[2]:
+            errors.append(f'dragging the corner did not make the tile narrower: {moved} -> {sized}')
+        overlap = await page.evaluate("""() => { const r = [...document.querySelectorAll('#dash > .w')].map(w => [w.dataset.w, w.getBoundingClientRect()]);
+          for (const [a, p] of r) for (const [b, q] of r) if (a < b && p.left < q.right - 1 && q.left < p.right - 1 && p.top < q.bottom - 1 && q.top < p.bottom - 1) return a + '/' + b; return ''; }""")
+        if overlap: errors.append('overview tiles overlap: ' + overlap)
         await page.locator('#dashCols button', has_text='2').click(); await page.wait_for_function(PAINTED, timeout=15000); await page.wait_for_selector('#dashCols')
         await page.locator('.dash-opts input[type=checkbox]').first.uncheck(); await page.wait_for_function(PAINTED, timeout=15000)
         await page.wait_for_selector('#dashCols')

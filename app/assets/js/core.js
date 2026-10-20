@@ -692,7 +692,9 @@ VIEWS[''] = async (r, paint) => {
     coreP.then(c => App.insightCards({ cur, future: monthOnly, budgets: arr(c[7]), limits: c[8], cards, trend: c[5] })).catch(() => ''),
     App.balanceSparks([...cash, ...cards]).catch(() => ({})),
     monthOnly ? [] : getAll('/transactions', { start: cur.start, end: cur.end, type: 'withdrawal' }).catch(() => []),
-    api('/insight/income/revenue', { params: p(cur) }).catch(() => [])]);
+    api('/insight/income/revenue', { params: p(cur) }).catch(() => []),
+    api('/insight/expense/expense', { params: p(cur) }).catch(() => []), all ? [] : api('/insight/expense/expense', { params: p(prev) }).catch(() => []),
+    getAll('/piggy-banks').then(ps => ps.map(normPiggy)).catch(() => [])]);
   slowP.catch(() => {});
   const [summary, catNow, catPrev, noCatNow, noCatPrev, trend, recent, budgets, limits, bills, uncat, allTot] = await coreP;
   const nwKey = Object.keys(summary || {}).find(k => k.startsWith('net-worth-in'));
@@ -708,7 +710,7 @@ VIEWS[''] = async (r, paint) => {
   if (un || unP) cats.set('Uncategorized', { name: 'Uncategorized', amt: un, prev: unP });
 
   const build = slow => {
-    const [prog, safe, insights, sparks, dayTx, incomeSrc] = slow || [];
+    const [prog, safe, insights, sparks, dayTx, incomeSrc, payNow, payPrev, piggies] = slow || [];
     const wait = k => slow ? null : skeletonPanel(k);
     const W = [
       ['safe', future ? '' : wait('safe') ?? safe],
@@ -720,12 +722,15 @@ VIEWS[''] = async (r, paint) => {
       ['loans', loans.length ? wait('loans') ?? loansPanel(loans, prog) : loansPanel(loans, {})], ['bills', billsMini(arr(bills))],
       ['heatmap', monthOnly ? '' : wait('heatmap') ?? App.heatmapPanel(cur, dayTx.map(normGroup))],
       ['flow', future ? '' : wait('flow') ?? App.sankeyPanel(arr(incomeSrc), last.income, [...cats.values()].filter(c => c.amt > 0), cur)],
+      ['payees', wait('payees') ?? payeesPanel(arr(payNow), arr(payPrev), future, all)],
+      ['income', future ? '' : wait('income') ?? incomePanel(arr(incomeSrc), all)],
+      ['goals', wait('goals') ?? goalsPanel(piggies)],
       ['cashflow', '<section class="panel chart">' + cashFlow(trend) + '</section>'],
       ['recent', '<section class="panel flush"><div style="padding:24px 26px 6px" class="panel-head"><div><h2>Recent transactions</h2></div><a class="link" href="#/transactions">See all</a></div>' +
           txRows(arr(recent).map(normGroup)) + '</section>'],
     ];
-    const ins = slow ? insights : monthOnly ? '' : '<div class="insights" id="insights" aria-hidden="true">' + '<div class="insight"><div class="sk" style="width:100%;height:42px"></div></div>'.repeat(3) + '</div>';
-    return head('Overview', '', monthNav() + App.dashButton()) + heroHtml(netWorth, last, before, prev.short, future) + ins + App.dashboard(W);
+    const ins = !App.dashShows('insights') ? '' : slow ? insights : monthOnly ? '' : '<div class="insights" id="insights" aria-hidden="true">' + '<div class="insight"><div class="sk" style="width:100%;height:42px"></div></div>'.repeat(3) + '</div>';
+    return head('Overview', '', monthNav() + App.dashButton()) + (App.dashShows('hero') ? heroHtml(netWorth, last, before, prev.short, future) : '') + ins + App.dashboard(W);
   };
   // Saved data (or a fast server): everything is here already, draw once.
   const quick = await Promise.race([slowP, sleep(60).then(() => null)]);
@@ -750,7 +755,7 @@ function fillIn(html) {
   return true;
 }
 function skeletonPanel(k) {
-  const h = { safe: 70, loans: 90, heatmap: 230, flow: 240 }[k] || 120;
+  const h = { safe: 70, loans: 90, heatmap: 230, flow: 240, payees: 200 }[k] || 120;
   return '<section class="panel" aria-busy="true"><h2>' + esc(DASH_NAMES[k] || '') + '</h2><p class="lead">&nbsp;</p><div class="sk" style="height:' + h + 'px"></div></section>';
 }
 function attentionPanel({ uncat, uncatQ, bills, budgets, limits, future }) {
@@ -851,6 +856,39 @@ function budgetsMini(budgets, limits, all) {
         (pct > 100 ? '<span class="up">' + money0(spent - lim.amount) + ' over</span>' : money0(lim.amount - spent) + ' left') + '</div>' : all ? '' : '<div class="sub">No amount set for this month</div>') + '</div>';
   }).join('');
   return '<section class="panel"><div class="panel-head"><h2>Budgets</h2><a class="link" href="#/budgets">Manage</a></div><p class="lead">' + (all ? 'Spent of all time' : 'This month') + '</p>' + (rows || '<p class="empty">No budgets yet.</p>') + '</section>';
+}
+// Where the money went by who was paid (Firefly's expense accounts), against last month
+function payeesPanel(now, prev, future, all) {
+  const before = Object.fromEntries(prev.map(x => [String(x.id), absDiff(x)]));
+  const rows = now.map(x => ({ id: String(x.id), name: x.name, amt: absDiff(x), prev: before[String(x.id)] || 0 })).filter(x => x.amt > 0).sort((a, b) => b.amt - a.amt).slice(0, 8);
+  const max = Math.max(1, ...rows.map(x => x.amt));
+  const html = rows.map(x => {
+    const d = x.amt - x.prev;
+    const sub = all ? '' : !x.prev ? 'New this month' : Math.abs(d) < 1 ? 'Same as last month' : '<span class="' + (d > 0 ? 'up' : 'down') + '">' + money0(Math.abs(d)) + ' ' + (d > 0 ? 'more' : 'less') + '</span> than last month';
+    return '<div class="cat"><div class="row"><a class="name" href="#/account/' + esc(x.id) + '" style="text-decoration:none">' + esc(x.name) + '</a><span class="num">' + money0(x.amt) + '</span></div>' +
+      '<div class="track"><div class="fill" style="width:' + (x.amt / max * 100).toFixed(1) + '%"></div></div>' + (sub ? '<div class="sub">' + sub + '</div>' : '') + '</div>';
+  }).join('');
+  return '<section class="panel"><h2>Top payees</h2><p class="lead">Who you paid the most ' + (all ? 'of all time' : 'this month') + '</p>' +
+    (html || '<p class="empty">' + (future ? 'This month hasn’t started yet.' : 'No spending recorded ' + (all ? 'yet.' : 'this month.')) + '</p>') + '</section>';
+}
+function incomePanel(sources, all) {
+  const rows = sources.map(x => ({ id: String(x.id), name: x.name, amt: absDiff(x) })).filter(x => x.amt > 0).sort((a, b) => b.amt - a.amt);
+  const total = rows.reduce((s, x) => s + x.amt, 0);
+  const html = rows.map(x => '<a class="row" href="#/account/' + esc(x.id) + '"><span class="name">' + esc(x.name) + '<br><span class="sub-s">' + (x.amt / total * 100).toFixed(0) + '% of income</span></span><span class="num">' + money(x.amt) + '</span></a>').join('');
+  return '<section class="panel"><h2>Income sources</h2><p class="lead">Where your money came from ' + (all ? 'of all time' : 'this month') + '</p>' +
+    (rows.length ? '<div class="total num">' + money0(total) + '</div><div class="list">' + html + '</div>' : '<p class="empty">No income recorded ' + (all ? 'yet.' : 'this month.') + '</p>') + '</section>';
+}
+function goalsPanel(piggies) {
+  const live = (piggies || []).filter(p => p.active && p.target > 0);
+  if (!live.length) return '';
+  const rows = live.sort((a, b) => (a.targetDate || '9999').localeCompare(b.targetDate || '9999')).map(p => {
+    const pct = Math.min(100, p.current / p.target * 100), bits = [pct.toFixed(0) + '% saved'];
+    if (p.left > 0 && p.targetDate) bits.push(money0(p.left) + ' to go by ' + fmtDate(p.targetDate));
+    else if (p.left > 0) bits.push(money0(p.left) + ' to go');
+    return '<div class="cat"><div class="row"><span class="name">' + esc(p.name) + '</span><span class="num">' + money0(p.current) + ' <span class="neutral">of ' + money0(p.target) + '</span></span></div>' +
+      '<div class="track"><div class="fill good" style="width:' + pct.toFixed(1) + '%"></div></div><div class="sub">' + bits.join(' · ') + '</div></div>';
+  }).join('');
+  return '<section class="panel"><div class="panel-head"><h2>Savings goals</h2><a class="link" href="#/piggy">All goals</a></div><p class="lead">Piggy bank progress</p>' + rows + '</section>';
 }
 function billsMini(bills) {
   // A bill with no due date in the window falls back to Firefly's "next expected" date, which can be months

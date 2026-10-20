@@ -96,6 +96,23 @@ async def check(pw, width, height, mobile):
         await page.locator('#view .seg').get_by_role('button', name='Month', exact=True).click(); await page.wait_for_function(PAINTED, timeout=15000)
         if await page.evaluate('S.all'):
             errors.append('picking Month on an account did not leave All time')
+        await page.locator('#view .seg').get_by_role('button', name='Month', exact=True).click()   # back to this month
+        # Customize the overview: column count, the extra cards, hiding the summary
+        await goto(page, ''); await page.wait_for_selector('#dash [data-w="payees"] .cat', timeout=15000)
+        for k in ['payees', 'income', 'goals']:
+            if not await page.locator(f'#dash [data-w="{k}"]').count(): errors.append(f'overview card {k!r} is missing')
+        await page.evaluate('App.dashEdit(true)'); await page.wait_for_selector('#dashCols')
+        await page.locator('#dashCols button', has_text='2').click()
+        await page.wait_for_timeout(600)
+        if await page.evaluate("el('dash').dataset.cols + '/' + JSON.parse(localStorage.getItem('money.dash')).cols") != '2/2':
+            errors.append('picking 2 columns did not apply or save')
+        await page.locator('.dash-opts input[type=checkbox]').first.uncheck(); await page.wait_for_function(PAINTED, timeout=15000)
+        await page.wait_for_selector('#dashCols')
+        if await page.locator('#view .hero').count() or await page.evaluate("el('dash').dataset.cols") != '2':
+            errors.append('hiding the net worth summary did not stick')
+        await page.evaluate('App.dashReset()'); await page.wait_for_function(PAINTED, timeout=15000)
+        if not await page.locator('#view .hero').count(): errors.append('Reset did not bring the summary back')
+        await page.evaluate('App.dashEdit(false)')
     await br.close()
     return errors
 

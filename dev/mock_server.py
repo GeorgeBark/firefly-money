@@ -48,6 +48,10 @@ CATS = sorted({p[1] for p in PAYEES} | {'Salary', 'Travel'})
 CAT_ID = {c: str(i + 1) for i, c in enumerate(CATS)}
 BUDGETS = {'Food': '1', 'Fun': '2'}
 
+PIGGIES = [{'id': str(i + 1), 'attributes': {'name': n, 'target_amount': str(t), 'current_amount': str(c), 'left_to_save': str(t - c), 'target_date': td, 'active': True,
+            'accounts': [{'account_id': '2', 'name': 'High-Yield Savings', 'current_amount': str(c)}]}}
+           for i, (n, t, c, td) in enumerate([('Emergency fund', 10000, 6200, None), ('Summer trip', 2400, 950, (TODAY + timedelta(days=200)).isoformat())])]
+
 TX = []
 def add_tx(d, typ, amt, desc, src, dst, cat=None, bud=None):
     gid = str(len(TX) + 1)
@@ -118,7 +122,8 @@ def handle(path, q, method):
             out.append({'id': bid, 'attributes': {'name': name, 'active': True, 'spent': [{'sum': '-%.2f' % spent, 'currency_code': 'USD'}]}})
         return page(out, q)
     if path == '/budget-limits': return page([{'id': '1', 'attributes': {'budget_id': '1', 'amount': '900'}}, {'id': '2', 'attributes': {'budget_id': '2', 'amount': '200'}}], q)
-    if path in ('/bills', '/tags', '/piggy-banks', '/recurrences', '/rule-groups', '/rules', '/link-types', '/webhooks', '/available-budgets'): return page([], q)
+    if path == '/piggy-banks': return page(PIGGIES, q)
+    if path in ('/bills', '/tags', '/recurrences', '/rule-groups', '/rules', '/link-types', '/webhooks', '/available-budgets'): return page([], q)
     if path == '/currencies': return page([{'id': '1', 'attributes': {'code': 'USD', 'name': 'US Dollar', 'symbol': '$', 'enabled': True, 'primary': True}}], q)
     if path == '/summary/basic': return {'net-worth-in-USD': {'monetary_value': '5418.00'}}
     if path == '/insight/expense/category': return expense_by_cat(q)
@@ -128,6 +133,12 @@ def handle(path, q, method):
     if path == '/insight/income/revenue':
         v = sum(float(jd(g)['amount']) for g in TX if jd(g)['type'] == 'deposit' and in_range(g, q))
         return [{'id': '6', 'name': 'Acme Corp', 'difference': '%.2f' % v, 'difference_float': v, 'currency_code': 'USD'}] if v else []
+    if path == '/insight/expense/expense':
+        sums = {}
+        for g in TX:
+            t = jd(g)
+            if t['type'] == 'withdrawal' and in_range(g, q): sums[t['destination_id']] = sums.get(t['destination_id'], 0) + float(t['amount'])
+        return [{'id': i, 'name': ACC_BY[i]['attributes']['name'], 'difference': '-%.2f' % v, 'difference_float': -v, 'currency_code': 'USD'} for i, v in sums.items()]
     if path.startswith('/insight/'): return []
     if path == '/transactions':
         typ = q.get('type', 'all')

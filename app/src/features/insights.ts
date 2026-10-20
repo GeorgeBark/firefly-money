@@ -1,4 +1,9 @@
-'use strict';
+import { api } from '../core/api';
+import { App, absDiff, arr, el, esc, fmtDay, isoDate, money, money0, monthRange, num, pad, sumDiff } from '../core/base';
+import { vt, vtName } from '../core/dom';
+import { LS } from '../core/helpers';
+import { ordinal } from '../core/lists';
+
 /* =====================================================================
    Insight cards: short, auto-generated observations on the Overview.
    Compares this month against the same point last month (3-month average as a note).
@@ -80,7 +85,7 @@ async function insightCards({ cur, future, budgets, limits, cards, trend }) {
       if (!owed || !day) return;
       let due = new Date(now.getFullYear(), now.getMonth(), Math.min(day, dim), 12);
       if (due < new Date(now.getFullYear(), now.getMonth(), now.getDate())) due = new Date(now.getFullYear(), now.getMonth() + 1, day, 12);
-      const days = Math.round((due - new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12)) / 864e5);
+      const days = Math.round((+due - +new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12)) / 864e5);
       if (days > 7) return;
       add('card:' + a.id, 'warn', 'card', a.name + ' payment due ' + (days === 0 ? 'today' : days === 1 ? 'tomorrow' : 'in ' + days + ' days'),
         money(owed) + ' owed · due ' + fmtDay(isoDate(due)), '#/account/' + a.id, 55 - days);
@@ -112,4 +117,8 @@ function hideInsight(btn) {
   const rest = [...box.children].filter(c => c !== card);
   vt('ins', () => { card.remove(); if (!rest.length) box.remove(); }, () => rest.forEach((c, i) => vtName(c, 'ins' + i)));
 }
-Object.assign(window.App, { insightCards, hideInsight });
+
+Object.assign(App, {
+  insightCards,
+  hideInsight,
+});

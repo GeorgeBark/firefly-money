@@ -5,6 +5,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Type check
+        run: npm run check
+      - name: Build the scripts
+        run: npm run build
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"

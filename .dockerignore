@@ -3,3 +3,10 @@
 !app/default.conf.template
 !app/assets
 !app/assets/**
+app/assets/js
+!app/src
+!app/src/**
+!package.json
+!package-lock.json
+!tsconfig.json
+!build.mjs

@@ -4,3 +4,5 @@ __pycache__/
 *.pyc
 .DS_Store
 node_modules/
+# built by npm run build from app/src
+app/assets/js/

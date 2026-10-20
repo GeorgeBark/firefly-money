@@ -2,7 +2,7 @@
 
 Money is a fast, mobile-friendly web app for [Firefly III](https://www.firefly-iii.org/), the self-hosted personal finance manager. It sits beside your existing Firefly server and talks to it through the Firefly API. It doesn't change or replace Firefly, and your data never leaves your server.
 
-It's plain HTML, CSS and JavaScript served by a small nginx container. Nothing to build and no dependencies.
+It's a small static web app (TypeScript bundled into one script) served by a small nginx container, with no server code of its own.
 
 ![Overview](docs/screenshots/overview.png)
 
@@ -88,7 +88,7 @@ Open `http://<your-server>:8090` and sign in with your `DASH_PASSWORD`.
 
 **Updating:** `docker compose pull && docker compose up -d`. To stay on a fixed version instead of `latest`, use a release tag such as `:1.2.0`. Those images are built when you push a tag like `v1.2.0`.
 
-**Prefer plain files?** The comments at the bottom of `docker-compose.yml` show how to run the stock `nginx` image with `app/index.html`, `app/default.conf.template` and the `app/assets` folder mounted from a folder. In that setup, you update by replacing the files and restarting the container.
+**Prefer plain files?** The comments at the bottom of `docker-compose.yml` show how to run the stock `nginx` image with `app/index.html`, `app/default.conf.template` and the `app/assets` folder mounted from a folder. Build the scripts into `app/assets/js` first with `npm install && npm run build` (needs Node.js 20 or newer). In that setup, you update by pulling the repo, building again and restarting the container.
 
 ### TrueNAS SCALE (24.10 and newer)
 
@@ -145,6 +145,7 @@ Point your proxy (Caddy, Traefik, Nginx Proxy Manager, Cloudflare Tunnel…) at 
 A small Python server with made-up data is included:
 
 ```bash
+npm install && npm run build      # once, and again after changing app/src (or keep npm run watch running)
 python3 dev/mock_server.py
 # open http://127.0.0.1:8765 and sign in with: demo
 ```
@@ -153,17 +154,24 @@ It implements only the endpoints the UI needs. Writes are accepted but not saved
 
 ## Development
 
-- The app is plain HTML, CSS and JavaScript with no framework and no build step:
+- The app is HTML, CSS and TypeScript with no framework. [esbuild](https://esbuild.github.io/) bundles the TypeScript into `app/assets/js/`, which isn't kept in git (the Docker build runs it for you):
   - **`app/index.html`**: the page itself (nginx fills in `FIREFLY_URL` and the version stamp at startup).
   - **`app/assets/money.css`**: all styles and themes.
-  - **`app/assets/js/`**: the scripts, loaded in this order and sharing one global scope: `boot.js` (in `<head>`: shell and theme before first paint), `events.js` (attaches the markup's `data-on*` handlers), `core.js` (API, lists, router, main pages), `extras.js` (bulk edit, reconcile, rules, recurring, reports, settings), `polish.js` (quick add, undo, palette, date picker), `planning.js` (forecast, categorize inbox, loan planner, offline), `insights.js` (insight cards), `ui.js` (privacy, gestures, inline edits, dashboard, charts, natural-language quick add) and `shell.js` (the iPhone app shell). Markup handlers are written as `data-onclick="App.name('arg', this.value)"` (also `data-onchange`, `data-onsubmit`, …), never `onclick=`: the Content-Security-Policy blocks inline script, and `events.js` only runs calls to methods of the global `App` object.
-- A few settings sit at the top of `app/assets/js/core.js` (for example `LOAN_MONTHLY_PAYMENT`, the fallback used for loan "months to go" estimates).
+  - **`app/src/`**: the TypeScript, as ES modules. `boot.ts` runs in `<head>` (shell and theme before first paint) and becomes `boot.js`. `main.ts` imports everything else, in the order it runs, and becomes `app.js`:
+    - `core/`: `base` (state and formatting helpers), `helpers`, `api` (requests, caching, the on-device copy), `feed` (transaction rows), `lists` (accounts, categories, budgets…), `dom` (drawer, toasts, view transitions), `auth` (sign-in/out), `router`, `login` (sign-in screen, themes, startup) and `events` (attaches the markup's `data-on*` handlers).
+    - `pages/`: one module per page (overview, transactions, accounts, budgets, rules, forecast, inbox, …).
+    - `features/`: things used across pages (transaction form, bulk edit, dashboard, charts, quick add, palette, gestures, the iPhone app shell, …).
+  - A module only imports from modules listed above it in `main.ts`, so modules run in a fixed order. Code that needs something from further down calls it through `App` instead.
+  - Markup handlers are written as `data-onclick="App.name('arg', this.value)"` (also `data-onchange`, `data-onsubmit`, …), never `onclick=`: the Content-Security-Policy blocks inline script, and `events.ts` only runs calls to methods of the global `App` object. Each module adds the methods its markup needs with `Object.assign(App, { … })`.
+- **Commands:** `npm run build` builds once, `npm run watch` rebuilds on every save, and `npm run check` type-checks with `tsc`. The types are loose for now (the code came from plain JavaScript) and get stricter over time.
+- A few settings sit at the top of `app/src/core/base.ts` (for example `LOAN_MONTHLY_PAYMENT`).
 - Per-device preferences (theme, dashboard layout, privacy/density, forecast options, dismissed insights) are stored in `localStorage` under `money.*` / `moneyTheme`. Everything else lives in Firefly.
 - **Publishing a new version:** push to `main`, and GitHub Actions builds a new `latest` image in a few minutes (see the repo's **Actions** tab). For a numbered release, push a tag: `git tag v1.2.0 && git push --tags`.
 - **Smoke test:** opens every page and every "new …" form on desktop and phone sizes against the demo server, and fails on any JavaScript error:
 
   ```bash
   pip install playwright && playwright install chromium
+  npm run build
   python3 dev/mock_server.py &
   python3 dev/smoke_test.py                           # add --shots docs/screenshots to refresh the images
   ```

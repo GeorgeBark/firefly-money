@@ -1,0 +1,107 @@
+import { AuthError, api, getAll } from '../core/api';
+import { busy, showLogin } from '../core/auth';
+import { App, S, arr, el, esc, money, money0, monthRange, num, period, sumDiff } from '../core/base';
+import { closeDrawer, formError, head, monthNav, openDrawer, opt, toast } from '../core/dom';
+import { invalidate, lists } from '../core/lists';
+import { VIEWS, hashWith, route } from '../core/router';
+
+/* ================= Budgets ================= */
+export async function budgetLimits(cur, L) {
+  const out: any = {};
+  const take = (bid, x) => { const at = x.attributes || {}; out[String(bid)] = { id: String(x.id), amount: num(at.amount) }; };
+  try {
+    const all = await getAll('/budget-limits', { start: cur.start, end: cur.end });
+    all.forEach(x => take(x.attributes.budget_id, x));
+  } catch (e) {
+    await Promise.all(L.budgets.map(b => getAll('/budgets/' + b.id + '/limits', { start: cur.start, end: cur.end }).then(ls => ls.forEach(x => take(b.id, x))).catch(() => {})));
+  }
+  return out;
+}
+VIEWS.budgets = async (r, paint) => {
+  const L = await lists();
+  const cur = period(), all = !!cur.all;   // All time shows what was spent; amounts are set per month
+  const [res, limits, noBudget, avail] = await Promise.all([
+    api('/budgets', { params: { start: cur.start, end: cur.end } }), all ? {} : budgetLimits(cur, L),
+    api('/insight/expense/no-budget', { params: { start: cur.start, end: cur.end } }).catch(() => []),
+    all ? { data: [] } : api('/available-budgets', { params: { start: cur.start, end: cur.end } }).catch(() => ({ data: [] })),
+  ]);
+  const available = arr(avail).reduce((s, x) => s + num(x.attributes.amount), 0);
+  const showInactive = r.q.inactive === '1';
+  const bs = arr(res).map(b => ({ id: String(b.id), name: b.attributes.name, active: b.attributes.active !== false, notes: b.attributes.notes || '',
+    auto: b.attributes.auto_budget_type && b.attributes.auto_budget_type !== 'none' ? b.attributes.auto_budget_type : '', autoAmt: num(b.attributes.auto_budget_amount),
+    spent: Math.abs((b.attributes.spent || []).reduce((s, x) => s + num(x.sum), 0)), lim: limits[String(b.id)] }));
+  const visible = bs.filter(b => b.active || showInactive);
+  const totLim = visible.reduce((s, b) => s + (b.lim ? b.lim.amount : 0), 0), totSpent = visible.reduce((s, b) => s + b.spent, 0), unb = sumDiff(noBudget);
+  const rows = visible.map(b => {
+    const pct = b.lim && b.lim.amount ? b.spent / b.lim.amount * 100 : 0;
+    return '<tr' + (b.active ? '' : ' style="opacity:.5"') + '><td class="namecol"><a class="desc" href="#/transactions?budget=' + b.id + '" style="text-decoration:none">' + esc(b.name) + '</a>' +
+      (b.lim ? '<div class="track" style="max-width:360px"><div class="fill ' + (pct > 100 ? 'over' : 'good') + '" style="width:' + Math.min(100, pct).toFixed(1) + '%"></div></div><div class="sub-s">' +
+        '<span class="show-s">' + money(b.spent) + ' spent · </span>' + (pct > 100 ? '<span class="up">' + money(b.spent - b.lim.amount) + ' over</span>' : money(b.lim.amount - b.spent) + ' left · ' + pct.toFixed(0) + '% used') + '</div>' : all ? '' : '<div class="sub-s">No amount set for ' + cur.short + '</div>') +
+      (b.lim ? '' : '<div class="sub-s show-s">' + money(b.spent) + ' spent</div>') +
+      (b.auto ? '<span class="chip" title="Auto-budget">Auto ' + esc(b.auto) + ' · ' + money0(b.autoAmt) + '/mo</span>' : '') + '</td>' +
+      '<td class="amt hide-s">' + money(b.spent) + '</td>' +
+      (all ? '' : '<td class="r"><input class="inline num" type="number" min="0" step="1" placeholder="Set…" value="' + (b.lim ? b.lim.amount : '') + '" data-onchange="App.setLimit(\'' + b.id + '\',this)" aria-label="Budget for ' + esc(b.name) + '"></td>') +
+      '<td class="act"><button class="btn small" data-onclick="App.budgetForm(\'' + b.id + '\')">Edit</button></td></tr>';
+  }).join('');
+  const inactiveCount = bs.filter(b => !b.active).length;
+  paint(head('Budgets', 'Set how much you plan to spend each month', monthNav() + '<button class="btn primary" data-onclick="App.budgetForm()">+ New budget</button>') +
+    '<div class="kpis">' + (available ? '<div class="kpi"><div class="eyebrow">Available to budget</div><div class="val num">' + money0(available) + '</div><div class="sub-s">' +
+        (available - totLim >= 0 ? money0(available - totLim) + ' not yet assigned' : '<span class="up">' + money0(totLim - available) + ' more assigned than available</span>') + '</div></div>' : '') +
+      (all ? '' : '<div class="kpi"><div class="eyebrow">Budgeted</div><div class="val num">' + money0(totLim) + '</div></div>') +
+      '<div class="kpi"><div class="eyebrow">Spent in budgets</div><div class="val num">' + money0(totSpent) + '</div></div>' +
+      (all ? '' : '<div class="kpi"><div class="eyebrow">Left</div><div class="val num ' + (totLim - totSpent < 0 ? 'neg' : '') + '">' + money0(totLim - totSpent) + '</div></div>') +
+      '<div class="kpi"><div class="eyebrow">Spent outside budgets</div><div class="val num">' + money0(unb) + '</div></div></div>' +
+    '<section class="panel flush">' + (rows ? '<table class="tbl"><thead><tr><th>Budget</th><th class="r hide-s">Spent</th>' + (all ? '' : '<th class="r"><span class="hide-s">Budget for ' + cur.short + '</span><span class="show-s">Amount</span></th>') + '<th></th></tr></thead><tbody>' + rows + '</tbody></table>'
+      : '<div class="center-empty">No budgets yet. Create one to start tracking.</div>') + '</section>' +
+    (inactiveCount ? '<p style="margin-top:14px"><a class="link" href="' + hashWith({ inactive: showInactive ? '' : '1' }) + '">' + (showInactive ? 'Hide' : 'Show') + ' ' + inactiveCount + ' inactive</a></p>' : '') +
+    '<p class="sub-s" style="margin-top:14px">' + (all ? 'Budget amounts are set per month. Pick a month to set them.' : 'Type an amount in the right column and press Enter to set that month’s budget. Clear it to remove it.') + '</p>');
+  S.budgetLimits = limits; S.budgetCache = Object.fromEntries(bs.map(b => [b.id, b]));
+};
+async function setLimit(bid, input) {
+  const cur = monthRange(S.y, S.m), lim = (S.budgetLimits || {})[bid], val = input.value.trim();
+  input.disabled = true;
+  try {
+    if (val === '' || num(val) <= 0) { if (lim) await api('/budgets/' + bid + '/limits/' + lim.id, { method: 'DELETE' }); }
+    else if (lim) await api('/budgets/' + bid + '/limits/' + lim.id, { method: 'PUT', body: { amount: String(num(val)), start: cur.start, end: cur.end } });
+    else await api('/budgets/' + bid + '/limits', { method: 'POST', body: { amount: String(num(val)), start: cur.start, end: cur.end, currency_code: S.currency } });
+    toast('Budget updated'); route();
+  } catch (e) { input.disabled = false; if (e instanceof AuthError) return showLogin(e.message); toast(e.message); }
+}
+async function budgetForm(id) {
+  const L = await lists(true), b = id ? L.budgets.find(x => x.id === id) : null;
+  S.form = { id };
+  openDrawer(id ? 'Edit budget' : 'New budget',
+    '<form id="budForm" data-onsubmit="event.preventDefault();App.saveBudget()"><label>Name<input type="text" id="b-name" value="' + esc(b ? b.name : '') + '" required></label>' +
+    (!id ? '<label>Amount for ' + monthRange(S.y, S.m).label + ' (optional)<input type="number" min="0" step="1" id="b-amount"></label>' : '') +
+    (() => { const bc = (S.budgetCache || {})[id] || {}; return '<div class="grid2"><label>Auto-budget<select id="b-auto">' +
+      [['none', 'Off'], ['reset', 'Same amount every month'], ['rollover', 'Roll over what’s left'], ['adjusted', 'Adjust for overspending']].map(([v, l]) => opt(v, l, bc.auto || 'none')).join('') +
+      '</select></label><label>Monthly amount<input type="number" min="0" step="1" id="b-autoamt" value="' + (bc.autoAmt || '') + '"></label></div><p class="hint">Auto-budget sets this budget’s amount at the start of each month for you.</p>'; })() +
+    '<label>Notes<textarea id="b-notes" rows="3">' + esc(b ? b.notes : '') + '</textarea></label>' +
+    (id ? '<label class="check"><input type="checkbox" id="b-active"' + (b.active ? ' checked' : '') + '> Active</label>' : '') + '<button type="submit" hidden></button></form>',
+    (id ? '<button class="btn danger" data-onclick="App.deleteThing(\'budgets\',\'' + id + '\',\'budget\')">Delete</button>' : '') + '<span class="grow"></span><button class="btn" data-onclick="App.closeDrawer()">Cancel</button>' +
+    '<button class="btn primary" id="budSave" data-onclick="App.submit(\'budForm\')">' + (id ? 'Save' : 'Create budget') + '</button>');
+}
+async function saveBudget() {
+  const id = S.form.id, name = el('b-name').value.trim();
+  if (!name) return formError('Give the budget a name.');
+  await busy(el('budSave'), async () => {
+    const body: any = { name, notes: el('b-notes').value };
+    const auto = el('b-auto').value, autoAmt = num(el('b-autoamt').value);
+    if (auto !== 'none' && !(autoAmt > 0)) throw new Error('Set the monthly amount for the auto-budget.');
+    body.auto_budget_type = auto;
+    if (auto !== 'none') { body.auto_budget_amount = String(autoAmt); body.auto_budget_period = 'monthly'; body.auto_budget_currency_code = S.currency; }
+    if (id) { body.active = el('b-active').checked; await api('/budgets/' + id, { method: 'PUT', body }); }
+    else {
+      const res = await api('/budgets', { method: 'POST', body: { ...body, active: true } });
+      const amt = num(el('b-amount').value), cur = monthRange(S.y, S.m);
+      if (amt > 0 && res && res.data) await api('/budgets/' + res.data.id + '/limits', { method: 'POST', body: { amount: String(amt), start: cur.start, end: cur.end, currency_code: S.currency } });
+    }
+    invalidate(); closeDrawer(); toast(id ? 'Budget saved' : 'Budget created'); route();
+  });
+}
+
+Object.assign(App, {
+  setLimit,
+  budgetForm,
+  saveBudget,
+});

@@ -1,0 +1,48 @@
+/* The app's entry point. esbuild bundles it, and everything it imports, into assets/js/app.js.
+   Modules run in the order they're listed here. A module only imports from modules above it, so that
+   order holds; code that needs something further down calls it through App (e.g. App.selChanged()). */
+import './core/events';
+import { S, el } from './core/base';
+import './core/helpers';
+import './core/api';
+import './core/feed';
+import './core/lists';
+import './core/dom';
+import './core/auth';
+import { parseHash, refreshAll } from './core/router';
+import './features/txform';
+import './features/bulk';
+import './features/attachments';
+import './features/charts';
+import './features/dashboard';
+import './pages/loans';
+import './pages/bills';
+import './pages/budgets';
+import './pages/piggy';
+import './features/phone';
+import './pages/overview';
+import './pages/transactions';
+import './pages/accounts';
+import './pages/categories';
+import './core/login';
+import './pages/reconcile';
+import './pages/rules';
+import './pages/recurring';
+import './pages/reports';
+import './pages/settings';
+import './features/palette';
+import './features/polish';
+import './features/datepicker';
+import './pages/forecast';
+import './pages/inbox';
+import './features/pwa';
+import './features/insights';
+import './features/prefs';
+import './features/gestures';
+import './features/picker';
+import './features/keyboard';
+import './features/nlparse';
+import './features/shell';
+
+// For the smoke test (dev/smoke_test.py) and the browser console
+Object.assign(window, { S, el, parseHash, refreshAll });

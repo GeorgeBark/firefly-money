@@ -20,7 +20,8 @@ services:
       DASH_PASSWORD: ${DASH_PASSWORD}
 
     # Prefer running your local copy of the files instead of the published image?
-    # Comment out "image:" above, and uncomment these lines:
+    # Build the scripts first (npm install && npm run build, which needs Node.js),
+    # then comment out "image:" above, and uncomment these lines:
     # image: nginx:1.27-alpine
     # environment:  (keep the three variables above, and add:)
     #   NGINX_ENVSUBST_FILTER: "^(FIREFLY_URL|FIREFLY_TOKEN|DASH_PASSWORD|LISTEN_PORT|NGINX_LOCAL_RESOLVERS)$"

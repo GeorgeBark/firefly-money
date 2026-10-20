@@ -1,0 +1,68 @@
+import { AuthError, api, eachLimited } from '../core/api';
+import { showLogin } from '../core/auth';
+import { App, S, el, esc } from '../core/base';
+import { opt, toast } from '../core/dom';
+import { invalidate } from '../core/lists';
+import { route } from '../core/router';
+
+/* ================= Bulk edit ================= */
+export function selChanged() {
+  S.sel = new Set([...document.querySelectorAll<HTMLInputElement>('input[data-sel]:checked')].map(i => i.dataset.sel));
+  renderBulk();
+}
+export function selAll(on) { document.querySelectorAll<HTMLInputElement>('input[data-sel], .selall input').forEach(i => { i.checked = on; }); selChanged(); }
+function renderBulk(progress?) {
+  const bar = el('bulkbar'); if (!bar) return;
+  const n = S.sel ? S.sel.size : 0;
+  if (!n) { bar.hidden = true; return; }
+  const L = S.lists;
+  bar.hidden = false;
+  bar.innerHTML = progress ? '<strong>' + esc(progress) + '</strong>' :
+    '<strong>' + n + ' selected</strong>' +
+    '<input type="text" id="bk-cat" list="bk-dlcat" placeholder="Category" style="width:170px"><datalist id="bk-dlcat">' + L.categories.map(c => '<option value="' + esc(c.name) + '">').join('') + '</datalist>' +
+    '<button class="btn small" data-onclick="App.bulk(\'category\')">Set category</button>' +
+    '<select id="bk-bud" style="width:170px">' + opt('', 'Choose budget…', '') + opt('0', 'No budget', '') + L.budgets.filter(b => b.active).map(b => opt(b.id, b.name, '')).join('') + '</select>' +
+    '<button class="btn small" data-onclick="App.bulk(\'budget\')">Set budget</button>' +
+    '<input type="text" id="bk-tag" list="bk-dltag" placeholder="Tag" style="width:130px"><datalist id="bk-dltag">' + L.tags.map(t => '<option value="' + esc(t.name) + '">').join('') + '</datalist>' +
+    '<button class="btn small" data-onclick="App.bulk(\'tag\')">Add tag</button>' +
+    '<button class="btn small danger" data-onclick="App.bulk(\'delete\')">Delete</button>' +
+    '<button class="link" data-onclick="App.selAll(false)">Clear</button>';
+}
+async function bulk(kind) {
+  const groups = [...(S.sel || [])].map(id => S.txMeta[id] && S.txMeta[id].g).filter(Boolean);
+  if (!groups.length) return;
+  let val = '';
+  if (kind === 'category') { val = el('bk-cat').value.trim(); if (!val) return toast('Type a category first.'); }
+  if (kind === 'budget') { val = el('bk-bud').value; if (val === '') return toast('Choose a budget first.'); }
+  if (kind === 'tag') { val = el('bk-tag').value.trim(); if (!val) return toast('Type a tag first.'); }
+  if (kind === 'delete') return App.softDeleteTx(groups.map(g => g.id));
+  let done = 0, skipped = 0, failed = 0, authErr = null;
+  renderBulk('Working… 0 of ' + groups.length);
+  await eachLimited(groups, 4, async g => {
+    if (authErr) return;
+    const tx = g.splits.map(s => {
+      const o: any = { transaction_journal_id: s.jid };
+      if (kind === 'category') o.category_name = val;
+      if (kind === 'budget') { if (s.type !== 'withdrawal') return null; o.budget_id = val; }
+      if (kind === 'tag') o.tags = [...new Set([...s.tags, val])];
+      return o;
+    }).filter(Boolean);
+    if (!tx.length) skipped++;
+    else {
+      try { await api('/transactions/' + g.id, { method: 'PUT', body: { apply_rules: false, fire_webhooks: true, transactions: tx } }); }
+      catch (e) { if (e instanceof AuthError) authErr = e; else failed++; }
+    }
+    renderBulk('Working… ' + (++done) + ' of ' + groups.length);
+  });
+  if (authErr) return showLogin(authErr.message);
+  invalidate();
+  toast('Updated ' + (done - skipped - failed) + ' transaction' + (done - skipped - failed === 1 ? '' : 's') +
+    (skipped ? ' · ' + skipped + ' skipped (budgets only apply to expenses)' : '') + (failed ? ' · ' + failed + ' failed' : ''));
+  route();
+}
+
+Object.assign(App, {
+  selChanged,
+  selAll,
+  bulk,
+});

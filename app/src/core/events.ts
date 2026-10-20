@@ -1,4 +1,4 @@
-'use strict';
+export {};
 /* ================= Event handlers without inline script =================
    The Content-Security-Policy refuses inline script, so markup carries its handlers as
    data-onclick="App.editTx('12')" (and data-onchange, data-onsubmit, …) instead of onclick=.

@@ -1,4 +1,8 @@
-'use strict';
+import { App, S, el } from '../core/base';
+import { parseHash } from '../core/router';
+import { moreSheet } from './phone';
+import { quickAdd } from './polish';
+
 /* =====================================================================
    App shell: iOS-style title bar, sheet effect, and the bridge to the
    native tab bar when running inside the iPhone app.
@@ -8,21 +12,22 @@ function postNative(name, body) { try { window.webkit.messageHandlers[name].post
 
 /* ---------- Title bar: large title collapses into a small one; back button on detail pages ---------- */
 const appbar = document.createElement('header');
-appbar.id = 'appbar'; appbar.className = 'appbar';
+appbar.id = 'appbar';
+ appbar.className = 'appbar';
 appbar.innerHTML = '<a class="ab-back" hidden><svg viewBox="0 0 12 21" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2L2 10.5 10 19"/></svg><span></span></a><div class="ab-title"></div>';
 el('app').prepend(appbar);
 let abTick = false;
 function appbarScroll() {
   abTick = false;
-  const h1 = document.querySelector('#view .head h1');
+  const h1 = document.querySelector<HTMLElement>('#view .head h1');
   const edge = appbar.getBoundingClientRect().bottom || 44;
   appbar.classList.toggle('scrolled', h1 ? h1.getBoundingClientRect().bottom < edge + 2 : scrollY > 4);
 }
 function updateAppbar() {
-  const h1 = document.querySelector('#view .head h1');
+  const h1 = document.querySelector<HTMLElement>('#view .head h1');
   appbar.querySelector('.ab-title').textContent = h1 ? h1.textContent : '';
-  const backP = [...document.querySelectorAll('#view > p')].find(p => { const a = p.querySelector('a.link'); return a && /^\s*←/.test(a.textContent); });
-  const btn = appbar.querySelector('.ab-back');
+  const backP = [...document.querySelectorAll<HTMLElement>('#view > p')].find(p => { const a = p.querySelector('a.link'); return a && /^\s*←/.test(a.textContent); });
+  const btn = appbar.querySelector<HTMLElement>('.ab-back');
   if (backP) {
     const a = backP.querySelector('a.link');
     btn.hidden = false; btn.setAttribute('href', a.getAttribute('href'));
@@ -66,4 +71,8 @@ function tabTap(id) {
   S.tabNav = true;              // tabs switch instantly, like a native tab bar
   location.hash = h;
 }
-Object.assign(window.App, { tabTap, updateAppbar });
+
+Object.assign(App, {
+  tabTap,
+  updateAppbar,
+});

@@ -1,5 +1,15 @@
 # Money: a modern frontend for Firefly III.
 # nginx fills in FIREFLY_URL / FIREFLY_TOKEN / DASH_PASSWORD from the environment at startup.
+
+# Build stage: bundles the TypeScript in app/src into app/assets/js. Only its output goes into the image.
+FROM --platform=$BUILDPLATFORM node:22-alpine AS build
+WORKDIR /src
+COPY package.json package-lock.json ./
+RUN npm ci --no-audit --no-fund
+COPY tsconfig.json build.mjs ./
+COPY app/src app/src
+RUN npm run check && npm run build
+
 FROM nginx:1.31-alpine
 
 # Which build this is, e.g. "c78fd51 · 2026-09-30" (set by the GitHub workflow). Shown in Settings → About.
@@ -14,8 +24,9 @@ ENV NGINX_ENVSUBST_FILTER="^(FIREFLY_URL|FIREFLY_TOKEN|DASH_PASSWORD|MONEY_VERSI
 
 COPY app/default.conf.template /etc/nginx/templates/default.conf.template
 COPY app/index.html /etc/nginx/templates/index.html.template
-# Stylesheet and scripts: plain files, served as they are from /assets/
+# Stylesheet as it is, and the bundled scripts from the build stage, served from /assets/
 COPY app/assets /usr/share/nginx/html/assets
+COPY --from=build /src/app/assets/js /usr/share/nginx/html/assets/js
 
 # Also runs as any non-root user (e.g. `user: "568:568"`): the pid file goes to /tmp, and the folders
 # nginx writes to at startup (the filled-in config and page, its cache) are writable by everyone.

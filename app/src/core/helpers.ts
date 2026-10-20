@@ -1,0 +1,26 @@
+import { App, isoDate } from './base';
+
+/* Small shared helpers: dates, local settings, downloads. */
+export function saveBlob(blob, name) {
+  const u = URL.createObjectURL(blob), a = document.createElement('a');
+  a.href = u; a.download = name || 'download'; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(u), 4000);
+}
+export const addDays = (iso, n) => { const d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + n); return isoDate(d); };
+export const fmtSize = b => b > 1048576 ? (b / 1048576).toFixed(1) + ' MB' : b > 1024 ? Math.round(b / 1024) + ' KB' : (b || 0) + ' B';
+export const LS = {
+  get(k, d) { try { const v = localStorage.getItem('money.' + k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('money.' + k, JSON.stringify(v)); } catch (e) { /* storage blocked */ } },
+};
+export const daysBetween = (a, b) => Math.round((+new Date(b + 'T12:00:00') - +new Date(a + 'T12:00:00')) / 864e5);
+export function bizDay(y, m, day) {            // that day of the month (clamped), moved back to Friday if it's a weekend
+  const d = new Date(y, m, Math.min(day, new Date(y, m + 1, 0).getDate()), 12);
+  while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() - 1);
+  return isoDate(d);
+}
+export function monthsFrom(from, to) { const out = []; let d = new Date(from + 'T12:00:00'); d.setDate(1); const end = new Date(to + 'T12:00:00'); while (d <= end) { out.push([d.getFullYear(), d.getMonth()]); d.setMonth(d.getMonth() + 1); } return out; }
+export const buzz = ms => { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) { /* not supported */ } };
+
+Object.assign(App, {
+  buzz,
+});

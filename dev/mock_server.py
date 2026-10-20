@@ -181,7 +181,7 @@ class H(BaseHTTPRequestHandler):
                 root = os.path.realpath(os.path.join(os.path.dirname(os.path.abspath(INDEX)), 'assets'))
                 f = os.path.realpath(os.path.join(root, u.path[len('/assets/'):]))
                 if not f.startswith(root + os.sep) or not os.path.isfile(f): self.send_response(404); self.end_headers(); return
-                ctype = {'.css': 'text/css', '.js': 'application/javascript'}.get(os.path.splitext(f)[1], 'application/octet-stream')
+                ctype = {'.css': 'text/css', '.js': 'application/javascript', '.map': 'application/json'}.get(os.path.splitext(f)[1], 'application/octet-stream')
                 body = open(f, 'rb').read(); self.send_response(200); self.send_header('Content-Type', ctype); self.end_headers(); self.wfile.write(body)
             else: self.send_response(404); self.end_headers()
             return
@@ -199,5 +199,7 @@ class H(BaseHTTPRequestHandler):
     def do_POST(self): self._go('POST')
     def do_PUT(self): self._go('PUT')
 
+if not os.path.isfile(os.path.join(os.path.dirname(os.path.abspath(INDEX)), 'assets', 'js', 'app.js')):
+    print('The app isn\'t built yet: run  npm install && npm run build  (or npm run watch) first.')
 print('Demo running at http://127.0.0.1:%d  (password: demo)' % PORT)
 ThreadingHTTPServer(('127.0.0.1', PORT), H).serve_forever()

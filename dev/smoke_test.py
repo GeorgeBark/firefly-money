@@ -10,9 +10,11 @@ from playwright.async_api import async_playwright
 BASE = os.environ.get('BASE', 'http://127.0.0.1:8765/')   # e.g. a flaky demo server: BASE=http://127.0.0.1:8766/
 PAGES = ['', 'forecast', 'transactions', 'inbox', 'accounts', 'account/1', 'account/3?range=all', 'loans', 'budgets', 'categories',
          'bills', 'recurring', 'piggy', 'rules', 'reports', 'settings']
-# The markup's event handlers (data-onclick="App.x(…)"), with the JS concatenations ' + … + ' filled in with 1
+# The markup's event handlers (data-onclick="App.x(…)") in the page and the TypeScript sources (not the minified
+# bundle), with the JS concatenations ' + … + ' filled in with 1
 _root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'app')
-_src = ''.join(open(os.path.join(d, f)).read() for d, _, fs in os.walk(_root) for f in fs if f.endswith(('.js', '.html')))
+_src = open(os.path.join(_root, 'index.html')).read() + ''.join(
+    open(os.path.join(d, f)).read() for d, _, fs in os.walk(os.path.join(_root, 'src')) for f in fs if f.endswith('.ts'))
 HANDLERS = sorted({re.sub(r"' \+ .*? \+ '", '1', h).replace("\\'", "'") for h in re.findall(r'data-on[a-z]+="(.*?)"', _src)})
 SHOTS = sys.argv[sys.argv.index('--shots') + 1] if '--shots' in sys.argv else None
 # The page for the current hash has painted (not the previous page or the loading skeleton) and no animation is running

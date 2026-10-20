@@ -1,0 +1,49 @@
+import { App, S, el } from '../core/base';
+import { openDrawer } from '../core/dom';
+import { selChanged } from './bulk';
+import { fitSankey } from './charts';
+import { bindDash } from './dashboard';
+import { bindFeed } from './gestures';
+import { pick } from './picker';
+import { reduceMotion, typing } from './polish';
+import { drawToggles, togglePrivacy } from './prefs';
+import { editTx } from './txform';
+
+/* ---------- Keyboard: j/k to move, Enter to open, c/b to recategorize, x to select, p for privacy, ? for help ---------- */
+function kRows() { return [...document.querySelectorAll<HTMLElement>('#view tr[data-gid]')]; }
+function kMark(i) {
+  const rows = kRows(); if (!rows.length) return;
+  S.kIdx = Math.max(0, Math.min(rows.length - 1, i));
+  rows.forEach((r, j) => r.classList.toggle('kfocus', j === S.kIdx));
+  rows[S.kIdx].scrollIntoView({ block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' });
+}
+document.addEventListener('keydown', e => {
+  if (el('app').hidden || typing(e) || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (el('drawer').classList.contains('open') || !el('palette').hidden || el('confirm').open || !el('pickpop').hidden) return;
+  const k = e.key;
+  if (k === 'p' || k === 'P') { e.preventDefault(); return togglePrivacy(); }
+  if (k === '?') { e.preventDefault(); return shortcutsSheet(); }
+  if (k === 'j' || k === 'ArrowDown' && S.kIdx >= 0) { e.preventDefault(); return kMark((S.kIdx ?? -1) + 1); }
+  if (k === 'k' || k === 'ArrowUp' && S.kIdx >= 0) { e.preventDefault(); return kMark(Math.max(0, (S.kIdx ?? 0) - 1)); }
+  const tr = S.kIdx >= 0 && kRows()[S.kIdx]; if (!tr) return;
+  if (k === 'Enter' || k === 'o') { e.preventDefault(); editTx(tr.dataset.gid); }
+  else if (k === 'c' || k === 'b') { const n = [...tr.querySelectorAll<HTMLElement>('[data-k="' + (k === 'c' ? 'category' : 'budget') + '"]')].find(x => x.offsetParent !== null); if (n) { e.preventDefault(); pick(n); } }
+  else if (k === 'x') { const cb = tr.querySelector<HTMLInputElement>('input[data-sel]'); if (cb) { cb.checked = !cb.checked; selChanged(); } }
+  else if (k === 'Escape') { S.kIdx = -1; kRows().forEach(r => r.classList.remove('kfocus')); }
+});
+function shortcutsSheet() {
+  const rows = [['N', 'New transaction'], ['⌘/Ctrl K', 'Search everything'], ['/', 'Search transactions'], ['J / K', 'Next / previous transaction'], ['Enter', 'Open the selected transaction'],
+    ['C', 'Change its category'], ['B', 'Change its budget'], ['X', 'Select it for bulk edit'], ['P', 'Hide or show amounts'], ['Esc', 'Close / clear']];
+  openDrawer('Keyboard shortcuts', '<div class="list">' + rows.map(([a, b]) => '<div class="row"><span class="name">' + b + '</span><kbd>' + a + '</kbd></div>').join('') + '</div>');
+}
+
+/* ---------- After each page paint ---------- */
+function afterPaint2(r) {
+  bindFeed(); bindDash(); drawToggles(); fitSankey();
+  S.kIdx = -1;
+}
+
+Object.assign(App, {
+  afterPaint2,
+  shortcutsSheet,
+});

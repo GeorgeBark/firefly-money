@@ -1,0 +1,102 @@
+import { api, getAll } from '../core/api';
+import { busy } from '../core/auth';
+import { App, S, el, esc, fmtDate, money, money0, num, todayIso } from '../core/base';
+import { closeDrawer, formError, head, openDrawer, opt, toast } from '../core/dom';
+import { isAsset, isCard, lists } from '../core/lists';
+import { VIEWS, route } from '../core/router';
+
+/* ================= Piggy banks ================= */
+export function normPiggy(p) {
+  const at = p.attributes || {};
+  const accounts = (at.accounts || []).map(x => ({ id: String(x.account_id ?? x.id), name: x.name || x.account_name || '', amount: num(x.current_amount) }));
+  if (!accounts.length && at.account_id) accounts.push({ id: String(at.account_id), name: at.account_name || '', amount: num(at.current_amount) });
+  return { id: String(p.id), name: at.name, target: num(at.target_amount), current: num(at.current_amount), left: num(at.left_to_save), perMonth: num(at.save_per_month),
+    targetDate: at.target_date || '', startDate: at.start_date || '', notes: at.notes || '', active: at.active !== false, accounts, group: at.object_group_title || '' };
+}
+VIEWS.piggy = async (r, paint) => {
+  const L = await lists();
+  const piggies = (await getAll('/piggy-banks')).map(normPiggy);
+  S.piggyCache = Object.fromEntries(piggies.map(p => [p.id, p]));
+  const saved = piggies.reduce((s, p) => s + p.current, 0), goal = piggies.reduce((s, p) => s + p.target, 0);
+  piggies.sort((a, b) => a.group.localeCompare(b.group));
+  const cards = piggies.map((p, i) => {
+    const heading = p.group && (i === 0 || piggies[i - 1].group !== p.group) ? '<div class="eyebrow" style="grid-column:1/-1;margin:6px 0 -6px">' + esc(p.group) + '</div>' : '';
+    const pct = p.target ? Math.min(100, p.current / p.target * 100) : 0;
+    return heading + '<section class="panel"><div class="panel-head"><h2>' + esc(p.name) + '</h2><button class="btn small" data-onclick="App.piggyForm(\'' + p.id + '\')">Edit</button></div>' +
+      '<p class="lead">' + esc(p.accounts.map(a => a.name || (L.byId[a.id] || {}).name).filter(Boolean).join(', ') || 'No account') + (p.targetDate ? ' · by ' + fmtDate(p.targetDate) : '') + '</p>' +
+      '<div class="total num" style="margin-bottom:2px">' + money0(p.current) + ' <span class="neutral" style="font-size:16px">of ' + money0(p.target) + '</span></div>' +
+      '<div class="track"><div class="fill good" style="width:' + pct.toFixed(1) + '%"></div></div>' +
+      '<div class="sub-s" style="margin-bottom:16px">' + pct.toFixed(0) + '% saved' + (p.left > 0 ? ' · ' + money0(p.left) + ' to go' : ' · Goal reached') + (p.perMonth > 0 ? ' · about ' + money0(p.perMonth) + '/month' : '') + '</div>' +
+      '<div style="display:flex;gap:8px"><button class="btn small" data-onclick="App.piggyMoney(\'' + p.id + '\',1)">+ Add money</button><button class="btn small" data-onclick="App.piggyMoney(\'' + p.id + '\',-1)">− Take out</button></div></section>';
+  }).join('');
+  paint(head('Piggy banks', piggies.length ? money0(saved) + ' saved toward ' + money0(goal) + ' in goals' : 'Set money aside for goals', '<button class="btn primary" data-onclick="App.piggyForm()">+ New piggy bank</button>') +
+    (cards ? '<div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(320px,1fr))">' + cards + '</div>' :
+      '<section class="panel"><div class="center-empty">No piggy banks yet.<br>Use one to set money aside in an account for a goal — a trip, tuition, an emergency fund.</div></section>'));
+};
+function piggyForm(id) {
+  const L = S.lists, p = id ? S.piggyCache[id] : null;
+  S.form = { id };
+  const accId = p && p.accounts[0] ? p.accounts[0].id : ((L.own.find(a => a.role === 'savingAsset') || L.own.find(a => isAsset(a) && !isCard(a)) || {}).id || '');
+  openDrawer(id ? 'Edit piggy bank' : 'New piggy bank',
+    '<form id="pgForm" data-onsubmit="event.preventDefault();App.savePiggy()"><label>Name<input type="text" id="p-name" value="' + esc(p ? p.name : '') + '" required></label>' +
+    '<label>Account the money sits in<select id="p-acc"' + (id ? ' disabled' : '') + '>' + L.own.filter(a => isAsset(a) && !isCard(a)).map(a => opt(a.id, a.name, accId)).join('') + '</select></label>' +
+    '<div class="grid2"><label>Goal amount<input type="number" min="0.01" step="0.01" id="p-target" value="' + esc(p ? p.target : '') + '" required></label>' +
+    '<label>Target date (optional)<input type="date" id="p-date" value="' + esc(p && p.targetDate ? String(p.targetDate).slice(0, 10) : '') + '"></label></div>' +
+    (!id ? '<label>Already saved (optional)<input type="number" min="0" step="0.01" id="p-current" placeholder="0.00"></label>' : '') +
+    '<label>Group (optional)<input type="text" id="p-group" list="dl-pgroups" value="' + esc(p ? p.group : '') + '"></label>' +
+    '<datalist id="dl-pgroups">' + [...new Set(Object.values<any>(S.piggyCache || {}).map(x => x.group).filter(Boolean))].map(g => '<option value="' + esc(g) + '">').join('') + '</datalist>' +
+    '<label>Notes<textarea id="p-notes" rows="3">' + esc(p ? p.notes : '') + '</textarea></label><button type="submit" hidden></button></form>' +
+    (id ? '<div id="pgHistory"><p class="sub-s">Loading history…</p></div>' : ''),
+    (id ? '<button class="btn danger" data-onclick="App.deleteThing(\'piggy-banks\',\'' + id + '\',\'piggy bank\')">Delete</button>' : '') + '<span class="grow"></span><button class="btn" data-onclick="App.closeDrawer()">Cancel</button>' +
+    '<button class="btn primary" id="pgSave" data-onclick="App.submit(\'pgForm\')">' + (id ? 'Save' : 'Create piggy bank') + '</button>');
+  if (id) getAll('/piggy-banks/' + id + '/events').then(ev => {
+    const box = el('pgHistory'); if (!box) return;
+    box.innerHTML = '<h3 style="font-size:14px;margin:8px 0 10px">History</h3>' + (ev.length ? '<div class="list">' + ev.map(e => {
+      const a = num(e.attributes.amount);
+      return '<div class="row"><span class="name">' + fmtDate(e.attributes.created_at || e.attributes.date) + (e.attributes.transaction_journal_id ? ' <span class="sub-s">· from a transaction</span>' : '') + '</span><span class="num ' + (a < 0 ? 'neg' : 'pos') + '">' + (a > 0 ? '+' : '') + money(a) + '</span></div>';
+    }).join('') + '</div>' : '<p class="empty">No changes yet.</p>');
+  }).catch(() => { const box = el('pgHistory'); if (box) box.innerHTML = ''; });
+}
+async function savePiggy() {
+  const id = S.form.id, v = x => el(x) ? el(x).value.trim() : '';
+  if (!v('p-name')) return formError('Give it a name.');
+  if (!(num(v('p-target')) > 0)) return formError('Set a goal amount above zero.');
+  const body: any = { name: v('p-name'), target_amount: String(num(v('p-target'))), notes: el('p-notes').value, object_group_title: v('p-group') };
+  if (v('p-date')) body.target_date = v('p-date');
+  if (!id) {
+    body.start_date = todayIso(); body.transaction_currency_code = S.currency;
+    body.accounts = [{ account_id: v('p-acc'), current_amount: String(num(v('p-current'))) }];
+  }
+  await busy(el('pgSave'), async () => {
+    await api(id ? '/piggy-banks/' + id : '/piggy-banks', { method: id ? 'PUT' : 'POST', body });
+    closeDrawer(); toast(id ? 'Piggy bank saved' : 'Piggy bank created'); route();
+  });
+}
+function piggyMoney(id, dir) {
+  const p = S.piggyCache[id];
+  S.form = { id, dir };
+  openDrawer((dir > 0 ? 'Add money to ' : 'Take money out of ') + p.name,
+    '<form id="pmForm" data-onsubmit="event.preventDefault();App.savePiggyMoney()"><p class="sub-s" style="margin-top:0">Currently ' + money(p.current) + ' of ' + money(p.target) + '. This only moves money in Firefly’s bookkeeping — no transaction is created.</p>' +
+    (p.accounts.length > 1 ? '<label>Account<select id="pm-acc">' + p.accounts.map(a => opt(a.id, (a.name || (S.lists.byId[a.id] || {}).name) + ' (' + money(a.amount) + ')', '')).join('') + '</select></label>' : '') +
+    '<label>Amount<input type="number" min="0.01" step="0.01" id="pm-amt" required></label><button type="submit" hidden></button></form>',
+    '<span class="grow"></span><button class="btn" data-onclick="App.closeDrawer()">Cancel</button><button class="btn primary" id="pmSave" data-onclick="App.submit(\'pmForm\')">' + (dir > 0 ? 'Add' : 'Take out') + '</button>');
+}
+async function savePiggyMoney() {
+  const { id, dir } = S.form, p = S.piggyCache[id], amt = num(el('pm-amt').value);
+  if (!(amt > 0)) return formError('Enter an amount above zero.');
+  const accId = el('pm-acc') ? el('pm-acc').value : (p.accounts[0] || {}).id;
+  if (!accId) return formError('This piggy bank has no account linked. Edit it in Firefly III.');
+  const accounts = p.accounts.map(a => ({ account_id: a.id, current_amount: String(a.id === accId ? Math.max(0, a.amount + dir * amt) : a.amount) }));
+  if (dir < 0 && (p.accounts.find(a => a.id === accId) || {}).amount < amt) return formError('There isn’t that much saved in it.');
+  await busy(el('pmSave'), async () => {
+    await api('/piggy-banks/' + id, { method: 'PUT', body: { accounts } });
+    closeDrawer(); toast(dir > 0 ? 'Money added' : 'Money taken out'); route();
+  });
+}
+
+Object.assign(App, {
+  piggyForm,
+  savePiggy,
+  piggyMoney,
+  savePiggyMoney,
+});

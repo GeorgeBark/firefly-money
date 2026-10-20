@@ -2,7 +2,7 @@
 # nginx fills in FIREFLY_URL / FIREFLY_TOKEN / DASH_PASSWORD from the environment at startup.
 
 # Build stage: bundles the TypeScript in app/src into app/assets/js. Only its output goes into the image.
-FROM --platform=$BUILDPLATFORM node:22-alpine AS build
+FROM --platform=$BUILDPLATFORM node:26-alpine AS build
 WORKDIR /src
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund

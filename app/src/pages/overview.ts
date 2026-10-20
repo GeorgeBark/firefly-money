@@ -11,7 +11,7 @@ import { bindSwipe } from '../features/phone';
 import { billAmount } from './bills';
 import { budgetLimits } from './budgets';
 import { loanHistory } from './loans';
-import { normPiggy } from './piggy';
+import { normPiggy, paceBits } from './piggy';
 
 /* ================= Overview ================= */
 VIEWS[''] = async (r, paint) => {
@@ -46,7 +46,7 @@ VIEWS[''] = async (r, paint) => {
     monthOnly ? [] : getAll('/transactions', { start: cur.start, end: cur.end, type: 'withdrawal' }).catch(() => []),
     api('/insight/income/revenue', { params: p(cur) }).catch(() => []),
     api('/insight/expense/expense', { params: p(cur) }).catch(() => []), all ? [] : api('/insight/expense/expense', { params: p(prev) }).catch(() => []),
-    getAll('/piggy-banks').then(ps => ps.map(normPiggy)).catch(() => [])]);
+    getAll('/piggy-banks').then(ps => ps.map(normPiggy)).catch(() => []), App.netWorthHistory().catch(() => null)]);
   slowP.catch(() => {});
   const [summary, catNow, catPrev, noCatNow, noCatPrev, trend, recent, budgets, limits, bills, uncat, allTot] = await coreP;
   const nwKey = Object.keys(summary || {}).find(k => k.startsWith('net-worth-in'));
@@ -62,11 +62,12 @@ VIEWS[''] = async (r, paint) => {
   if (un || unP) cats.set('Uncategorized', { name: 'Uncategorized', amt: un, prev: unP });
 
   const build = slow => {
-    const [prog, safe, insights, sparks, dayTx, incomeSrc, payNow, payPrev, piggies] = slow || [];
+    const [prog, safe, insights, sparks, dayTx, incomeSrc, payNow, payPrev, piggies, nw] = slow || [];
     const wait = k => slow ? null : skeletonPanel(k);
     const W = [
       ['safe', future ? '' : wait('safe') ?? safe],
       ['attention', attentionPanel({ uncat, uncatQ, bills: arr(bills), budgets: arr(budgets), limits, future })],
+      ['networth', wait('networth') ?? App.netWorthPanel(nw)],
       ['spending', spendingPanel([...cats.values()], future, all)],
       ['budgets', budgetsMini(arr(budgets), limits, all)],
       ['cash', balancesPanel('Cash & savings', 'Bank account balances', cash, a => a.balance, false, sparks)],
@@ -107,7 +108,7 @@ function fillIn(markup) {
   return true;
 }
 function skeletonPanel(k) {
-  const h = { safe: 70, loans: 90, heatmap: 230, flow: 240, payees: 200 }[k] || 120;
+  const h = { safe: 70, loans: 90, heatmap: 230, flow: 240, payees: 200, networth: 230 }[k] || 120;
   return html`<section class="panel" aria-busy="true"><h2>${DASH_NAMES[k] || ''}</h2><p class="lead">&nbsp;</p><div class="sk" style="height:${h}px"></div></section>`;
 }
 function attentionPanel({ uncat, uncatQ, bills, budgets, limits, future }) {
@@ -206,11 +207,10 @@ function incomePanel(sources, all) {
 function goalsPanel(piggies) {
   const live = (piggies || []).filter(p => p.active && p.target > 0);
   if (!live.length) return '';
+  S.piggyCache = { ...S.piggyCache, ...Object.fromEntries(live.map(p => [p.id, p])) };      // for Add money
   const rows = htmlList(live.sort((a, b) => (a.targetDate || '9999').localeCompare(b.targetDate || '9999')).map(p => {
-    const pct = Math.min(100, p.current / p.target * 100), bits = [pct.toFixed(0) + '% saved'];
-    if (p.left > 0 && p.targetDate) bits.push(money0(p.left) + ' to go by ' + fmtDate(p.targetDate));
-    else if (p.left > 0) bits.push(money0(p.left) + ' to go');
-    return html`<div class="cat"><div class="row"><span class="name">${p.name}</span><span class="num">${money0(p.current)} <span class="neutral">of ${money0(p.target)}</span></span></div><div class="track"><div class="fill good" style="width:${pct.toFixed(1)}%"></div></div><div class="sub">${bits.join(' · ')}</div></div>`;
+    const pct = Math.min(100, p.current / p.target * 100), pace = paceBits(p);
+    return html`<div class="cat"><div class="row"><span class="name">${p.name} ${pace.chip}</span><span class="num">${money0(p.current)} <span class="neutral">of ${money0(p.target)}</span></span></div><div class="track"><div class="fill good" style="width:${pct.toFixed(1)}%"></div></div><div class="sub" style="display:flex;gap:8px;align-items:baseline"><span>${pct.toFixed(0)}% saved · ${pace.line}</span>${p.left > 0 ? html`<button class="link" style="margin-left:auto;flex:none" data-onclick="App.piggyMoney('${p.id}',1)">+ Add</button>` : ''}</div></div>`;
   }));
   return html`<section class="panel"><div class="panel-head"><h2>Savings goals</h2><a class="link" href="#/piggy">All goals</a></div><p class="lead">Piggy bank progress</p>${rows}</section>`;
 }

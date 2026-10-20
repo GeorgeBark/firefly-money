@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { S, arr, esc, isoDate, money, monthRange, num, sameName } from '../app/src/core/base';
+import { S, arr, isoDate, money, monthRange, num, sameName } from '../app/src/core/base';
 
 describe('monthRange', () => {
   it('gives the first and last day of the month', () => {
@@ -13,10 +13,6 @@ describe('monthRange', () => {
 });
 
 describe('small helpers', () => {
-  it('escapes HTML', () => {
-    expect(esc('<a href="x">Tom & Jerry\'s</a>')).toBe('&lt;a href=&quot;x&quot;&gt;Tom &amp; Jerry&#39;s&lt;/a&gt;');
-    expect(esc(null)).toBe('');
-  });
   it('reads numbers leniently', () => {
     expect(num('12.5')).toBe(12.5);
     expect(num('')).toBe(0);

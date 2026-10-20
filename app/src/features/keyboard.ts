@@ -1,3 +1,4 @@
+import { html, htmlList } from '../core/html';
 import { App, S, el } from '../core/base';
 import { openDrawer } from '../core/dom';
 import { selChanged } from './bulk';
@@ -34,7 +35,7 @@ document.addEventListener('keydown', e => {
 function shortcutsSheet() {
   const rows = [['N', 'New transaction'], ['⌘/Ctrl K', 'Search everything'], ['/', 'Search transactions'], ['J / K', 'Next / previous transaction'], ['Enter', 'Open the selected transaction'],
     ['C', 'Change its category'], ['B', 'Change its budget'], ['X', 'Select it for bulk edit'], ['P', 'Hide or show amounts'], ['Esc', 'Close / clear']];
-  openDrawer('Keyboard shortcuts', '<div class="list">' + rows.map(([a, b]) => '<div class="row"><span class="name">' + b + '</span><kbd>' + a + '</kbd></div>').join('') + '</div>');
+  openDrawer('Keyboard shortcuts', html`<div class="list">${htmlList(rows.map(([a, b]) => html`<div class="row"><span class="name">${b}</span><kbd>${a}</kbd></div>`))}</div>`);
 }
 
 /* ---------- After each page paint ---------- */

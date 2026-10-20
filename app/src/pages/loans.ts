@@ -1,6 +1,7 @@
+import { html, htmlList } from '../core/html';
 import { api, getAll } from '../core/api';
 import { withAuth } from '../core/auth';
-import { App, S, esc, fmtDay, isoDate, money, money0, num, todayIso } from '../core/base';
+import { App, S, fmtDay, isoDate, money, money0, num, todayIso } from '../core/base';
 import { head, toast } from '../core/dom';
 import { normGroup } from '../core/feed';
 import { LS, daysBetween } from '../core/helpers';
@@ -70,29 +71,14 @@ VIEWS.loans = async (r, paint) => {
   S.loanModel = model;
   const base = simulate(model, 0, 'now'), sim = simulate(model, +plan.extra || 0, plan.strategy);
   const maxM = Math.min(120, Math.max(12, ...sim.loans.map(l => l.paidOff || 120)));
-  const rows = sim.loans.sort((a, b) => (a.paidOff ?? 9999) - (b.paidOff ?? 9999)).map(l => {
+  const rows = htmlList(sim.loans.sort((a, b) => (a.paidOff ?? 9999) - (b.paidOff ?? 9999)).map(l => {
     const b0 = base.loans.find(x => x.id === l.id), h = hist[l.id] || {};
     const saved = b0.paidOff !== null && l.paidOff !== null ? b0.paidOff - l.paidOff : null;
-    return '<tr><td><a class="desc" href="#/account/' + l.id + '" style="text-decoration:none">' + esc(l.name) + '</a><div class="sub-s">' + (h.last ? 'Last paid ' + money0(h.last.a) + ' on ' + fmtDay(h.last.d) : 'No payments yet') + (num(l.interest) ? ' · ' + num(l.interest) + '% ' + esc(l.period || 'interest') : '') + '</div><div class="sub-s show-s">Owes ' + money0(l.debt) + '</div></td>' +
-      '<td class="amt hide-s">' + money0(l.debt) + '</td>' +
-      '<td class="r"><input class="inline num" type="number" min="0" step="10" value="' + l.pay + '" data-onchange="App.loanPay(\'' + l.id + '\', this.value)" aria-label="Monthly payment for ' + esc(l.name) + '"></td>' +
-      '<td class="r">' + (l.paidOff === null ? '<span class="neg">Not being paid</span>' : '<strong>' + monthLabel(l.paidOff) + '</strong><div class="sub-s">' + l.paidOff + ' month' + (l.paidOff === 1 ? '' : 's') + (saved > 0 ? ' · <span class="down">' + saved + ' sooner</span>' : '') + '</div>') + '</td>' +
-      '<td class="hide-s" style="min-width:200px"><div class="track" style="height:10px"><div class="fill good" style="width:' + ((l.paidOff === null ? maxM : Math.min(l.paidOff, maxM)) / maxM * 100).toFixed(1) + '%;' + (l.paidOff === null ? 'background:var(--spend);opacity:.35' : '') + '"></div></div></td></tr>';
-  }).join('');
+    return html`<tr><td><a class="desc" href="#/account/${l.id}" style="text-decoration:none">${l.name}</a><div class="sub-s">${h.last ? 'Last paid ' + money0(h.last.a) + ' on ' + fmtDay(h.last.d) : 'No payments yet'}${num(l.interest) ? ' · ' + num(l.interest) + '% ' + (l.period || 'interest') : ''}</div><div class="sub-s show-s">Owes ${money0(l.debt)}</div></td><td class="amt hide-s">${money0(l.debt)}</td><td class="r"><input class="inline num" type="number" min="0" step="10" value="${l.pay}" data-onchange="App.loanPay('${l.id}', this.value)" aria-label="Monthly payment for ${l.name}"></td><td class="r">${l.paidOff === null ? html`<span class="neg">Not being paid</span>` : html`<strong>${monthLabel(l.paidOff)}</strong><div class="sub-s">${l.paidOff} month${l.paidOff === 1 ? '' : 's'}${saved > 0 ? html` · <span class="down">${saved} sooner</span>` : ''}</div>`}</td><td class="hide-s" style="min-width:200px"><div class="track" style="height:10px"><div class="fill good" style="width:${((l.paidOff === null ? maxM : Math.min(l.paidOff, maxM)) / maxM * 100).toFixed(1)}%;${l.paidOff === null ? 'background:var(--spend);opacity:.35' : ''}"></div></div></td></tr>`;
+  }));
   const totalDebt = model.reduce((s, l) => s + l.debt, 0), totalPay = model.reduce((s, l) => s + l.pay, 0) + (plan.strategy === 'now' ? 0 : +plan.extra || 0);
-  const strat = (v, label, sub) => '<button type="button" class="' + (plan.strategy === v ? 'on' : '') + '" data-onclick="App.loanSet(\'strategy\', \'' + v + '\')" title="' + sub + '">' + label + '</button>';
-  paint(head('Loan planner', 'See when each loan is paid off, and how to get there sooner', '') +
-    '<div class="kpis"><div class="kpi"><div class="eyebrow">Owed</div><div class="val num">' + money0(totalDebt) + '</div></div>' +
-      '<div class="kpi"><div class="eyebrow">Paying per month</div><div class="val num">' + money0(totalPay) + '</div></div>' +
-      '<div class="kpi"><div class="eyebrow">Debt-free</div><div class="val num ' + (sim.months === null ? 'neg' : 'pos') + '">' + (sim.months === null ? 'Not yet' : monthLabel(sim.months)) + '</div><div class="sub-s">' +
-        (sim.months === null ? 'some loans have no payment' : sim.months + ' months' + (base.months && base.months > sim.months ? ' · ' + (base.months - sim.months) + ' sooner than now' : '')) + '</div></div>' +
-      '<div class="kpi"><div class="eyebrow">Interest to pay</div><div class="val num">' + money0(sim.interest) + '</div></div></div>' +
-    '<section class="panel" style="margin-bottom:20px"><div class="grid2 stack-s" style="align-items:end"><div><div class="eyebrow">When a loan is paid off, put its payment toward…</div>' +
-      '<div class="seg" style="margin:8px 0 0">' + strat('snowball', 'Smallest balance next', 'Snowball: quick wins first') + strat('avalanche', 'Highest interest next', 'Avalanche: least interest overall') + strat('now', 'Nothing — keep payments as they are', 'No rollover') + '</div></div>' +
-      '<label style="margin:0">Extra each month on top<input type="number" min="0" step="25" value="' + (+plan.extra || 0) + '" data-onchange="App.loanSet(\'extra\', this.value)"' + (plan.strategy === 'now' ? ' disabled' : '') + '></label></div></section>' +
-    '<section class="panel flush"><table class="tbl"><thead><tr><th>Loan</th><th class="r hide-s">Owed</th><th class="r">Pay / month</th><th class="r">Paid off</th><th class="hide-s">Timeline to ' + monthLabel(maxM) + '</th></tr></thead><tbody>' + rows + '</tbody></table></section>' +
-    '<p class="sub-s" style="margin-top:14px">Changing a “Pay / month” amount saves it as that loan’s monthly payment in Firefly. Loans without one use what you actually paid recently. Strategy and extra amount are only a what-if and aren’t saved. ' +
-      '<button class="link" data-onclick="App.loanReset()">Reset strategy &amp; extra</button></p>');
+  const strat = (v, label, sub) => html`<button type="button" class="${plan.strategy === v ? 'on' : ''}" data-onclick="App.loanSet('strategy', '${v}')" title="${sub}">${label}</button>`;
+  paint(html`${head('Loan planner', 'See when each loan is paid off, and how to get there sooner', '')}<div class="kpis"><div class="kpi"><div class="eyebrow">Owed</div><div class="val num">${money0(totalDebt)}</div></div><div class="kpi"><div class="eyebrow">Paying per month</div><div class="val num">${money0(totalPay)}</div></div><div class="kpi"><div class="eyebrow">Debt-free</div><div class="val num ${sim.months === null ? 'neg' : 'pos'}">${sim.months === null ? 'Not yet' : monthLabel(sim.months)}</div><div class="sub-s">${sim.months === null ? 'some loans have no payment' : sim.months + ' months' + (base.months && base.months > sim.months ? ' · ' + (base.months - sim.months) + ' sooner than now' : '')}</div></div><div class="kpi"><div class="eyebrow">Interest to pay</div><div class="val num">${money0(sim.interest)}</div></div></div><section class="panel" style="margin-bottom:20px"><div class="grid2 stack-s" style="align-items:end"><div><div class="eyebrow">When a loan is paid off, put its payment toward…</div><div class="seg" style="margin:8px 0 0">${strat('snowball', 'Smallest balance next', 'Snowball: quick wins first')}${strat('avalanche', 'Highest interest next', 'Avalanche: least interest overall')}${strat('now', 'Nothing — keep payments as they are', 'No rollover')}</div></div><label style="margin:0">Extra each month on top<input type="number" min="0" step="25" value="${+plan.extra || 0}" data-onchange="App.loanSet('extra', this.value)"${plan.strategy === 'now' ? ' disabled' : ''}></label></div></section><section class="panel flush"><table class="tbl"><thead><tr><th>Loan</th><th class="r hide-s">Owed</th><th class="r">Pay / month</th><th class="r">Paid off</th><th class="hide-s">Timeline to ${monthLabel(maxM)}</th></tr></thead><tbody>${rows}</tbody></table></section><p class="sub-s" style="margin-top:14px">Changing a “Pay / month” amount saves it as that loan’s monthly payment in Firefly. Loans without one use what you actually paid recently. Strategy and extra amount are only a what-if and aren’t saved. <button class="link" data-onclick="App.loanReset()">Reset strategy &amp; extra</button></p>`);
 };
 async function loanPay(id, v) {
   const L = await lists(), a = L.byId[id]; if (!a) return;

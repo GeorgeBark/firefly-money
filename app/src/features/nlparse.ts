@@ -1,4 +1,5 @@
-import { App, S, el, esc, money, num } from '../core/base';
+import { html, htmlList } from '../core/html';
+import { App, S, el, money, num } from '../core/base';
 import { toast } from '../core/dom';
 import { dayLabel } from '../core/feed';
 import { isAsset, isLiab } from '../core/lists';
@@ -58,16 +59,16 @@ function nlParse(text, submit) {
     if (from) f.src = from.a.id; if (to) f.dst = to.a.id;
     if (!payee && from && to) sp.description = 'Transfer to ' + to.a.name;
   } else if (accs[0]) f.main = accs[0].a.id;
-  const chip = (l, v) => '<span class="nlchip"><em>' + l + '</em>' + esc(v) + '</span>';
+  const chip = (l, v) => html`<span class="nlchip"><em>${l}</em>${v}</span>`;
   f.nl = text;
-  f.nlChips = text.trim() ? [
+  f.nlChips = text.trim() ? htmlList([
     type !== base.type ? chip('Type', { deposit: 'Income', transfer: 'Transfer', withdrawal: 'Expense' }[type]) : '',
     out.amount ? chip('Amount', money(num(out.amount))) : '',
     out.date ? chip('Date', dayLabel(out.date)) : '',
-    type === 'transfer' ? (accs.length ? chip('From', (L.byId[f.src] || {}).name || '?') + (f.dst ? chip('To', (L.byId[f.dst] || {}).name || '?') : '') : '') : accs[0] ? chip('Account', accs[0].a.name) : '',
+    type === 'transfer' ? (accs.length ? html`${chip('From', (L.byId[f.src] || {}).name || '?')}${f.dst ? chip('To', (L.byId[f.dst] || {}).name || '?') : ''}` : '') : accs[0] ? chip('Account', accs[0].a.name) : '',
     payee && type !== 'transfer' ? chip(type === 'deposit' ? 'From' : 'Payee', payee) : '',
     sp.category && (out.category || out.catHint) ? chip('Category', sp.category) : '',
-  ].join('') : '';
+  ]) : '';
   const caret = el('nlq') ? el('nlq').selectionStart : text.length;
   renderTxForm();
   const q = el('nlq'); if (q) { q.focus(); try { q.setSelectionRange(caret, caret); } catch (e) { /* ignore */ } }

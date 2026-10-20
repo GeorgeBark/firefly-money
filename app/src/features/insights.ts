@@ -1,5 +1,6 @@
+import { html, htmlList } from '../core/html';
 import { api } from '../core/api';
-import { App, absDiff, arr, el, esc, fmtDay, isoDate, money, money0, monthRange, num, pad, sumDiff } from '../core/base';
+import { App, absDiff, arr, el, fmtDay, isoDate, money, money0, monthRange, num, pad, sumDiff } from '../core/base';
 import { vt, vtName } from '../core/dom';
 import { LS } from '../core/helpers';
 import { ordinal } from '../core/lists';
@@ -9,12 +10,12 @@ import { ordinal } from '../core/lists';
    Compares this month against the same point last month (3-month average as a note).
    ===================================================================== */
 const INS_ICON = {
-  up: '<path d="M3 17l6-6 4 4 8-8M15 7h6v6"/>',
-  down: '<path d="M3 7l6 6 4-4 8 8M15 17h6v-6"/>',
-  budget: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
-  card: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/>',
-  spark: '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z"/>',
-  check: '<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9.5"/>',
+  up: html`<path d="M3 17l6-6 4 4 8-8M15 7h6v6"/>`,
+  down: html`<path d="M3 7l6 6 4-4 8 8M15 17h6v-6"/>`,
+  budget: html`<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>`,
+  card: html`<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/>`,
+  spark: html`<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z"/>`,
+  check: html`<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9.5"/>`,
 };
 async function insightCards({ cur, future, budgets, limits, cards, trend }) {
   if (future) return '';
@@ -103,11 +104,8 @@ async function insightCards({ cur, future, budgets, limits, cards, trend }) {
   const hidden = LS.get('insightsHidden', {});
   const shown = out.filter(x => !hidden[x.id]).sort((a, b) => b.score - a.score).slice(0, 4);
   if (!shown.length) return '';
-  return '<div class="insights" id="insights" aria-label="Insights">' + shown.map(x =>
-    '<div class="insight t-' + x.tone + '" role="link" tabindex="0" data-ins="' + esc(x.id) + '" data-onclick="App.go(\'' + x.href + '\')" data-onkeydown="App.enterClick(event,this)">' +
-      '<span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + INS_ICON[x.ic] + '</svg></span>' +
-      '<span><div class="t">' + esc(x.title) + '</div><div class="d">' + esc(x.detail) + '</div></span>' +
-      '<button class="x" type="button" aria-label="Dismiss" title="Hide this" data-onclick="event.stopPropagation();App.hideInsight(this)">×</button></div>').join('') + '</div>';
+  return html`<div class="insights" id="insights" aria-label="Insights">${htmlList(shown.map(x =>
+    html`<div class="insight t-${x.tone}" role="link" tabindex="0" data-ins="${x.id}" data-onclick="App.go('${x.href}')" data-onkeydown="App.enterClick(event,this)"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${INS_ICON[x.ic]}</svg></span><span><div class="t">${x.title}</div><div class="d">${x.detail}</div></span><button class="x" type="button" aria-label="Dismiss" title="Hide this" data-onclick="event.stopPropagation();App.hideInsight(this)">×</button></div>`))}</div>`;
 }
 function hideInsight(btn) {
   const card = btn.closest('.insight'), id = card.dataset.ins, box = el('insights');

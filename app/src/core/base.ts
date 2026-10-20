@@ -27,7 +27,6 @@ export const num = v => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
 export const arr = r => Array.isArray(r) ? r : (r && Array.isArray(r.data)) ? r.data : [];
 export const absDiff = x => Math.abs(num(x.difference_float ?? x.difference));
 export const sumDiff = r => arr(r).reduce((s, x) => s + absDiff(x), 0);
-export const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const FMT = new Map();
 function fmtFor(key, make) { let f = FMT.get(key); if (!f) { f = make(); FMT.set(key, f); } return f; }
 export const money = (n, dec = 2) => fmtFor(S.currency + dec, () => new Intl.NumberFormat('en-US', { style: 'currency', currency: S.currency, minimumFractionDigits: dec, maximumFractionDigits: dec })).format(n || 0);

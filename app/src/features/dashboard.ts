@@ -1,5 +1,6 @@
+import { html, htmlList } from '../core/html';
 import { PAGES } from '../core/api';
-import { App, S, el, esc } from '../core/base';
+import { App, S, el } from '../core/base';
 import { vt, vtName } from '../core/dom';
 import { LS, buzz } from '../core/helpers';
 import { route } from '../core/router';
@@ -72,7 +73,7 @@ function gridKeep(d) {
   });
   L.free = free; LS.set('dash', L);
 }
-function dashButton() { return S.dashEdit ? '' : '<button class="btn small" data-onclick="App.dashEdit(true)" title="Move, resize or hide cards">Customize</button>'; }
+function dashButton() { return S.dashEdit ? '' : html`<button class="btn small" data-onclick="App.dashEdit(true)" title="Move, resize or hide cards">Customize</button>`; }
 // top: the insight strip, which shares the cards' column grid so its cards line up with the columns below
 function dashboard(W, top = '') {
   const L = dashLayout(), keys = W.map(w => w[0]), map = Object.fromEntries(W), wide = L.wide || DASH_WIDE, edit = !!S.dashEdit, n = dashCount(L);
@@ -95,38 +96,20 @@ function dashboard(W, top = '') {
     gridSettle(Object.values<any>(spot).filter(t => map[t.k] && (edit || !L.hidden.includes(t.k))).map(t => Object.assign(t, { h: Math.ceil(((DASH_EST[t.k] || 250) + 20) / ROW) })));
   }
   const card = k => {
-    const html = map[k]; if (!html) return '';
+    const body = map[k]; if (!body) return '';
     const off = L.hidden.includes(k); if (off && !edit) return '';
     const isWide = wide.includes(k), g = spot[k];
-    if (grid) return '<div class="w' + (off ? ' off' : '') + '" data-w="' + k + '" data-gx="' + g.x + '" data-gy="' + g.y + '" data-gw="' + g.w + '"' + (g.float ? ' data-float="1"' : '') +
-      ' style="grid-column:' + (g.x + 1) + ' / span ' + g.w + ';grid-row:' + (g.y + 1) + ' / span ' + g.h + '">' +
-      (edit ? '<div class="wctl"><span class="grip" title="Drag to move" aria-hidden="true">⠿</span><strong>' + esc(DASH_NAMES[k] || k) + '</strong><span class="grow"></span>' +
-        '<button type="button" data-onclick="App.dashNudge(\'' + k + '\',-1,0)" aria-label="Move left">←</button><button type="button" data-onclick="App.dashNudge(\'' + k + '\',1,0)" aria-label="Move right">→</button>' +
-        '<button type="button" data-onclick="App.dashNudge(\'' + k + '\',0,-1)" aria-label="Move up">↑</button><button type="button" data-onclick="App.dashNudge(\'' + k + '\',0,1)" aria-label="Move down">↓</button>' +
-        '<button type="button" class="wbtn" data-onclick="App.dashWide(\'' + k + '\')">' + (g.w === GRID ? 'Narrow' : 'Wide') + '</button>' +
-        '<button type="button" class="hbtn" data-onclick="App.dashHide(\'' + k + '\')">' + (off ? 'Show' : 'Hide') + '</button></div>' +
-        '<span class="rsz" title="Drag to resize" aria-hidden="true"></span>' : '') + html + '</div>';
-    return '<div class="w' + (isWide ? ' wide' : '') + (off ? ' off' : '') + '" data-w="' + k + '">' +
-      (edit ? '<div class="wctl"><span class="grip" title="Drag to move" aria-hidden="true">⠿</span><strong>' + esc(DASH_NAMES[k] || k) + '</strong><span class="grow"></span>' +
-        (n > 1 && !isWide ? '<button type="button" data-onclick="App.dashShift(\'' + k + '\',-1)" aria-label="Move left">←</button><button type="button" data-onclick="App.dashShift(\'' + k + '\',1)" aria-label="Move right">→</button>' : '') +
-        '<button type="button" data-onclick="App.dashMove(\'' + k + '\',-1)" aria-label="Move up">↑</button><button type="button" data-onclick="App.dashMove(\'' + k + '\',1)" aria-label="Move down">↓</button>' +
-        '<button type="button" class="wbtn" data-onclick="App.dashWide(\'' + k + '\')">' + (isWide ? 'Narrow' : 'Wide') + '</button>' +
-        '<button type="button" class="hbtn" data-onclick="App.dashHide(\'' + k + '\')">' + (off ? 'Show' : 'Hide') + '</button></div>' : '') + html + '</div>';
+    if (grid) return html`<div class="w${off ? ' off' : ''}" data-w="${k}" data-gx="${g.x}" data-gy="${g.y}" data-gw="${g.w}"${g.float ? html` data-float="1"` : ''} style="grid-column:${g.x + 1} / span ${g.w};grid-row:${g.y + 1} / span ${g.h}">${edit ? html`<div class="wctl"><span class="grip" title="Drag to move" aria-hidden="true">⠿</span><strong>${DASH_NAMES[k] || k}</strong><span class="grow"></span><button type="button" data-onclick="App.dashNudge('${k}',-1,0)" aria-label="Move left">←</button><button type="button" data-onclick="App.dashNudge('${k}',1,0)" aria-label="Move right">→</button><button type="button" data-onclick="App.dashNudge('${k}',0,-1)" aria-label="Move up">↑</button><button type="button" data-onclick="App.dashNudge('${k}',0,1)" aria-label="Move down">↓</button><button type="button" class="wbtn" data-onclick="App.dashWide('${k}')">${g.w === GRID ? 'Narrow' : 'Wide'}</button><button type="button" class="hbtn" data-onclick="App.dashHide('${k}')">${off ? 'Show' : 'Hide'}</button></div><span class="rsz" title="Drag to resize" aria-hidden="true"></span>` : ''}${body}</div>`;
+    return html`<div class="w${isWide ? ' wide' : ''}${off ? ' off' : ''}" data-w="${k}">${edit ? html`<div class="wctl"><span class="grip" title="Drag to move" aria-hidden="true">⠿</span><strong>${DASH_NAMES[k] || k}</strong><span class="grow"></span>${n > 1 && !isWide ? html`<button type="button" data-onclick="App.dashShift('${k}',-1)" aria-label="Move left">←</button><button type="button" data-onclick="App.dashShift('${k}',1)" aria-label="Move right">→</button>` : ''}<button type="button" data-onclick="App.dashMove('${k}',-1)" aria-label="Move up">↑</button><button type="button" data-onclick="App.dashMove('${k}',1)" aria-label="Move down">↓</button><button type="button" class="wbtn" data-onclick="App.dashWide('${k}')">${isWide ? 'Narrow' : 'Wide'}</button><button type="button" class="hbtn" data-onclick="App.dashHide('${k}')">${off ? 'Show' : 'Hide'}</button></div>` : ''}${body}</div>`;
   };
-  const body = grid ? keys.map(card).join('') : blocks.map(blk => {
+  const body = grid ? htmlList(keys.map(card)) : htmlList(blocks.map(blk => {
     if (typeof blk === 'string') return card(blk);
-    const cols = blk.map(c => c.map(card).join(''));
-    return !edit && cols.every(c => !c) ? '' : '<div class="band">' + cols.map(c => '<div class="dcol">' + c + '</div>').join('') + '</div>';
-  }).join('');
-  const part = (p, label) => '<label class="check"><input type="checkbox"' + (L.hidden.includes(p) ? '' : ' checked') + ' data-onchange="App.dashPart(\'' + p + '\', this.checked)"> ' + label + '</label>';
-  return '<div class="dash-wrap" data-n="' + n + '" style="--n:' + n + '">' + top + (edit ? '<div class="dash-bar"><span>' + (grid ? 'Drag a tile anywhere and drag its corner to resize; tiles snap to the grid and push others down.' :
-      'Drag a card to any column and height (on a touch screen, by its ⠿ handle), or use the arrows. Wide cards span every column.') + '</span><span class="grow"></span>' +
-      (grid ? '<button class="link" data-onclick="App.dashTidy()" title="Close the gaps by moving tiles up">Tidy up</button>' : '') +
-      '<button class="link" data-onclick="App.dashReset()">Reset</button><button class="btn small primary" data-onclick="App.dashEdit(false)">Done</button>' +
-      '<div class="dash-opts"><span>' + (grid ? 'Arrange in columns' : 'Columns') + '</span><div class="seg mini" id="dashCols">' +
-        DASH_COLS.map(c => '<button type="button" class="' + (String(L.cols || '') === String(c) ? 'on' : '') + '" data-onclick="App.dashCols(\'' + c + '\')">' + (c || 'Auto') + '</button>').join('') + '</div>' +
-        '<span class="grow"></span>' + part('hero', 'Net worth summary') + part('insights', 'Insights') + '</div></div>' : '') +
-    '<div class="cards ' + (grid ? 'grid' : 'free') + (edit ? ' editing' : '') + '" id="dash" data-n="' + n + '" data-mode="' + (grid ? 'grid' : 'cols') + '"' + (L.cols ? ' data-cols="' + esc(String(L.cols)) + '"' : '') + '>' + body + '</div></div>';
+    const cols = blk.map(c => htmlList(c.map(card)));
+    return !edit && cols.every(c => !c) ? '' : html`<div class="band">${htmlList(cols.map(c => html`<div class="dcol">${c}</div>`))}</div>`;
+  }));
+  const part = (p, label) => html`<label class="check"><input type="checkbox"${L.hidden.includes(p) ? '' : ' checked'} data-onchange="App.dashPart('${p}', this.checked)"> ${label}</label>`;
+  return html`<div class="dash-wrap" data-n="${n}" style="--n:${n}">${top}${edit ? html`<div class="dash-bar"><span>${grid ? 'Drag a tile anywhere and drag its corner to resize; tiles snap to the grid and push others down.' :
+      'Drag a card to any column and height (on a touch screen, by its ⠿ handle), or use the arrows. Wide cards span every column.'}</span><span class="grow"></span>${grid ? html`<button class="link" data-onclick="App.dashTidy()" title="Close the gaps by moving tiles up">Tidy up</button>` : ''}<button class="link" data-onclick="App.dashReset()">Reset</button><button class="btn small primary" data-onclick="App.dashEdit(false)">Done</button><div class="dash-opts"><span>${grid ? 'Arrange in columns' : 'Columns'}</span><div class="seg mini" id="dashCols">${htmlList(DASH_COLS.map(c => html`<button type="button" class="${String(L.cols || '') === String(c) ? 'on' : ''}" data-onclick="App.dashCols('${c}')">${c || 'Auto'}</button>`))}</div><span class="grow"></span>${part('hero', 'Net worth summary')}${part('insights', 'Insights')}</div></div>` : ''}<div class="cards ${grid ? 'grid' : 'free'}${edit ? ' editing' : ''}" id="dash" data-n="${n}" data-mode="${grid ? 'grid' : 'cols'}"${L.cols ? html` data-cols="${String(L.cols)}"` : ''}>${body}</div></div>`;
 }
 // Read the arrangement back from the page (only while customizing, when hidden cards are on the page too)
 function dashSave(mut?) {

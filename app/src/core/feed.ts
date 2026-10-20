@@ -1,4 +1,5 @@
-import { S, esc, money, num, todayIso } from './base';
+import { Html, html, htmlList } from './html';
+import { S, money, num, todayIso } from './base';
 import { daysBetween } from './helpers';
 
 /* ================= Transactions: normalize ================= */
@@ -25,8 +26,8 @@ export function signed(g, accountId) {
 }
 function amountCell(g, accountId) {
   const v = signed(g, accountId);
-  if (!accountId && g.type === 'transfer') return '<td class="amt neutral">' + money(g.total) + '</td>';
-  return '<td class="amt ' + (v < 0 ? 'neg' : v > 0 ? 'pos' : 'neutral') + '">' + (v > 0 ? '+' : '') + money(v) + '</td>';
+  if (!accountId && g.type === 'transfer') return html`<td class="amt neutral">${money(g.total)}</td>`;
+  return html`<td class="amt ${v < 0 ? 'neg' : v > 0 ? 'pos' : 'neutral'}">${v > 0 ? '+' : ''}${money(v)}</td>`;
 }
 
 /* ---------- Merchant avatars ---------- */
@@ -53,8 +54,8 @@ function hueOf(name) {
 }
 export function avatarHtml(g, cls = '') {
   const p = payeeOf(g);
-  if (p.kind === 'transfer') return '<span class="av xfer ' + cls + '" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13M13 4l4 4-4 4M20 16H7M11 12l-4 4 4 4"/></svg></span>';
-  return '<span class="av ' + cls + '" style="--h:' + hueOf(p.name) + '" aria-hidden="true">' + esc(monogram(p.name)) + '</span>';
+  if (p.kind === 'transfer') return html`<span class="av xfer ${cls}" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13M13 4l4 4-4 4M20 16H7M11 12l-4 4 4 4"/></svg></span>`;
+  return html`<span class="av ${cls}" style="--h:${hueOf(p.name)}" aria-hidden="true">${monogram(p.name)}</span>`;
 }
 
 /* ---------- Day labels for the grouped feed ---------- */
@@ -70,42 +71,32 @@ export function dayLabel(iso) {
 S.txMeta = {};
 export function txRows(groups, opts: any = {}) {
   if (S.pendingDel && S.pendingDel.size) groups = groups.filter(g => !S.pendingDel.has(g.id));
-  if (!groups.length) return '<div class="center-empty">' + (opts.empty || 'No transactions.') + '</div>';
+  if (!groups.length) return html`<div class="center-empty">${opts.empty || 'No transactions.'}</div>`;
   const cols = (opts.select ? 1 : 0) + 4;
   // Net per day (relative to the account when one is in view; transfers count as zero otherwise)
   const byDay: any = {};
   groups.forEach(g => { const d = String(g.date).slice(0, 10); byDay[d] = (byDay[d] || 0) + signed(g, opts.accountId); });
   let lastDay = '';
-  const rows = groups.map(g => {
+  const rows = htmlList(groups.map(g => {
     const f = g.splits[0], multi = g.splits.length > 1, day = String(g.date).slice(0, 10);
     const desc = multi ? (g.title || f.description) : f.description;
     const dests = [...new Set(g.splits.map(s => s.destination_name))], srcs = [...new Set(g.splits.map(s => s.source_name))];
-    const flow = esc(srcs.length > 1 ? srcs.length + ' sources' : srcs[0]) + ' → ' + esc(dests.length > 1 ? dests.length + ' payees' : dests[0]);
+    const flow = (srcs.length > 1 ? srcs.length + ' sources' : srcs[0]) + ' → ' + (dests.length > 1 ? dests.length + ' payees' : dests[0]);
     const cats = [...new Set(g.splits.map(s => s.category).filter(Boolean))];
     const buds = [...new Set(g.splits.map(s => s.budget_name).filter(Boolean))];
     const tags = [...new Set<string>(g.splits.flatMap(s => s.tags))].filter(t => !t.startsWith('Data Import on'));
-    const fx = g.splits.filter(s => s.fa && s.fc).map(s => '<span class="chip">' + esc(s.fc) + ' ' + esc(num(s.fa).toFixed(2)) + '</span>').join('');
-    const inl = k => multi ? '' : ' inl" data-k="' + k + '" data-onclick="event.stopPropagation();App.pick(this)" title="Change ' + k;
-    const chips = '<span class="cat-s' + inl('category') + '">' + (cats.length ? esc(cats.join(', ')) : g.type === 'withdrawal' ? 'Uncategorized' : g.type === 'deposit' ? 'Income' : 'Transfer') + '</span>' + fx +
-      (multi ? '<span class="chip">' + g.splits.length + ' splits</span>' : '') +
-      buds.map(b => '<span class="chip' + inl('budget') + '">Budget · ' + esc(b) + '</span>').join('') +
-      (!buds.length && !multi && g.type === 'withdrawal' ? '<span class="chip ghost' + inl('budget') + '">+ Budget</span>' : '') +
-      tags.map(t => '<span class="chip"># ' + esc(t) + '</span>').join('');
+    const fx = htmlList(g.splits.filter(s => s.fa && s.fc).map(s => html`<span class="chip">${s.fc} ${num(s.fa).toFixed(2)}</span>`));
+    const inl = k => multi ? '' : html` inl" data-k="${k}" data-onclick="event.stopPropagation();App.pick(this)" title="Change ${k}`;
+    const chips = html`<span class="cat-s${inl('category')}">${cats.length ? cats.join(', ') : g.type === 'withdrawal' ? 'Uncategorized' : g.type === 'deposit' ? 'Income' : 'Transfer'}</span>${fx}${multi ? html`<span class="chip">${g.splits.length} splits</span>` : ''}${htmlList(buds.map(b => html`<span class="chip${inl('budget')}">Budget · ${b}</span>`))}${!buds.length && !multi && g.type === 'withdrawal' ? html`<span class="chip ghost${inl('budget')}">+ Budget</span>` : ''}${htmlList(tags.map(t => html`<span class="chip"># ${t}</span>`))}`;
     S.txMeta[g.id] = { g, accountId: opts.accountId || '', opts: { select: !!opts.select, accountId: opts.accountId || '' } };
-    let dh = '';
+    let dh: Html | '' = '';
     if (day !== lastDay) {
-      const close = lastDay ? '</tbody>' : ''; lastDay = day; const net = byDay[day];
-      dh = close + '<tbody class="day"><tr class="dayhead" data-day="' + day + '"><td colspan="' + cols + '"><div><span>' + esc(dayLabel(day)) + '</span>' +
-        (Math.abs(net) >= .005 ? '<span class="num ' + (net < 0 ? '' : 'pos') + '">' + (net > 0 ? '+' : '') + money(net) + '</span>' : '') + '</div></td></tr>';
+      const close = lastDay ? html`</tbody>` : ''; lastDay = day; const net = byDay[day];
+      dh = html`${close}<tbody class="day"><tr class="dayhead" data-day="${day}"><td colspan="${cols}"><div><span>${dayLabel(day)}</span>${Math.abs(net) >= .005 ? html`<span class="num ${net < 0 ? '' : 'pos'}">${net > 0 ? '+' : ''}${money(net)}</span>` : ''}</div></td></tr>`;
     }
-    return dh + '<tr class="click" data-gid="' + g.id + '" data-day="' + day + '" data-onclick="App.editTx(\'' + g.id + '\')">' +
-      (opts.select ? '<td class="sel" data-onclick="event.stopPropagation()"><input type="checkbox" data-sel="' + g.id + '" data-onchange="App.selChanged()"' + ((S.sel || new Set()).has(g.id) ? ' checked' : '') + ' aria-label="Select"></td>' : '') +
-      '<td><div class="txmain">' + avatarHtml(g) + '<div class="txt"><div class="desc">' + esc(desc) + '</div><div class="meta">' + chips + '</div></div></div></td>' +
-      '<td class="flow hide-s"><span>' + flow + '</span></td>' +
-      '<td class="catcol hide-s"><span class="' + (cats.length ? '' : 'neutral') + inl('category') + '">' + (cats.length ? esc(cats.join(', ')) : '—') + '</span></td>' +
-      amountCell(g, opts.accountId) + '</tr>';
-  }).join('');
-  return '<table class="tbl feed' + (opts.select ? ' has-sel' : '') + '">' + rows + '</tbody></table>';
+    return html`${dh}<tr class="click" data-gid="${g.id}" data-day="${day}" data-onclick="App.editTx('${g.id}')">${opts.select ? html`<td class="sel" data-onclick="event.stopPropagation()"><input type="checkbox" data-sel="${g.id}" data-onchange="App.selChanged()"${(S.sel || new Set()).has(g.id) ? ' checked' : ''} aria-label="Select"></td>` : ''}<td><div class="txmain">${avatarHtml(g)}<div class="txt"><div class="desc">${desc}</div><div class="meta">${chips}</div></div></div></td><td class="flow hide-s"><span>${flow}</span></td><td class="catcol hide-s"><span class="${cats.length ? '' : 'neutral'}${inl('category')}">${cats.length ? cats.join(', ') : '—'}</span></td>${amountCell(g, opts.accountId)}</tr>`;
+  }));
+  return html`<table class="tbl feed${opts.select ? ' has-sel' : ''}">${rows}</tbody></table>`;
 }
 // After rows are removed (undo-delete, swipe), drop day headers left with nothing under them
 export function tidyDays() {

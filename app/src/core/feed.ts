@@ -40,7 +40,7 @@ export function payeeOf(g) {
   if (!name || /^\(?(no name|cash account)\)?$/i.test(name)) name = f.description;
   return { name: String(name || '?'), kind: g.type };
 }
-function monogram(name) {
+export function monogram(name) {
   const words = String(name).replace(AV_NOISE, '').replace(/[^A-Za-z0-9&' ]+/g, ' ').split(/\s+/).filter(w => w && !/^(the|and|of|inc|llc|co)$/i.test(w));
   if (!words.length) return '•';
   if (words.length === 1 || /^\d/.test(words[1])) return (/^[A-Z]{2,4}$/.test(words[0]) ? words[0].slice(0, 2) : words[0][0]).toUpperCase();
@@ -83,7 +83,7 @@ export function txRows(groups, opts: any = {}) {
     const flow = esc(srcs.length > 1 ? srcs.length + ' sources' : srcs[0]) + ' → ' + esc(dests.length > 1 ? dests.length + ' payees' : dests[0]);
     const cats = [...new Set(g.splits.map(s => s.category).filter(Boolean))];
     const buds = [...new Set(g.splits.map(s => s.budget_name).filter(Boolean))];
-    const tags = [...new Set<string>(g.splits.flatMap(s => s.tags))].filter(t => !/^Data Import on/.test(t));
+    const tags = [...new Set<string>(g.splits.flatMap(s => s.tags))].filter(t => !t.startsWith('Data Import on'));
     const fx = g.splits.filter(s => s.fa && s.fc).map(s => '<span class="chip">' + esc(s.fc) + ' ' + esc(num(s.fa).toFixed(2)) + '</span>').join('');
     const inl = k => multi ? '' : ' inl" data-k="' + k + '" data-onclick="event.stopPropagation();App.pick(this)" title="Change ' + k;
     const chips = '<span class="cat-s' + inl('category') + '">' + (cats.length ? esc(cats.join(', ')) : g.type === 'withdrawal' ? 'Uncategorized' : g.type === 'deposit' ? 'Income' : 'Transfer') + '</span>' + fx +

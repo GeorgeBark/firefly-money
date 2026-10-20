@@ -96,7 +96,7 @@ VIEWS.loans = async (r, paint) => {
 };
 async function loanPay(id, v) {
   const L = await lists(), a = L.byId[id]; if (!a) return;
-  const p = { ...(a.plan || {}), amount: Math.max(0, num(v)) };
+  const p = { ...a.plan, amount: Math.max(0, num(v)) };
   await withAuth(async () => {
     await api('/accounts/' + id, { method: 'PUT', body: { name: a.name, notes: withPlan(a.notes, p) } });
     toast(p.amount > 0 ? 'Saved ' + money(p.amount) + '/month for ' + a.name : 'Monthly payment cleared for ' + a.name); route();

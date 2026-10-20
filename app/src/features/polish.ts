@@ -42,7 +42,6 @@ function countUp() {
 }
 function bindChart() {
   document.querySelectorAll<HTMLElement>('#view svg.flowchart').forEach(svg => {
-    const data = S.chartData || [];
     svg.addEventListener('mousemove', e => {
       const hit = (e.target as HTMLElement).closest && (e.target as HTMLElement).closest<HTMLElement>('[data-i]'); const tip = el('tip');
       if (!hit) { tip.hidden = true; return; }

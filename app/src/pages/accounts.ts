@@ -52,7 +52,7 @@ VIEWS.accounts = async (r, paint) => {
     (inactiveCount ? '<p style="margin-top:14px"><a class="link" href="' + hashWith({ inactive: show ? '' : '1' }) + '">' + (show ? 'Hide' : 'Show') + ' ' + inactiveCount + ' inactive</a></p>' : ''));
 };
 VIEWS.account = async (r, paint) => {
-  const L = await lists();
+  await lists();
   const accRes = await api('/accounts/' + r.id);
   const a = normAccount(accRes.data);
   let range = ['month', 'year', 'all'].includes(r.q.range) ? r.q.range : (isLiab(a) ? 'all' : 'month');
@@ -70,7 +70,7 @@ VIEWS.account = async (r, paint) => {
   const subtitle = '<span style="text-transform:capitalize">' + (isCard(a) ? 'Credit card' : isLiab(a) ? esc(a.liabType || 'Liability') : a.type === 'expense' ? 'Payee' : a.type === 'revenue' ? 'Income source' : (ROLE_LABEL[a.role] || 'Account')) + '</span>' +
     (a.active ? '' : ' · inactive') + (a.number ? ' · ' + esc(a.number) : '') +
     (isLiab(a) ? (a.plan && a.plan.amount ? ' · pays ' + esc(planText(a.plan)) : ' · <button class="link" data-onclick="App.accountForm(\'' + a.id + '\',\'liability\')">set a monthly payment</button>') : '');
-  const PER = 50, pages = Math.max(1, Math.ceil(groups.length / PER)), page = 1;
+  const PER = 50, pages = Math.max(1, Math.ceil(groups.length / PER));
   const shown = groups.slice(0, PER);
   if (paint.live) S.feed = { next: 2, pages, opts: { accountId: own ? a.id : '' }, more: async n => groups.slice((n - 1) * PER, n * PER) };
   const rangeBtn = (k, l) => '<button type="button" class="' + (range === k ? 'on' : '') + '" data-onclick="App.pickRange(\'' + hashWith({ range: k, page: '' }) + '\')">' + l + '</button>';

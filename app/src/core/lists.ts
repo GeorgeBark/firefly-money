@@ -1,6 +1,5 @@
 import { clearCache, getAll } from './api';
 import { S, money, num } from './base';
-import { normGroup } from './feed';
 
 /* ================= Reference lists (cached) ================= */
 export function normAccount(a) {
@@ -16,7 +15,7 @@ export function normAccount(a) {
 // A loan's planned monthly payment lives in its Firefly notes as one line, e.g.
 // "Monthly payment: $500.00 on day 30 from Chase Checking", so every device sees it.
 const PLAN_RE = /^[ \t]*Monthly payment:[ \t]*\$?([\d,.]+)(?:[ \t]+on day[ \t]+(\d{1,2}))?(?:[ \t]+from[ \t]+(.+?))?[ \t]*$/im;
-function parsePlan(notes) { const m = PLAN_RE.exec(notes || ''); return m ? { amount: num(m[1].replace(/,/g, '')), day: m[2] ? +m[2] : null, from: m[3] ? m[3].trim() : '' } : null; }
+export function parsePlan(notes) { const m = PLAN_RE.exec(notes || ''); return m ? { amount: num(m[1].replace(/,/g, '')), day: m[2] ? +m[2] : null, from: m[3] ? m[3].trim() : '' } : null; }
 export function stripPlan(notes) { return String(notes || '').replace(PLAN_RE, '').replace(/\n{3,}/g, '\n\n').trim(); }
 export function withPlan(notes, p) {
   const base = stripPlan(notes);
@@ -56,22 +55,3 @@ export async function lists(force?): Promise<any> {
 }
 export const invalidate = () => { clearCache(); };
 
-/* ================= Loan progress ================= */
-// Original amount = opening balance + everything borrowed from the loan (money flowing out of it);
-// repaid = everything paid into it. Works whether the loan was set up with an opening balance or a deposit.
-async function loanProgress(loans) {
-  const out: any = {};
-  await Promise.all(loans.map(async l => {
-    try {
-      const groups = (await getAll('/accounts/' + l.id + '/transactions')).map(normGroup);
-      let borrowed = Math.abs(l.opening), repaid = 0;
-      groups.forEach(g => g.splits.forEach(s => {
-        if (s.type === 'opening balance') return;          // already counted via the opening balance
-        if (s.source_id === l.id) borrowed += s.amount;
-        else if (s.destination_id === l.id) repaid += s.amount;
-      }));
-      out[l.id] = { borrowed, repaid, pct: borrowed > 0 ? Math.min(100, Math.max(0, repaid / borrowed * 100)) : null };
-    } catch (e) { /* leave this loan without progress */ }
-  }));
-  return out;
-}

@@ -17,7 +17,7 @@ VIEWS.reconcile = async (r, paint) => {
     api('/accounts/' + r.id, { params: { date: addDays(start, -1) } }),
     getAll('/accounts/' + r.id + '/transactions', { start, end }),
   ]);
-  const owed = isCard(a) || isLiab(a), disp = v => owed ? -v : v;
+  const owed = isCard(a) || isLiab(a);
   const rows = [];
   txs.map(normGroup).forEach(g => g.splits.forEach(s => {
     if (s.source_id !== a.id && s.destination_id !== a.id) return;

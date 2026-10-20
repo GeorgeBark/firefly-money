@@ -1,5 +1,4 @@
 /* ================= Settings ================= */
-const LOAN_MONTHLY_PAYMENT = 500;   // used for the "months to go" estimate on loans
 export const PAGE_SIZE = 50;
 
 /* ================= State & helpers ================= */

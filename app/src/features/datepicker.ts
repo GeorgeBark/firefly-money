@@ -13,7 +13,7 @@ function openCal(input) {
   box.style.top = Math.max(8, top) + 'px'; box.style.left = Math.min(innerWidth - box.offsetWidth - 8, Math.max(8, r.left)) + 'px';
 }
 function drawCal() {
-  const { y, m } = calView, first = new Date(y, m, 1), startDow = (first.getDay() + 6) % 7, days = new Date(y, m + 1, 0).getDate();
+  const { y, m } = calView, first = new Date(y, m, 1), startDow = (first.getDay() + 6) % 7;
   const sel = calInput.value, tIso = todayIso();
   let cells = '';
   for (let i = 0; i < 42; i++) {

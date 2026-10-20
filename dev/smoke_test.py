@@ -106,6 +106,15 @@ async def check(pw, width, height, mobile):
         await page.wait_for_timeout(600)
         if await page.evaluate("el('dash').dataset.cols + '/' + JSON.parse(localStorage.getItem('money.dash')).cols") != '2/2':
             errors.append('picking 2 columns did not apply or save')
+        # drag a card with the mouse: the tall "Where it went" card up onto "Safe to spend" swaps them
+        await page.locator('#dashCols button', has_text='Auto').click(); await page.wait_for_timeout(1500)   # and let the slow cards fill in
+        a = await page.locator('#dash > [data-w="spending"] .wctl strong').bounding_box(); b = await page.locator('#dash > [data-w="safe"]').bounding_box()
+        await page.mouse.move(a['x'] + 5, a['y'] + 5); await page.mouse.down()
+        for i in range(1, 11): await page.mouse.move(a['x'] + 5 + (b['x'] + 40 - a['x'] - 5) * i / 10, a['y'] + 5 + (b['y'] + 40 - a['y'] - 5) * i / 10); await page.wait_for_timeout(30)
+        await page.wait_for_timeout(250); await page.mouse.up(); await page.wait_for_timeout(400)
+        if await page.evaluate("JSON.parse(localStorage.getItem('money.dash')).order.slice(0, 2).join()") != 'spending,safe':
+            errors.append('dragging a card did not move it: ' + await page.evaluate("localStorage.getItem('money.dash')"))
+        await page.locator('#dashCols button', has_text='2').click(); await page.wait_for_timeout(600)
         await page.locator('.dash-opts input[type=checkbox]').first.uncheck(); await page.wait_for_function(PAINTED, timeout=15000)
         await page.wait_for_selector('#dashCols')
         if await page.locator('#view .hero').count() or await page.evaluate("el('dash').dataset.cols") != '2':

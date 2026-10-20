@@ -744,6 +744,7 @@ VIEWS[''] = async (r, paint) => {
 // Replace only the placeholders and the cards that changed, so the numbers already on screen don't redraw.
 function fillIn(html) {
   const v = el('view'), t = document.createElement('template'); t.innerHTML = html;
+  if (v.querySelector('#dash.moving')) return true;      // a card is being dragged: keep what's on screen until the next refresh
   const olds = [...v.querySelectorAll('#dash > .w')], news = [...t.content.querySelectorAll('#dash > .w')];
   if (olds.map(w => w.dataset.w).join() !== news.map(w => w.dataset.w).join()) return false;      // a card came or went: redraw it all
   const insOld = v.querySelector('#insights'), insNew = t.content.querySelector('#insights');

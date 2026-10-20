@@ -384,7 +384,11 @@
   .cards.editing > .w { position: relative; border-radius: var(--radius); outline: 1.5px dashed color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 3px; cursor: grab; }
   .cards.editing > .w > :not(.wctl) { pointer-events: none; }
   .cards.editing > .w.off > :not(.wctl) { opacity: .35; filter: grayscale(1); }
-  .cards.editing > .w.dragging { opacity: .4; }
+  .cards.editing > .w { user-select: none; -webkit-user-select: none; }
+  .cards.editing > .w.dragging { opacity: .3; }
+  .cards.moving, .cards.moving * { cursor: grabbing !important; }
+  .dash-ghost { position: fixed; z-index: 60; margin: 0; pointer-events: none; opacity: .92; box-shadow: 0 18px 40px rgba(0,0,0,.22); border-radius: var(--radius); }
+  .dash-ghost > :not(.wctl) { pointer-events: none; }
   .wctl { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; font-size: 12.5px; }
   .wctl .grip { cursor: grab; color: var(--muted); font-size: 16px; }
   .wctl button { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 3px 9px; cursor: pointer; font-size: 12.5px; }
@@ -688,7 +692,7 @@
     html.vt-drawer-open::view-transition-new(drawer) { animation-name: vtInSheet; }
     html.vt-drawer-close::view-transition-old(drawer) { animation-name: vtOutSheet; }
     .cards.editing > .w { cursor: default; }
-    .wctl .grip { display: none; }
+    .wctl .grip { touch-action: none; font-size: 20px; padding: 4px 8px 4px 2px; margin: -4px 0; }
     .tbl td, .tbl th { padding-left: 12px; padding-right: 12px; }
   }
   @media (max-width: 400px) {

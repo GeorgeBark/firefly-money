@@ -38,7 +38,7 @@ applyPrefs();
   if (!('ontouchstart' in window)) return;
   const ind = el('ptr'); let y0 = null, d = 0, busyNow = false;
   const blocked = () => scrollY > 0 || el('app').hidden || el('drawer').classList.contains('open') || !el('palette').hidden || busyNow;
-  addEventListener('touchstart', e => { y0 = blocked() ? null : e.touches[0].clientY; d = 0; }, { passive: true });
+  addEventListener('touchstart', e => { y0 = blocked() || e.target.closest('#dash .grip') ? null : e.touches[0].clientY; d = 0; }, { passive: true });
   addEventListener('touchmove', e => {
     if (y0 === null) return;
     d = Math.max(0, Math.min(120, (e.touches[0].clientY - y0) * .5));
@@ -238,14 +238,14 @@ function dashboard(W) {
   const card = k => {
     const html = map[k]; if (!html) return '';
     const off = L.hidden.includes(k); if (off && !edit) return '';
-    return '<div class="w' + (wide.includes(k) ? ' wide' : '') + (off ? ' off' : '') + '" data-w="' + k + '"' + (edit ? ' draggable="true"' : '') + '>' +
-      (edit ? '<div class="wctl"><span class="grip" title="Drag to move">⠿</span><strong>' + esc(DASH_NAMES[k] || k) + '</strong><span class="grow"></span>' +
+    return '<div class="w' + (wide.includes(k) ? ' wide' : '') + (off ? ' off' : '') + '" data-w="' + k + '">' +
+      (edit ? '<div class="wctl"><span class="grip" title="Drag to move" aria-hidden="true">⠿</span><strong>' + esc(DASH_NAMES[k] || k) + '</strong><span class="grow"></span>' +
         '<button type="button" data-onclick="App.dashMove(\'' + k + '\',-1)" aria-label="Move up">↑</button><button type="button" data-onclick="App.dashMove(\'' + k + '\',1)" aria-label="Move down">↓</button>' +
         '<button type="button" data-onclick="App.dashWide(\'' + k + '\')">' + (wide.includes(k) ? 'Narrow' : 'Wide') + '</button>' +
         '<button type="button" data-onclick="App.dashHide(\'' + k + '\')">' + (off ? 'Show' : 'Hide') + '</button></div>' : '') + html + '</div>';
   };
   const part = (p, label) => '<label class="check"><input type="checkbox"' + (L.hidden.includes(p) ? '' : ' checked') + ' data-onchange="App.dashPart(\'' + p + '\', this.checked)"> ' + label + '</label>';
-  return (edit ? '<div class="dash-bar"><span>Drag cards (or use the arrows) to reorder. Wide cards span the full width.</span><span class="grow"></span>' +
+  return (edit ? '<div class="dash-bar"><span>Drag a card to move it (on a touch screen, by its ⠿ handle), or use the arrows. Wide cards span the full width.</span><span class="grow"></span>' +
       '<button class="link" data-onclick="App.dashReset()">Reset</button><button class="btn small primary" data-onclick="App.dashEdit(false)">Done</button>' +
       '<div class="dash-opts"><span>Columns</span><div class="seg mini" id="dashCols">' +
         DASH_COLS.map(c => '<button type="button" class="' + (String(L.cols || '') === String(c) ? 'on' : '') + '" data-onclick="App.dashCols(\'' + c + '\')">' + (c || 'Auto') + '</button>').join('') + '</div>' +
@@ -303,18 +303,92 @@ function dashMasonry() {
   dashMO = new MutationObserver(watch); dashMO.observe(d, { childList: true });
   watch();
 }
+// Moving cards in Customize: pointer events, so it works the same with a mouse, a pen or a finger. A mouse can pick a
+// card up anywhere on it; touch uses the ⠿ handle so the page still scrolls. The card follows the pointer as a floating
+// copy, the others make room (FLIP-animated), and the page scrolls when you hold it near the top or bottom edge.
 function bindDash() {
   dashMasonry();
   const d = el('dash'); if (!d || !d.classList.contains('editing')) return;
   let drag = null;
-  d.addEventListener('dragstart', e => { drag = e.target.closest('.w'); if (!drag) return; drag.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', drag.dataset.w); });
-  d.addEventListener('dragover', e => {
-    if (!drag) return; e.preventDefault();
-    const over = e.target.closest('.w'); if (!over || over === drag) return;
-    const r = over.getBoundingClientRect(), after = e.clientY > r.top + r.height / 2;
-    if (after ? over.nextElementSibling !== drag : over.previousElementSibling !== drag) after ? over.after(drag) : over.before(drag);
+  const cards = () => [...d.querySelectorAll(':scope > .w')];
+  // Where the pointer is: the card under it, or else the nearest one (so the gaps between cards count too)
+  const target = (x, y) => {
+    let best = null, bd = Infinity;
+    for (const w of cards()) {
+      const r = w.getBoundingClientRect(), dx = Math.max(r.left - x, 0, x - r.right), dy = Math.max(r.top - y, 0, y - r.bottom), dist = dx * dx + dy * dy;
+      if (dist < bd) { bd = dist; best = { w, r }; }
+    }
+    return best;
+  };
+  const flip = fn => {
+    const ws = cards(), before = new Map(ws.map(w => [w, w.getBoundingClientRect()]));
+    fn();
+    ws.forEach(w => {
+      const a = before.get(w), b = w.getBoundingClientRect(), dx = a.left - b.left, dy = a.top - b.top;
+      if (!dx && !dy) return;
+      w.style.transition = 'none'; w.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
+      w.offsetWidth; w.style.transition = 'transform .2s ease'; w.style.transform = '';
+    });
+  };
+  const place = () => {
+    if (!drag || performance.now() < drag.lock) return;
+    const t = target(drag.x, drag.y); if (!t || t.w === drag.w) return;     // over its own empty slot: stay put
+    // Auto columns fill top to bottom, so above/below decides; a fixed column count reads left to right
+    const across = d.dataset.cols && !t.w.classList.contains('wide') && !drag.w.classList.contains('wide');
+    // Move once the pointer is far enough into the card, measured from the side the dragged card comes from. That depth
+    // is half of how much bigger the card is than the dragged one, so the swap never puts the pointer back over it
+    // (which would swap it straight back), and a small card only has to touch a big one.
+    const forward = drag.w.compareDocumentPosition(t.w) & Node.DOCUMENT_POSITION_FOLLOWING, m = drag.w.getBoundingClientRect();
+    const [pos, start, end, a] = across ? [drag.x, t.r.left, t.r.right, m.width] : [drag.y, t.r.top, t.r.bottom, m.height];
+    if ((forward ? pos - start : end - pos) < Math.max(0, (end - start - a - 20) / 2) + 4) return;
+    flip(() => forward ? t.w.after(drag.w) : t.w.before(drag.w));
+    drag.lock = performance.now() + 160;      // let the cards settle before the next move, so they don't flicker back and forth
+  };
+  const tick = () => {
+    if (!drag || !drag.ghost) return;
+    const edge = 70, v = drag.y < edge ? -(edge - drag.y) / 4 : drag.y > innerHeight - edge ? (drag.y - innerHeight + edge) / 4 : 0;
+    if (v) { scrollBy(0, v); place(); }
+    drag.raf = requestAnimationFrame(tick);
+  };
+  const lift = () => {
+    const r = drag.w.getBoundingClientRect(), g = drag.w.cloneNode(true);
+    g.classList.add('dash-ghost'); g.removeAttribute('data-w');
+    Object.assign(g.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px' });
+    document.body.appendChild(g);
+    drag.ghost = g; drag.dx = drag.x0 - r.left; drag.dy = drag.y0 - r.top;
+    drag.w.classList.add('dragging'); d.classList.add('moving');
+    buzz(8);
+    drag.raf = requestAnimationFrame(tick);
+  };
+  const drop = () => {
+    if (!drag) return;
+    const { w, ghost, raf } = drag; drag = null;
+    cancelAnimationFrame(raf);
+    d.classList.remove('moving');
+    if (!ghost) return;
+    const r = w.getBoundingClientRect();
+    ghost.style.transition = 'transform .18s ease, opacity .18s'; ghost.style.transform = 'translate(' + (r.left - parseFloat(ghost.style.left)) + 'px,' + (r.top - parseFloat(ghost.style.top)) + 'px)';
+    setTimeout(() => { ghost.remove(); w.classList.remove('dragging'); }, 180);
+    dashSave();
+  };
+  d.addEventListener('pointerdown', e => {
+    const w = e.target.closest('.w'); if (!w || e.button > 0 || e.target.closest('button, a, input')) return;
+    if (e.pointerType !== 'mouse' && !e.target.closest('.grip')) return;     // touch: only the handle, so scrolling still works
+    drag = { w, id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, lock: 0 };
+    if (e.pointerType !== 'mouse') lift();
+    try { d.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+    e.preventDefault();
   });
-  d.addEventListener('dragend', () => { if (drag) drag.classList.remove('dragging'); drag = null; dashSave(); });
+  d.addEventListener('pointermove', e => {
+    if (!drag || e.pointerId !== drag.id) return;
+    drag.x = e.clientX; drag.y = e.clientY;
+    if (!drag.ghost) { if (Math.hypot(drag.x - drag.x0, drag.y - drag.y0) < 5) return; lift(); }
+    drag.ghost.style.transform = 'translate(' + (drag.x - drag.x0) + 'px,' + (drag.y - drag.y0) + 'px)';
+    place();
+  });
+  d.addEventListener('pointerup', drop);
+  d.addEventListener('pointercancel', drop);
+  d.addEventListener('lostpointercapture', drop);
 }
 
 /* ---------- Sparklines: last 30 days of each account's balance ---------- */

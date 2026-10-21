@@ -21,6 +21,11 @@ function req({ method = 'POST', body = {} as any, auth = '', session = '', firef
     if (path === '/accounts') return reply(200, { data: ACCOUNTS[/type=(\w+)/.exec(o.args)![1]] });
     if (path === '/search/accounts') return reply(200, { data: firefly.payee ? [{ id: '9', attributes: { name: firefly.payee } }] : [] });
     if (path === '/accounts/9/transactions') return reply(200, { data: [{ attributes: { transactions: [{ destination_id: '9', category_name: 'Coffee', budget_id: '5' }] } }] });
+    if (path === '/preferences/money_cards') {
+      if (o.method === 'GET') return firefly.prefs ? reply(200, { data: { attributes: { name: 'money_cards', data: JSON.stringify(firefly.prefs) } } }) : reply(404, { message: 'Not found' });
+      firefly.saved = JSON.parse(JSON.parse(o.body).data); return reply(200, {});
+    }
+    if (path === '/preferences' && o.method === 'POST') { const b = JSON.parse(o.body); firefly.created = b.name; firefly.saved = JSON.parse(b.data); return reply(200, {}); }
     if (path === '/transactions') return firefly.duplicate ? reply(422, { message: 'Duplicate of transaction #4.', errors: {} }) : reply(200, { data: {} });
     return reply(404, {});
   };
@@ -50,6 +55,10 @@ describe('ingest.js', () => {
     expect(ingest.matchAccount(accs, 'Debit 6789')!.id).toBe('1');
     expect(ingest.matchAccount(accs, 'Chase')).toBeNull();      // two Chase accounts: don't guess
     expect(ingest.matchAccount(accs, 'Amex Gold')).toBeNull();
+    // telling words in common, ignoring ones like "card" and "visa"
+    expect(ingest.matchAccount(accs, 'Freedom Unlimited')!.id).toBe('5');
+    expect(ingest.matchAccount(accs, 'Sapphire Visa Signature')!.id).toBe('4');
+    expect(ingest.matchAccount(accs, 'Visa Credit Card')).toBeNull();
   });
   it('gives the key only to a signed-in app', async () => {
     const out = req({ method: 'GET' }); await ingest.endpoint(out);
@@ -70,6 +79,14 @@ describe('ingest.js', () => {
     expect(posted(r)).toMatchObject({ type: 'withdrawal', amount: '4.75', description: 'Blue Bottle', source_id: '3', destination_name: 'Blue Bottle', tags: ['Apple Pay'], category_name: 'Coffee', budget_id: '5' });
     expect(r.calls.find(c => c.uri.endsWith('/transactions') && c.method === 'POST').body).toMatchObject({ error_if_duplicate_hash: true, apply_rules: true });
   });
+  it('uses the account picked for a card in Settings', async () => {
+    const firefly: any = { prefs: { cards: { 'AMEX GOLD': '1' }, unmatched: [] } };
+    const r = req({ auth: 'Bearer ' + await keyFor(), body: { amount: '$9', merchant: 'Shop', card: 'Amex Gold' }, firefly });
+    await ingest.endpoint(r);
+    expect(r.status).toBe(200);
+    expect(posted(r)).toMatchObject({ source_id: '1' });
+    expect(firefly.saved).toBeUndefined();
+  });
   it('uses the account the Shortcut names, and logs refunds as income', async () => {
     const r = req({ auth: 'Bearer ' + await keyFor(), body: { amount: '-$20', merchant: 'Target', card: 'Whatever', account: 'checking' } });
     await ingest.endpoint(r);
@@ -78,9 +95,14 @@ describe('ingest.js', () => {
   });
   it('explains what went wrong', async () => {
     const key = 'Bearer ' + await keyFor();
-    const none = req({ auth: key, body: { amount: '$4', merchant: 'Shop', card: 'Amex Gold' } }); await ingest.endpoint(none);
+    const firefly: any = {};
+    const none = req({ auth: key, body: { amount: '$4', merchant: 'Shop', card: 'Amex Gold' }, firefly }); await ingest.endpoint(none);
     expect(none.status).toBe(422);
-    expect(none.text).toContain('Checking, Savings, Apple Card, Chase Sapphire');
+    expect(none.text).toContain('Settings → Apple Pay');
+    expect([firefly.created, firefly.saved]).toEqual(['money_cards', { cards: {}, unmatched: ['Amex Gold'] }]);
+    const wrongName = req({ auth: key, body: { amount: '$4', merchant: 'Shop', card: 'x', account: 'Nope' } }); await ingest.endpoint(wrongName);
+    expect(wrongName.status).toBe(422);
+    expect(wrongName.text).toContain('Checking, Savings, Apple Card, Chase Sapphire');
     const noAmount = req({ auth: key, body: { amount: 'free', merchant: 'Shop', card: 'Apple Card' } }); await ingest.endpoint(noAmount);
     expect(noAmount.status).toBe(400);
     const notJson = req({ auth: key, body: 'amount=4' }); await ingest.endpoint(notJson);

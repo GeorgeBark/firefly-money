@@ -38,8 +38,12 @@ function parseAmount(v) {
 }
 
 const words = s => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+// Words that say what kind of card it is rather than which one, so they don't count as a match on their own
+const GENERIC = ['card', 'credit', 'debit', 'visa', 'mastercard', 'signature', 'preferred', 'rewards', 'world', 'elite', 'the', 'my', 'account', 'bank', 'and'];
+const telling = s => words(s).split(' ').filter(w => w.length >= 3 && GENERIC.indexOf(w) < 0);
 // The account a Wallet card name means: the same name, one name inside the other ("Apple Card" ↔ "Apple Card
-// (Goldman)"), or the card's last four digits at the end of the account number. Null unless exactly one fits.
+// (Goldman)"), the card's last four digits at the end of the account number, or the most telling words in common
+// ("Freedom Unlimited" ↔ "Chase Freedom"). Null unless exactly one fits.
 function matchAccount(accounts, card) {
   const c = words(card); if (!c) return null;
   const tries = [
@@ -48,7 +52,10 @@ function matchAccount(accounts, card) {
     a => { const d = /(\d{4})\D*$/.exec(card), num = (a.number || '').replace(/\D/g, ''); return !!d && num.length >= 4 && num.endsWith(d[1]); },
   ];
   for (let i = 0; i < tries.length; i++) { const hits = accounts.filter(tries[i]); if (hits.length === 1) return hits[0]; if (hits.length > 1) return null; }
-  return null;
+  const cw = telling(card), score = a => telling(a.name).filter(w => cw.indexOf(w) >= 0).length;
+  let best = null, top = 0, tie = false;
+  accounts.forEach(a => { const n = score(a); if (n > top) { best = a; top = n; tie = false; } else if (n && n === top) tie = true; });
+  return top && !tie ? best : null;
 }
 
 async function ff(r, method, path, args, body) {
@@ -70,6 +77,32 @@ const own = async r => {
   }
   return out;
 };
+// Cards picked by hand in the app (Settings → Apple Pay), kept in a Firefly preference so this server and every
+// device see them: {cards: {"<Wallet card name>": "<account id>"}, unmatched: ["<card name with no account yet>"]}
+const PREF = 'money_cards';
+async function cardPrefs(r) {
+  const res = await ff(r, 'GET', '/preferences/' + PREF);
+  let d = res.status === 200 && res.data && res.data.data && res.data.data.attributes ? res.data.data.attributes.data : null;
+  try { if (typeof d === 'string') d = JSON.parse(d); } catch (e) { d = null; }
+  return { exists: res.status === 200, cards: (d && d.cards) || {}, unmatched: (d && d.unmatched) || [] };
+}
+// Remember a card nothing matched, so the app can offer to pick its account
+async function noteUnmatched(r, prefs, card) {
+  if (!card || prefs.unmatched.some(x => words(x) === words(card))) return;
+  const data = JSON.stringify({ cards: prefs.cards, unmatched: prefs.unmatched.concat([String(card).slice(0, 100)]).slice(-10) });
+  try {
+    if (prefs.exists) await ff(r, 'PUT', '/preferences/' + PREF, '', { data });
+    else await ff(r, 'POST', '/preferences', '', { name: PREF, data });
+  } catch (e) { /* only a convenience */ }
+}
+function pickedAccount(accounts, prefs, card) {
+  const c = words(card), names = Object.keys(prefs.cards);
+  for (let i = 0; i < names.length; i++) {
+    if (words(names[i]) === c) { const id = String(prefs.cards[names[i]]); return accounts.find(a => a.id === id) || null; }
+  }
+  return null;
+}
+
 // The category and budget last used with this payee, as the app's quick add fills them (features/polish.ts)
 async function lastUse(r, payee) {
   try {
@@ -109,8 +142,18 @@ async function endpoint(r) {
 
   try {
     const accounts = await own(r);
-    const acc = b.account ? accounts.find(a => words(a.name) === words(b.account)) : matchAccount(accounts, b.card);
-    if (!acc) return say(r, 422, 'No account matches ' + (b.account ? '"' + b.account + '"' : 'the card "' + (b.card || '') + '"') + '. Set "account" in the Shortcut to one of: ' + accounts.map(a => a.name).join(', '));
+    let acc = null;
+    if (b.account) {
+      acc = accounts.find(a => words(a.name) === words(b.account)) || null;
+      if (!acc) return say(r, 422, 'No account is called "' + b.account + '". Set "account" in the Shortcut to one of: ' + accounts.map(a => a.name).join(', '));
+    } else {
+      const prefs = await cardPrefs(r);
+      acc = pickedAccount(accounts, prefs, b.card) || matchAccount(accounts, b.card);
+      if (!acc) {
+        await noteUnmatched(r, prefs, b.card);
+        return say(r, 422, 'Money doesn’t know which account the card "' + (b.card || '') + '" is. Pick it in Money → Settings → Apple Pay, then pay again.');
+      }
+    }
     const refund = amount[0] === '-', abs = refund ? amount.slice(1) : amount;
     const usual = refund ? {} : await lastUse(r, merchant);
     const split = Object.assign(usual, {

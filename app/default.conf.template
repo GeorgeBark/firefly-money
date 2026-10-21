@@ -26,6 +26,8 @@ map $arg_v $asset_cache {
 
 # Logos for payees and accounts (see /logo/ below), kept for a month
 proxy_cache_path /var/cache/nginx/logos levels=1:2 keys_zone=logos:2m max_size=50m inactive=30d use_temp_path=off;
+# Map pictures for the Map page (see /tile/ below), kept for a month
+proxy_cache_path /var/cache/nginx/tiles levels=1:2 keys_zone=tiles:4m max_size=300m inactive=60d use_temp_path=off;
 
 server {
     listen ${LISTEN_PORT};
@@ -78,6 +80,34 @@ server {
         add_header X-Content-Type-Options "nosniff";
         limit_except GET { deny all; }
     }
+    # Map pictures for the Map page (app/src/pages/map.ts), from OpenStreetMap's tile server. This server fetches and
+    # keeps them, so the browser never contacts another site, and OpenStreetMap only sees this server (as their
+    # tile policy asks: a clear User-Agent, and no tile fetched again for at least a week). Only zoom 0-19.
+    location ~ "^/tile/(?<tz>1?[0-9])/(?<tx>[0-9]{1,6})/(?<ty>[0-9]{1,6})\.png$" {
+        resolver ${NGINX_LOCAL_RESOLVERS} valid=300s;
+        resolver_timeout 5s;
+        set $osm "https://tile.openstreetmap.org/";
+        proxy_pass $osm$tz/$tx/$ty.png;
+        proxy_ssl_server_name on;
+        proxy_set_header Host tile.openstreetmap.org;
+        proxy_set_header Cookie "";
+        proxy_set_header Referer "";
+        proxy_set_header Authorization "";
+        proxy_set_header User-Agent "Money/1 (self-hosted Firefly III frontend; +https://github.com/Muffy0906/firefly-money)";
+        proxy_hide_header Set-Cookie;
+        proxy_ignore_headers Set-Cookie Cache-Control Expires;
+        proxy_cache tiles;
+        proxy_cache_valid 200 30d;
+        proxy_cache_valid any 10m;
+        proxy_cache_use_stale error timeout updating;
+        proxy_cache_lock on;
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 10s;
+        add_header Cache-Control "public, max-age=604800";
+        add_header X-Content-Type-Options "nosniff";
+        limit_except GET { deny all; }
+    }
+
     location @nologo { add_header Cache-Control "public, max-age=86400"; return 404; }
 
     # The app page. Mounted as a template so nginx copies it at startup,

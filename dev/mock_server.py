@@ -62,15 +62,19 @@ BILLS = [  # id, name, lowest, highest, repeats, first due date, group, payee
 BILL_OF = {b[7]: b for b in BILLS if b[7]}
 
 TX = []
+# Where the in-store payees are (a few blocks of one town), for the Map page; three in four purchases there have a place
+SPOTS = {'Green Grocer': (40.7290, -73.9890), 'Corner Market': (40.7265, -73.9815), 'SQ *BEAN THERE COFFEE': (40.7308, -73.9973),
+         'Burrito Bar': (40.7223, -73.9874), 'Taco Stand': (40.7195, -73.9960), 'Fuel Stop': (40.7410, -73.9780), 'Pharmacy Plus': (40.7340, -73.9900), 'Big Box Store': (40.7480, -73.9860)}
 def add_tx(d, typ, amt, desc, src, dst, cat=None, bud=None):
     gid = str(len(TX) + 1)
     s = ACC_BY[src]['attributes']; t = ACC_BY[dst]['attributes']
     bill = BILL_OF.get(t['name']) if typ == 'withdrawal' else None
+    spot = SPOTS.get(t['name']) if typ == 'withdrawal' and int(gid) % 4 else None
     TX.append({'id': gid, 'type': 'transactions', 'attributes': {'group_title': None, 'created_at': d.isoformat() + 'T18:00:00-05:00', 'transactions': [{
         'transaction_journal_id': gid, 'type': typ, 'date': d.isoformat() + 'T12:00:00-05:00', 'amount': '%.2f' % amt, 'description': desc,
         'source_id': src, 'source_name': s['name'], 'source_type': s['type'], 'destination_id': dst, 'destination_name': t['name'], 'destination_type': t['type'],
         'category_name': cat, 'category_id': CAT_ID.get(cat), 'budget_id': BUDGETS.get(bud), 'budget_name': bud, 'bill_id': bill and bill[0], 'bill_name': bill and bill[1], 'tags': [], 'notes': '',
-        'foreign_amount': None, 'foreign_currency_code': None, 'reconciled': False}]}})
+        'foreign_amount': None, 'foreign_currency_code': None, 'reconciled': False, 'latitude': spot and spot[0], 'longitude': spot and spot[1]}]}})
 ACC_BY = {a['id']: a for a in ACC}
 
 d = (TODAY.replace(day=1) - timedelta(days=150)).replace(day=1)
@@ -247,6 +251,9 @@ class H(BaseHTTPRequestHandler):
             elif u.path in ('/logo/streamflix.com', '/logo/tunesplus.com'):   # stands in for nginx's logo proxy; other payees have none
                 c = '#e50914' if 'stream' in u.path else '#1db954'
                 body = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="%s"/><path d="M11 8v16l13-8z" fill="#fff"/></svg>' % c).encode()
+                self.send_response(200); self.send_header('Content-Type', 'image/svg+xml'); self.end_headers(); self.wfile.write(body)
+            elif re.match(r'^/tile/\d+/\d+/\d+\.png$', u.path):   # stands in for nginx's map pictures: a plain grid square
+                body = b'<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><rect width="256" height="256" fill="#ecebe4"/><path d="M0 .5H256M.5 0V256M0 128H256M128 0V256" stroke="#d6d4ca"/></svg>'
                 self.send_response(200); self.send_header('Content-Type', 'image/svg+xml'); self.end_headers(); self.wfile.write(body)
             else: self.send_response(404); self.end_headers()
             return

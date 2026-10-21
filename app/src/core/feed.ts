@@ -11,6 +11,7 @@ export type Split = {
   category: string, budget_id: string, budget_name: string, bill_id: string, bill_name: string, tags: string[], notes: string,
   sba: string | null | undefined, dba: string | null | undefined,      // source/destination balance after, when Firefly sends it
   fa: string, fc: string, reconciled: boolean,                         // foreign amount and currency
+  lat: number | null, lng: number | null,                              // where it was paid, when known
 };
 // A transaction group: what the app calls a transaction. type and date are its first split's.
 export type Group = { id: string, title: string, type: string, date: string, splits: Split[], total: number };
@@ -24,6 +25,7 @@ export function normGroup(g: ApiData): Group {
     bill_id: t.bill_id ? String(t.bill_id) : '', bill_name: t.bill_name || '', tags: t.tags || [], notes: t.notes || '',
     sba: t.source_balance_after, dba: t.destination_balance_after,
     fa: t.foreign_amount != null && t.foreign_amount !== '' ? String(num(t.foreign_amount)) : '', fc: t.foreign_currency_code || '', reconciled: !!t.reconciled,
+    lat: t.latitude != null && t.latitude !== '' ? Number(t.latitude) : null, lng: t.longitude != null && t.longitude !== '' ? Number(t.longitude) : null,
   }));
   const f: Partial<Split> = splits[0] || {};
   return { id: String(g.id), title: a.group_title || '', type: f.type as string, date: f.date as string, splits, total: splits.reduce((s, x) => s + x.amount, 0) };

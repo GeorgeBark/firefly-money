@@ -11,12 +11,12 @@ const PREF = 'money_settings';
 let timer: any = 0, applying = false, pulledAt = 0;
 const syncOn = () => S.signedIn && !LS.get('syncOff', false);
 function snapshot() {
-  const keys = {};
+  const keys: Record<string, unknown> = {};
   SYNCED.forEach(k => { const v = LS.get(k, undefined); if (v !== undefined) keys[k] = v; });
   return keys;
 }
 // LS.set calls this for every setting it saves
-function prefChanged(k) {
+function prefChanged(k: string) {
   if (applying || !SYNCED.includes(k)) return;
   LS.set('syncDirty', Date.now());
   clearTimeout(timer); timer = setTimeout(pushPrefs, 1500);
@@ -45,12 +45,12 @@ async function syncPrefs() {
   if (remote && remote.keys && +remote.t > Math.max(at, dirty)) return applyPrefs(remote);
   if (dirty || (!remote && Object.keys(snapshot()).length)) return pushPrefs();
 }
-function applyPrefs(remote) {
+function applyPrefs(remote: { t: number, keys?: Record<string, unknown> }) {
   let changed = false;
   applying = true;
   try {
     SYNCED.forEach(k => {
-      const had = JSON.stringify(LS.get(k, null)), v = remote.keys[k];
+      const had = JSON.stringify(LS.get(k, null)), v = remote.keys![k];
       if (JSON.stringify(v === undefined ? null : v) === had) return;
       changed = true;
       if (v === undefined) { try { localStorage.removeItem('money.' + k); } catch (e) { /* storage blocked */ } } else LS.set(k, v);
@@ -59,7 +59,7 @@ function applyPrefs(remote) {
   } finally { applying = false; }
   if (changed) { S.pageKey = ''; PAGES.clear(); route({ quiet: true }); }
 }
-function toggleSync(on) {
+function toggleSync(on: boolean) {
   LS.set('syncOff', !on);
   if (on) syncPrefs().then(() => route());
 }

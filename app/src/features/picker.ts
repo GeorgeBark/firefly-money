@@ -3,7 +3,7 @@ import { AuthError, api } from '../core/api';
 import { showLogin } from '../core/auth';
 import { App, S, el } from '../core/base';
 import { toast } from '../core/dom';
-import { type TxMeta, txRows } from '../core/feed';
+import { type Group, type TxMeta, type TxRowsOpts, txRows } from '../core/feed';
 import { buzz } from '../core/helpers';
 import { invalidate } from '../core/lists';
 import { bindSwipe } from './phone';
@@ -11,10 +11,10 @@ import { bindSwipe } from './phone';
 /* ---------- Inline category / budget picker ---------- */
 type PickItem = { v: string, l: string, create?: boolean };
 let pickCtx: { tr: HTMLElement, meta: TxMeta, k: string, items: PickItem[], cur: string, idx: number, q: string } | null = null;
-export function pick(node) {
-  const tr = node.closest('tr[data-gid]'), meta = tr && S.txMeta[tr.dataset.gid], L = S.lists!;
+export function pick(node: HTMLElement) {
+  const tr = node.closest<HTMLElement>('tr[data-gid]'), meta = tr && S.txMeta[tr.dataset.gid!], L = S.lists!;
   if (!meta || !L) return;
-  const k = node.dataset.k, sp = meta.g.splits[0];
+  const k = node.dataset.k!, sp = meta.g.splits[0];
   const items = k === 'category'
     ? [{ v: '', l: 'No category' }, ...L.categories.map(c => ({ v: c.name, l: c.name }))]
     : [{ v: '', l: 'No budget' }, ...L.budgets.filter(b => b.active || b.id === sp.budget_id).map(b => ({ v: b.id, l: b.name }))];
@@ -37,14 +37,14 @@ function pickList(): PickItem[] {
   if (c.k === 'category' && q && !c.items.some(x => x.l.toLowerCase() === q)) list = [...list, { v: c.q.trim(), l: 'Create “' + c.q.trim() + '”', create: true }];
   return list;
 }
-function pickFilter(q) { const c = pickCtx!; c.q = q; c.idx = q ? 0 : Math.max(0, pickList().findIndex(x => String(x.v) === String(c.cur || ''))); drawPick(); }
+function pickFilter(q: string) { const c = pickCtx!; c.q = q; c.idx = q ? 0 : Math.max(0, pickList().findIndex(x => String(x.v) === String(c.cur || ''))); drawPick(); }
 function drawPick() {
   const c = pickCtx!, list = pickList();
   el('pkList').innerHTML = String(htmlList(list.map((x, i) => html`<div class="pal-item${i === c.idx ? ' on' : ''}" data-onmouseenter="App.pickHover(${i})" data-onmousedown="event.preventDefault();App.pickChoose(${i})"><span>${x.l}</span>${String(x.v) === String(c.cur) && !x.create ? html`<span class="k">✓</span>` : ''}</div>`)) || html`<div class="empty" style="padding:10px 14px">Nothing matches.</div>`);
   const on = el('pkList').querySelector('.on'); if (on) on.scrollIntoView({ block: 'nearest' });
 }
-function pickHover(i) { if (pickCtx && i !== pickCtx.idx) { pickCtx.idx = i; drawPick(); } }
-function pickKey(e) {
+function pickHover(i: number) { if (pickCtx && i !== pickCtx.idx) { pickCtx.idx = i; drawPick(); } }
+function pickKey(e: KeyboardEvent) {
   const n = pickList().length, c = pickCtx!;
   if (['ArrowDown', 'ArrowUp', 'Enter', 'Escape'].includes(e.key)) e.stopPropagation();
   if (e.key === 'ArrowDown') { e.preventDefault(); c.idx = (c.idx + 1) % n; drawPick(); }
@@ -56,17 +56,17 @@ function pickKey(e) {
 function closePick() { const a = document.activeElement as HTMLElement; if (a && a.id === 'pkq') a.blur(); el('pickpop').hidden = true; const c = pickCtx; pickCtx = null; return c; }
 document.addEventListener('mousedown', e => { if (!el('pickpop').hidden && !(e.target as HTMLElement).closest('#pickpop')) closePick(); });
 document.addEventListener('scroll', e => { if (!el('pickpop').hidden && !((e.target as HTMLElement).closest && (e.target as HTMLElement).closest('#pickpop'))) closePick(); }, true);
-function rowFor(g, opts) {
+function rowFor(g: Group, opts: TxRowsOpts) {
   const t = document.createElement('template'); t.innerHTML = String(txRows([g], opts));
   return t.content.querySelector<HTMLElement>('tr[data-gid]')!;
 }
-function swapRow(tr, g, opts) {
-  const nr = rowFor(g, opts), cb = tr.querySelector('input[data-sel]');
+function swapRow(tr: HTMLElement, g: Group, opts: TxRowsOpts) {
+  const nr = rowFor(g, opts), cb = tr.querySelector<HTMLInputElement>('input[data-sel]');
   if (cb && cb.checked) nr.querySelector<HTMLInputElement>('input[data-sel]')!.checked = true;
   if (tr.classList.contains('kfocus')) nr.classList.add('kfocus');
   tr.replaceWith(nr); bindSwipe(); return nr;
 }
-async function pickChoose(i) {
+async function pickChoose(i: number) {
   const item = pickList()[i], c = closePick(); if (!item || !c) return;
   const { meta, k } = c, g = meta.g, sp = g.splits[0];
   if (String(item.v) === String(c.cur) && !item.create) return;

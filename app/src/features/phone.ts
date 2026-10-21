@@ -3,9 +3,9 @@ import { App, el } from '../core/base';
 import { NAV, icon, openDrawer } from '../core/dom';
 
 /* ---------- Phone: tab bar, More sheet, swipe to delete ---------- */
-function drawTabbar(active) {
+function drawTabbar(active: string) {
   const tb = el('tabbar'); tb.hidden = false;
-  const t = (r, label, ic) => html`<a href="#/${r}" class="${r === active ? 'on' : ''}">${icon(ic)}<span>${label}</span></a>`;
+  const t = (r: string, label: string, ic: string) => html`<a href="#/${r}" class="${r === active ? 'on' : ''}">${icon(ic)}<span>${label}</span></a>`;
   tb.innerHTML = String(html`${t('', 'Home', 'overview')}${t('transactions', 'Activity', 'transactions')}<button type="button" class="plus" data-onclick="App.quickAdd()" aria-label="Add transaction"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>${t('budgets', 'Budgets', 'budgets')}<button type="button" data-onclick="App.moreSheet()">${icon('categories')}<span>More</span></button>`);
 }
 export function moreSheet() {

@@ -1,15 +1,20 @@
-import { html, htmlList } from '../core/html';
+import { type Html, html, htmlList } from '../core/html';
 import { AuthError, api } from '../core/api';
 import { showLogin } from '../core/auth';
-import { App, S, el, fmtDate, money, num, sameName, todayIso, type AppApi, type Field } from '../core/base';
+import { type ApiData, App, S, el, fmtDate, money, num, sameName, todayIso, type AppApi, type Field } from '../core/base';
 import { closeDrawer, formError, icon, openDrawer, opt, toast, vt, vtName } from '../core/dom';
 import { avatarHtml, normGroup, payeeOf, signed } from '../core/feed';
-import { invalidate, isAsset, isCard, isLiab, lists } from '../core/lists';
+import { type Account, invalidate, isAsset, isCard, isLiab, lists } from '../core/lists';
 import { route } from '../core/router';
 
 /* ================= Transaction form ================= */
-export function blankSplit() { return { jid: '', description: '', amount: '', counter: '', category: '', budget: '', bill: '', tags: '', notes: '', fa: '', fc: '', orig: {} }; }
-export function newTx(preset: any = {}) {
+// The transaction form's state (S.form while it's open). Fields hold what the inputs hold, as text.
+export type SplitForm = { jid: string, description: string, amount: string, counter: string, category: string, budget: string, bill: string,
+  tags: string, notes: string, fa: string, fc: string, orig: Partial<Record<string, string>> };
+export type TxForm = { id: string, type: string, date: string, title: string, main: string, src: string, dst: string, rules: boolean, splits: SplitForm[],
+  nlBase?: ApiData, nl?: string, nlChips?: Html | '' };   // quick add: what was typed and the chips it was read as
+export function blankSplit(): SplitForm { return { jid: '', description: '', amount: '', counter: '', category: '', budget: '', bill: '', tags: '', notes: '', fa: '', fc: '', orig: {} }; }
+export function newTx(preset: { type?: string, date?: string, account?: string, description?: string, amount?: string } = {}) {
   const L = S.lists!; S.drawerHero = null;
   const firstAsset = (L.own.find(a => isAsset(a) && !isCard(a)) || L.own[0] || {}).id || '';
   S.form = { id: '', type: preset.type || 'withdrawal', date: preset.date || todayIso(), title: '', main: preset.account || firstAsset, src: preset.account || firstAsset, dst: '', rules: true, splits: [blankSplit()] };
@@ -17,7 +22,7 @@ export function newTx(preset: any = {}) {
   if (preset.amount) S.form.splits[0].amount = preset.amount;
   renderTxForm();
 }
-export async function editTx(id) {
+export async function editTx(id: string) {
   const meta = S.txMeta && S.txMeta[id], row = document.querySelector<HTMLElement>('#view tr[data-gid="' + id + '"]');
   if (meta) {
     const g = meta.g, v = signed(g, meta.accountId);
@@ -36,9 +41,9 @@ export async function editTx(id) {
       id: g.id, type: g.type, date: String(g.date).slice(0, 10), title: g.title, rules: false,
       main: g.type === 'deposit' ? f.destination_id : f.source_id, src: f.source_id, dst: f.destination_id,
       splits: g.splits.map(s => {
-        const x: any = { jid: s.jid, description: s.description, amount: String(s.amount), counter: g.type === 'deposit' ? s.source_name : s.destination_name,
-          category: s.category, budget: s.budget_id, bill: s.bill_id, tags: s.tags.join(', '), notes: s.notes, fa: s.fa, fc: s.fc };
-        x.orig = { ...x };
+        const x: SplitForm = { jid: s.jid, description: s.description, amount: String(s.amount), counter: g.type === 'deposit' ? s.source_name : s.destination_name,
+          category: s.category, budget: s.budget_id, bill: s.bill_id, tags: s.tags.join(', '), notes: s.notes, fa: s.fa, fc: s.fc, orig: {} };
+        const { orig, ...fields } = x; x.orig = fields;
         return x;
       }),
     };
@@ -53,14 +58,14 @@ export async function editTx(id) {
     openDrawer('Transaction', html`<div class="form-err">${(e as Error).message}</div>`);
   }
 }
-export function accountOptions(sel, allowEmpty) {
+export function accountOptions(sel: string, allowEmpty?: boolean) {
   const L = S.lists!;
-  const group = (label, list) => list.length ? html`<optgroup label="${label}">${htmlList(list.map(a => opt(a.id, a.name, sel)))}</optgroup>` : '';
+  const group = (label: string, list: Account[]) => list.length ? html`<optgroup label="${label}">${htmlList(list.map(a => opt(a.id, a.name, sel)))}</optgroup>` : '';
   return html`${allowEmpty ? opt('', 'Choose…', sel) : ''}${group('Bank accounts', L.own.filter(a => isAsset(a) && !isCard(a)))}${group('Credit cards', L.own.filter(isCard))}${group('Loans & debts', L.own.filter(isLiab))}`;
 }
 export function renderTxForm() {
-  const f = S.form, L = S.lists!, multi = f.splits.length > 1;
-  const typeBtn = (t, label) => html`<button type="button" class="${f.type === t ? 'on' : ''}" data-onclick="App.txType('${t}')">${label}</button>`;
+  const f: TxForm = S.form, L = S.lists!, multi = f.splits.length > 1;
+  const typeBtn = (t: string, label: string) => html`<button type="button" class="${f.type === t ? 'on' : ''}" data-onclick="App.txType('${t}')">${label}</button>`;
   const counterList = f.type === 'withdrawal' ? [...L.expense, ...L.own.filter(isLiab)] : [...L.revenue, ...L.own.filter(isLiab)];
   let accountsHtml;
   if (f.type === 'transfer') {
@@ -80,28 +85,28 @@ export function renderTxForm() {
   if (f.id && (window.App as Partial<AppApi>).loadTxExtras) App.loadTxExtras(f.id, f.splits.map(s => s.jid).filter(Boolean));
 }
 export function collectTx() {
-  const f = S.form; if (!f || !el('txForm')) return;
-  const v = id => el<Field>(id) ? el<Field>(id).value : undefined;
+  const f: TxForm | null = S.form; if (!f || !el('txForm')) return;
+  const v = (id: string) => el<Field>(id) ? el<Field>(id).value : undefined;
   f.date = v('f-date') ?? f.date; f.title = v('f-title') ?? f.title; f.rules = el<HTMLInputElement>('f-rules') ? el<HTMLInputElement>('f-rules').checked : f.rules;
-  if (el('f-main')) f.main = v('f-main');
-  if (el('f-src')) f.src = v('f-src');
-  if (el('f-dst')) f.dst = v('f-dst');
+  if (el('f-main')) f.main = v('f-main')!;
+  if (el('f-src')) f.src = v('f-src')!;
+  if (el('f-dst')) f.dst = v('f-dst')!;
   document.querySelectorAll<HTMLElement>('#txForm .split').forEach(card => {
     const s = f.splits[Number(card.dataset.i)];
-    card.querySelectorAll<HTMLInputElement>('[data-k]').forEach(inp => { s[inp.dataset.k!] = inp.value; });
+    card.querySelectorAll<HTMLInputElement>('[data-k]').forEach(inp => { (s as unknown as Record<string, string>)[inp.dataset.k!] = inp.value; });
   });
 }
-function resolveCounter(name, kind) {
+function resolveCounter(name: string, kind: string): { id?: string, name?: string } {
   const L = S.lists!, pool = kind === 'withdrawal' ? [...L.expense, ...L.own.filter(isLiab)] : [...L.revenue, ...L.own.filter(isLiab)];
   const hit = pool.find(a => sameName(a.name, name));
   return hit ? { id: hit.id } : { name: name.trim() };
 }
 function buildTxPayload() {
-  const f = S.form, edit = !!f.id;
+  const f: TxForm = S.form, edit = !!f.id;
   const txs = f.splits.map(s => {
-    const o: any = { type: f.type, date: f.date, amount: String(Math.abs(num(s.amount))), description: s.description.trim() };
+    const o: Record<string, unknown> = { type: f.type, date: f.date, amount: String(Math.abs(num(s.amount))), description: s.description.trim() };
     if (edit && s.jid) o.transaction_journal_id = s.jid;
-    const changed = k => !edit || !s.jid || String(s[k] || '') !== String((s.orig || {})[k] || '');
+    const changed = (k: string) => !edit || !s.jid || String((s as unknown as Record<string, string>)[k] || '') !== String((s.orig || {})[k] || '');
     if (f.type === 'withdrawal') {
       o.source_id = f.main;
       if (s.counter.trim()) { const c = resolveCounter(s.counter, 'withdrawal'); c.id ? (o.destination_id = c.id) : (o.destination_name = c.name); }
@@ -123,14 +128,14 @@ function buildTxPayload() {
     // On edit, fields left out stay as they are in Firefly, so only changed ones are sent.
     return o;
   });
-  const body: any = { apply_rules: f.rules, fire_webhooks: true, transactions: txs };
+  const body: Record<string, unknown> = { apply_rules: f.rules, fire_webhooks: true, transactions: txs };
   if (txs.length > 1) body.group_title = f.title.trim();
   if (!edit) body.error_if_duplicate_hash = false;
   return body;
 }
-async function saveTx(formEl) {
+async function saveTx(formEl: HTMLFormElement) {
   collectTx();
-  const f = S.form;
+  const f: TxForm = S.form;
   if (f.type === 'transfer') {
     if (!f.src || !f.dst) return formError('Choose both accounts for the transfer.');
     if (f.src === f.dst) return formError('A transfer needs two different accounts.');

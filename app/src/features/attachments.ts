@@ -7,7 +7,7 @@ import { normGroup } from '../core/feed';
 import { fmtSize, saveBlob } from '../core/helpers';
 
 /* ================= Attachments & links in the transaction drawer ================= */
-async function loadTxExtras(gid, jids) {
+async function loadTxExtras(gid: string, jids: string[]) {
   const box = el('txExtras'); if (!box) return;
   try {
     const [atts, linksRaw, types] = await Promise.all([
@@ -38,8 +38,8 @@ async function loadTxExtras(gid, jids) {
   } catch (e) { if (el('txExtras')) el('txExtras').innerHTML = String(html`<p class="sub-s">${(e as Error).message}</p>`); }
 }
 const refreshExtras = () => S.extrasCtx && loadTxExtras(S.extrasCtx.gid, S.extrasCtx.jids);
-async function uploadAtt(jid, input) {
-  const files = [...input.files]; if (!files.length) return;
+async function uploadAtt(jid: string, input: HTMLInputElement) {
+  const files = [...input.files!]; if (!files.length) return;
   await withAuth(async () => {
     for (const f of files) {
       toast('Uploading ' + f.name + '…');
@@ -49,8 +49,8 @@ async function uploadAtt(jid, input) {
     toast(files.length === 1 ? 'File attached' : files.length + ' files attached'); refreshExtras();
   });
 }
-async function downloadAtt(id, name) { await withAuth(async () => saveBlob(await api('/attachments/' + id + '/download', { as: 'blob' }), name)); }
-async function deleteAtt(id) {
+async function downloadAtt(id: string, name: string) { await withAuth(async () => saveBlob(await api('/attachments/' + id + '/download', { as: 'blob' }), name)); }
+async function deleteAtt(id: string) {
   if (!await confirmBox('Remove this file?', 'The attachment is deleted from Firefly III.', 'Remove')) return;
   await withAuth(async () => { await api('/attachments/' + id, { method: 'DELETE' }); toast('File removed'); refreshExtras(); });
 }
@@ -62,12 +62,12 @@ async function findLink() {
     el('lnkResults').innerHTML = String(gs.length ? html`<div class="list">${htmlList(gs.map(g => html`<div class="row"><span class="name">${g.title || g.splits[0].description} <span class="sub-s">${fmtDay(g.date)} · ${money(g.total)}</span></span><button class="btn small" type="button" data-onclick="App.makeLink('${g.splits[0].jid}')">Link</button></div>`))}</div>` : html`<p class="empty">No matches.</p>`);
   });
 }
-async function makeLink(otherJid) {
+async function makeLink(otherJid: string) {
   const [typeId, dir] = el<HTMLSelectElement>('lnkType').value.split(':'), me = S.extrasCtx!.jids[0];
   const body = dir === 'out' ? { link_type_id: typeId, outward_id: me, inward_id: otherJid } : { link_type_id: typeId, outward_id: otherJid, inward_id: me };
   await withAuth(async () => { await api('/transaction-links', { method: 'POST', body }); toast('Linked'); refreshExtras(); });
 }
-async function deleteLink(id) {
+async function deleteLink(id: string) {
   if (!await confirmBox('Remove this link?', 'Both transactions stay; only the link between them is removed.', 'Unlink')) return;
   await withAuth(async () => { await api('/transaction-links/' + id, { method: 'DELETE' }); toast('Link removed'); refreshExtras(); });
 }

@@ -10,14 +10,14 @@ import { collectTx, renderTxForm } from './txform';
 /* ---------- Natural-language quick add ---------- */
 const FILLER = new Set(['on', 'with', 'via', 'using', 'at', 'for', 'to', 'from', 'paid', 'spent', 'bought', 'got', 'and', 'the', 'a', 'my', 'in']);
 const GENERIC = new Set(['card', 'checking', 'savings', 'saving', 'account', 'bank', 'credit', 'debit', 'loan', 'gold', 'the']);
-function nlAccount(tok) {
+function nlAccount(tok: string) {
   const L = S.lists!, w = tok.toLowerCase(); if (w.length < 3) return null;
   const pool = L.own.filter(a => isAsset(a) || isLiab(a));
   const full = pool.filter(a => a.name.toLowerCase() === w); if (full.length) return full[0];
   const hits = pool.filter(a => a.name.toLowerCase().split(/[\s\-–]+/).some(x => x.startsWith(w) && (!GENERIC.has(w) || x === w)));
   return hits.length === 1 ? hits[0] : hits.find(a => a.name.toLowerCase().startsWith(w)) || null;
 }
-function nlParse(text, submit) {
+function nlParse(text: string, submit?: boolean) {
   const f = S.form; if (!f || f.id) return;
   collectTx();
   if (!f.nlBase) { const s0 = f.splits[0]; f.nlBase = { type: f.type, date: f.date, main: f.main, src: f.src, dst: f.dst, split: { amount: s0.amount, description: s0.description, counter: s0.counter, category: s0.category } }; }
@@ -59,10 +59,10 @@ function nlParse(text, submit) {
     if (from) f.src = from.a.id; if (to) f.dst = to.a.id;
     if (!payee && from && to) sp.description = 'Transfer to ' + to.a.name;
   } else if (accs[0]) f.main = accs[0].a.id;
-  const chip = (l, v) => html`<span class="nlchip"><em>${l}</em>${v}</span>`;
+  const chip = (l: string, v: string) => html`<span class="nlchip"><em>${l}</em>${v}</span>`;
   f.nl = text;
   f.nlChips = text.trim() ? htmlList([
-    type !== base.type ? chip('Type', { deposit: 'Income', transfer: 'Transfer', withdrawal: 'Expense' }[type]) : '',
+    type !== base.type ? chip('Type', ({ deposit: 'Income', transfer: 'Transfer', withdrawal: 'Expense' } as Record<string, string>)[type]) : '',
     out.amount ? chip('Amount', money(num(out.amount))) : '',
     out.date ? chip('Date', dayLabel(out.date)) : '',
     type === 'transfer' ? (accs.length ? html`${chip('From', (L.byId[f.src] || {}).name || '?')}${f.dst ? chip('To', (L.byId[f.dst] || {}).name || '?') : ''}` : '') : accs[0] ? chip('Account', accs[0].a.name) : '',

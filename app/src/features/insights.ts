@@ -1,15 +1,15 @@
-import { html, htmlList } from '../core/html';
+import { type Html, html, htmlList } from '../core/html';
 import { api } from '../core/api';
-import { App, absDiff, arr, el, fmtDay, isoDate, money, money0, monthRange, num, pad, sumDiff } from '../core/base';
+import { type ApiData, App, type Period, absDiff, arr, el, fmtDay, isoDate, money, money0, monthRange, num, pad, sumDiff } from '../core/base';
 import { vt, vtName } from '../core/dom';
 import { LS } from '../core/helpers';
-import { ordinal } from '../core/lists';
+import { type Account, ordinal } from '../core/lists';
 
 /* =====================================================================
    Insight cards: short, auto-generated observations on the Overview.
    Compares this month against the same point last month (3-month average as a note).
    ===================================================================== */
-const INS_ICON = {
+const INS_ICON: Record<string, Html> = {
   up: html`<path d="M3 17l6-6 4 4 8-8M15 7h6v6"/>`,
   down: html`<path d="M3 7l6 6 4-4 8 8M15 17h6v-6"/>`,
   budget: html`<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>`,
@@ -17,14 +17,16 @@ const INS_ICON = {
   spark: html`<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z"/>`,
   check: html`<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9.5"/>`,
 };
-async function insightCards({ cur, future, budgets, limits, cards, trend }) {
+type InsightArgs = { cur: Period, future: boolean, budgets: ApiData[], limits: Record<string, ApiData>, cards: Account[], trend: { label: string, income: number, spend: number }[] };
+async function insightCards({ cur: period, future, budgets, limits, cards, trend }: InsightArgs) {
   if (future) return '';
+  const cur = period as Period & { y: number, m: number };     // always one month here: not shown for all time or the future
   const now = new Date(), isCur = cur.y === now.getFullYear() && cur.m === now.getMonth();
   const dim = new Date(cur.y, cur.m + 1, 0).getDate(), N = isCur ? now.getDate() : dim;
-  const win = mr => { const d = new Date(mr.y, mr.m + 1, 0).getDate(); return { start: mr.start, end: mr.start.slice(0, 8) + pad(Math.min(N, d)) }; };
-  const pull = async w => {
+  const win = (mr: Period & { y: number, m: number }) => { const d = new Date(mr.y, mr.m + 1, 0).getDate(); return { start: mr.start, end: mr.start.slice(0, 8) + pad(Math.min(N, d)) }; };
+  const pull = async (w: { start: string, end: string }) => {
     const [c, u] = await Promise.all([api('/insight/expense/category', { params: w }), api('/insight/expense/no-category', { params: w }).catch(() => [])]);
-    const m = new Map(); arr(c).forEach(x => m.set(x.name, { id: x.id, amt: (m.get(x.name) || { amt: 0 }).amt + absDiff(x) }));
+    const m = new Map<string, { id: string, amt: number }>(); arr(c).forEach(x => m.set(x.name, { id: x.id, amt: (m.get(x.name) || { amt: 0 }).amt + absDiff(x) }));
     return { cats: m, total: sumDiff(c) + sumDiff(u) };
   };
   const nowW = win(cur), past = [1, 2, 3].map(i => win(monthRange(cur.y, cur.m - i)));
@@ -36,11 +38,11 @@ async function insightCards({ cur, future, budgets, limits, cards, trend }) {
   const lastBy = isCur ? 'by the ' + ordinal(Math.min(N, new Date(prevM.y, prevM.m + 1, 0).getDate())) + ' of ' + prevM.short : 'in ' + prevM.short;
   const byLabel = isCur ? 'by the ' + ordinal(N) : 'in ' + cur.short;
   const vsWord = useLast ? (isCur ? 'last month' : prevM.short) : 'usual';
-  const vsText = amt => useLast ? money0(amt) + ' ' + lastBy : 'about ' + money0(amt) + ' ' + byLabel + ' in a typical month';
+  const vsText = (amt: number) => useLast ? money0(amt) + ' ' + lastBy : 'about ' + money0(amt) + ' ' + byLabel + ' in a typical month';
   const out: { id: string, tone: string, ic: string, title: string, detail: string, href: string, score: number }[] = [];
-  const add = (id, tone, ic, title, detail, href, score) => out.push({ id: cur.y + '-' + (cur.m + 1) + ':' + id, tone, ic, title, detail, href, score });
-  const avgOf = name => used.reduce((s, h) => s + (name == null ? h.total : ((h.cats.get(name) || {}).amt || 0)), 0) / used.length;
-  const usualNote = (amt, base) => useLast && used.length > 1 && Math.abs(amt - base) >= 1 ? ' · usually about ' + money0(amt) : '';
+  const add = (id: string, tone: string, ic: string, title: string, detail: string, href: string, score: number) => out.push({ id: cur.y + '-' + (cur.m + 1) + ':' + id, tone, ic, title, detail, href, score });
+  const avgOf = (name: string | null) => used.reduce((s, h) => s + (name == null ? h.total : (h.cats.get(name) || { amt: 0 }).amt || 0), 0) / used.length;
+  const usualNote = (amt: number, base: number) => useLast && used.length > 1 && Math.abs(amt - base) >= 1 ? ' · usually about ' + money0(amt) : '';
   const meWhen = isCur ? 'so far' : 'in ' + cur.short;
 
   // 1. Overall pace
@@ -53,7 +55,7 @@ async function insightCards({ cur, future, budgets, limits, cards, trend }) {
   // 2. Categories that moved the most
   const ref = useLast ? [last] : used;
   const names = new Set([...me.cats.keys(), ...ref.flatMap(h => [...h.cats.keys()])]);
-  const moves: { name: string, id: string, amt: number, a: number, d: number, p: number, score: number }[] = [];
+  const moves: { name: string, id: string | undefined, amt: number, a: number, d: number, p: number, score: number }[] = [];
   names.forEach(name => {
     const c = me.cats.get(name), amt = c ? c.amt : 0, a = useLast ? ((last.cats.get(name) || {}).amt || 0) : avgOf(name);
     const id = (c || used.map(h => h.cats.get(name)).find(Boolean) || {}).id, d = amt - a;
@@ -73,7 +75,7 @@ async function insightCards({ cur, future, budgets, limits, cards, trend }) {
   if (isCur) {
     // 3. Budgets on pace to run out before the month ends (ones already near/over the limit show in "Needs attention")
     budgets.filter(b => b.attributes.active !== false).forEach(b => {
-      const lim = limits[String(b.id)], spent = Math.abs((b.attributes.spent || []).reduce((s, x) => s + num(x.sum), 0));
+      const lim = limits[String(b.id)], spent = Math.abs((b.attributes.spent || []).reduce((s: number, x: ApiData) => s + num(x.sum), 0));
       if (!lim || !lim.amount || spent >= lim.amount * .85 || N < 5) return;
       const perDay = spent / N, runDay = perDay > 0 ? Math.ceil(lim.amount / perDay) : Infinity;
       if (runDay >= dim) return;
@@ -107,8 +109,8 @@ async function insightCards({ cur, future, budgets, limits, cards, trend }) {
   return html`<div class="insights" id="insights" aria-label="Insights">${htmlList(shown.map(x =>
     html`<div class="insight t-${x.tone}" role="link" tabindex="0" data-ins="${x.id}" data-onclick="App.go('${x.href}')" data-onkeydown="App.enterClick(event,this)"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${INS_ICON[x.ic]}</svg></span><span><div class="t">${x.title}</div><div class="d">${x.detail}</div></span><button class="x" type="button" aria-label="Dismiss" title="Hide this" data-onclick="event.stopPropagation();App.hideInsight(this)">×</button></div>`))}</div>`;
 }
-function hideInsight(btn) {
-  const card = btn.closest('.insight'), id = card.dataset.ins, box = el('insights');
+function hideInsight(btn: HTMLElement) {
+  const card = btn.closest<HTMLElement>('.insight')!, id = card.dataset.ins!, box = el('insights');
   const hidden = LS.get('insightsHidden', {}); hidden[id] = Date.now();
   Object.keys(hidden).forEach(k => { if (Date.now() - hidden[k] > 100 * 864e5) delete hidden[k]; });
   LS.set('insightsHidden', hidden);

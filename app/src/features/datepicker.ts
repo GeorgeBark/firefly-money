@@ -3,7 +3,7 @@ import { el, isoDate, todayIso } from '../core/base';
 
 /* ---------- Date picker ---------- */
 let calInput: HTMLInputElement | null = null, calView = { y: 0, m: 0 };
-function openCal(input) {
+function openCal(input: HTMLInputElement) {
   calInput = input;
   const v = input.value || todayIso(), d = new Date(v + 'T12:00:00');
   calView = { y: d.getFullYear(), m: d.getMonth() };
@@ -39,7 +39,7 @@ document.addEventListener('click', e => {
   const t = e.target as HTMLElement;
   if (t && t.matches && t.matches('input[type=date]') && !('ontouchstart' in window)) {
     e.preventDefault();
-    if (calInput === t && !el('calpop').hidden) closeCal(); else openCal(t);
+    if (calInput === t && !el('calpop').hidden) closeCal(); else openCal(t as HTMLInputElement);
     return;
   }
   if (!el('calpop').hidden && !el('calpop').contains(t)) closeCal();

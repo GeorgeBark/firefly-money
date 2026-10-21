@@ -28,7 +28,7 @@ export async function openPalette() {
   if (S.rules) Object.entries<any>(S.rules).forEach(([id, r]) => items.push({ label: r.title, kind: 'Rule', run: () => { location.hash = '#/rules'; setTimeout(() => App.ruleForm(id), 500); }, low: true }));
   palItems = items; palFilter();
 }
-function score(label, q) {
+function score(label: string, q: string) {
   const l = label.toLowerCase();
   if (!q) return 1;
   if (l.startsWith(q)) return 100 - l.length / 100;
@@ -48,14 +48,14 @@ function drawPal() {
     : html`<div class="pal-item"><span class="neutral">No matches</span></div>`);
   const on = el('palList').querySelector('.on'); if (on) on.scrollIntoView({ block: 'nearest' });
 }
-function palHover(i) { if (i !== palIdx) { palIdx = i; drawPal(); } }
-function palKey(e) {
+function palHover(i: number) { if (i !== palIdx) { palIdx = i; drawPal(); } }
+function palKey(e: KeyboardEvent) {
   if (e.key === 'ArrowDown') { e.preventDefault(); palIdx = Math.min(palShown.length - 1, palIdx + 1); drawPal(); }
   else if (e.key === 'ArrowUp') { e.preventDefault(); palIdx = Math.max(0, palIdx - 1); drawPal(); }
   else if (e.key === 'Enter') { e.preventDefault(); palRun(palIdx); }
   else if (e.key === 'Escape') { e.preventDefault(); closePalette(); }
 }
-function palRun(i) {
+function palRun(i: number) {
   const it = palShown[i]; if (!it) return;
   closePalette();
   if (it.go) location.hash = it.go; else if (it.run) it.run();

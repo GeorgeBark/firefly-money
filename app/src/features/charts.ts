@@ -1,12 +1,13 @@
 import { Html, html, htmlList } from '../core/html';
 import { getAll } from '../core/api';
-import { App, absDiff, fmtDay, money, money0, pad, todayIso } from '../core/base';
-import { normGroup, signed } from '../core/feed';
+import { App, absDiff, fmtDay, money, money0, pad, todayIso, type ApiData, type Period } from '../core/base';
+import { normGroup, signed, type Group } from '../core/feed';
 import { addDays } from '../core/helpers';
+import type { Account } from '../core/lists';
 
 /* ---------- Sparklines: last 30 days of each account's balance ---------- */
-async function balanceSparks(accounts) {
-  const start = addDays(todayIso(), -30), end = todayIso(), out = {};
+async function balanceSparks(accounts: Account[]) {
+  const start = addDays(todayIso(), -30), end = todayIso(), out: Record<string, number[]> = {};
   const gs = (await getAll('/transactions', { start, end, type: 'all' })).map(normGroup);     // one request for every account
   accounts.forEach(a => {
     const byDay: Record<string, number> = {}; gs.forEach(g => { const v = signed(g, a.id); if (v) { const d = String(g.date).slice(0, 10); byDay[d] = (byDay[d] || 0) + v; } });
@@ -16,7 +17,7 @@ async function balanceSparks(accounts) {
   });
   return out;
 }
-function sparkline(vals, owed) {
+function sparkline(vals: number[], owed: boolean) {
   const v = owed ? vals.map(x => Math.max(0, -x)) : vals, W = 64, H = 20;
   const lo = Math.min(...v), hi = Math.max(...v), rng = hi - lo || 1;
   const pts = v.map((y, i) => [(i / (v.length - 1)) * W, H - 2 - ((y - lo) / rng) * (H - 4)]);
@@ -26,11 +27,11 @@ function sparkline(vals, owed) {
 }
 
 /* ---------- Daily spending heatmap ---------- */
-function heatmapPanel(cur, groups) {
-  const by: any = {}, cnt = {};
+function heatmapPanel(cur: Period, groups: Group[]) {
+  const by: Record<string, number> = {}, cnt: Record<string, number> = {};
   groups.forEach(g => { const d = String(g.date).slice(0, 10); by[d] = (by[d] || 0) + g.total; cnt[d] = (cnt[d] || 0) + 1; });
-  const dim = new Date(cur.y, cur.m + 1, 0).getDate(), lead = new Date(cur.y, cur.m, 1).getDay(), t = todayIso();
-  const max = Math.max(1, ...Object.values<any>(by)), days = Object.keys(by).length;
+  const dim = new Date(cur.y!, cur.m! + 1, 0).getDate(), lead = new Date(cur.y!, cur.m!, 1).getDay(), t = todayIso();
+  const max = Math.max(1, ...Object.values(by)), days = Object.keys(by).length;
   let cells: Html | string = '';
   for (let i = 0; i < lead; i++) cells = html`${cells}<span class="hm-cell pad"></span>`;
   for (let d = 1; d <= dim; d++) {
@@ -38,7 +39,7 @@ function heatmapPanel(cur, groups) {
     const pct = v ? Math.round(18 + 82 * Math.sqrt(v / max)) : 0;
     cells = html`${cells}<button type="button" class="hm-cell${fut ? ' fut' : ''}${iso === t ? ' today' : ''}"${v ? html` style="--p:${pct}%"` : ''} data-tip="${fmtDay(iso) + (v ? ' · ' + money(v) + ' · ' + cnt[iso] + ' purchase' + (cnt[iso] === 1 ? '' : 's') : fut ? '' : ' · nothing spent')}"${v ? html` data-onclick="App.go('#/transactions?search=date_on:${iso}')"` : ' disabled'}><span>${d}</span></button>`;
   }
-  const top = Object.entries<any>(by).sort((a, b) => b[1] - a[1])[0];
+  const top = Object.entries(by).sort((a, b) => b[1] - a[1])[0];
   const passed = cur.start.slice(0, 7) === t.slice(0, 7) ? +t.slice(8, 10) : dim, free = Math.max(0, passed - days);
   return html`<section class="panel"><h2>Daily spending</h2><p class="lead">Darker days cost more · tap one to see it</p><div class="hm"><div class="hm-dow">${htmlList(['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(x => html`<span>${x}</span>`))}</div><div class="hm-grid">${cells}</div></div><div class="hm-foot"><span>${top ? html`Biggest day: <strong class="num">${money0(top[1])}</strong> on ${fmtDay(top[0])}` : 'No spending yet'}</span><span>${free} no-spend day${free === 1 ? '' : 's'}</span></div></section>`;
 }
@@ -46,11 +47,14 @@ function heatmapPanel(cur, groups) {
 /* ---------- Money flow (income → spending categories + kept) ---------- */
 // The chart is laid out at the width it is shown at (one SVG unit = one pixel), so the labels keep their real
 // font size and spacing instead of being scaled up on a wide screen or down on a phone.
-function sankeyPanel(sources, income, cats, cur) {
-  let left = sources.map(x => ({ name: x.name, v: absDiff(x) })).filter(x => x.v > 0).sort((a, b) => b.v - a.v);
+type FlowNode = { name: string, v: number, id?: string, kind?: string };
+type LaidNode = FlowNode & { h: number, slot: number, x: number, y: number, ly: number };
+type Flow = { left: FlowNode[], right: FlowNode[], inc: number, spend: number };
+function sankeyPanel(sources: ApiData[], income: number, cats: { name: string, amt: number, id?: string }[], cur: Period) {
+  let left: FlowNode[] = sources.map(x => ({ name: x.name, v: absDiff(x) })).filter(x => x.v > 0).sort((a, b) => b.v - a.v);
   if (!left.length && income > 0) left = [{ name: 'Income', v: income }];
   if (left.length > 4) { const rest = left.slice(3); left = left.slice(0, 3); left.push({ name: rest.length + ' other sources', v: rest.reduce((s, x) => s + x.v, 0) }); }
-  let right = cats.map(c => ({ name: c.name, v: c.amt, id: c.id })).sort((a, b) => b.v - a.v);
+  let right: FlowNode[] = cats.map(c => ({ name: c.name, v: c.amt, id: c.id })).sort((a, b) => b.v - a.v);
   if (right.length > 7) { const rest = right.slice(6); right = right.slice(0, 6); right.push({ name: rest.length + ' other categories', v: rest.reduce((s, x) => s + x.v, 0) }); }
   const inc = left.reduce((s, x) => s + x.v, 0), spend = right.reduce((s, x) => s + x.v, 0);
   if (!inc && !spend) return '';
@@ -58,20 +62,22 @@ function sankeyPanel(sources, income, cats, cur) {
   right.forEach(x => { x.kind = 'out'; });
   if (spend > inc) left.push({ name: 'From savings', v: spend - inc, kind: 'save' });
   if (inc > spend) right.push({ name: 'Kept', v: inc - spend, kind: 'kept' });
-  const d = { left, right, inc, spend };
+  const d: Flow = { left, right, inc, spend };
   return html`<section class="panel chart sankey" data-sk="${JSON.stringify(d)}"><h2>Money flow</h2><p class="lead">Where ${cur.all ? 'all your' : cur.label + '’s'} income went · hover a band for details</p>${sankeySvg(d, innerWidth < 900 ? innerWidth - 72 : 900)}</section>`;
 }
 // Shorten a label with … until it fits in px at the chart's label font
 let skCtx: CanvasRenderingContext2D | null = null;
-function fitText(t, px) {
+function fitText(t: string, px: number) {
   if (!skCtx) { skCtx = document.createElement('canvas').getContext('2d')!; skCtx.font = '500 12.5px ' + getComputedStyle(document.body).fontFamily; }
   if (skCtx.measureText(t).width <= px) return t;
   let n = t.length;
   while (n > 1 && skCtx.measureText(t.slice(0, n).trimEnd() + '…').width > px) n--;
   return t.slice(0, n).trimEnd() + '…';
 }
-function sankeySvg({ left, right, inc, spend }, W) {
-  left = left.map(n => ({ ...n })); right = right.map(n => ({ ...n }));
+function sankeySvg(d: Flow, W: number) {
+  const { inc, spend } = d;
+  // Copies, so laying the nodes out leaves the chart's data as it was
+  const left = d.left.map(n => ({ ...n }) as LaidNode), right = d.right.map(n => ({ ...n }) as LaidNode);
   W = Math.max(280, Math.round(W));
   // On a very wide card the bands would stretch thin, so the chart keeps to 1100px in the middle of it
   const CW = Math.min(W, 1100), ox = (W - CW) / 2;
@@ -81,23 +87,23 @@ function sankeySvg({ left, right, inc, spend }, W) {
   const k = (H0 - 20 - GAP * (rows - 1)) / total;
   // Each side node gets at least a label's height of room, so its label can sit right beside it
   left.concat(right).forEach(n => { n.h = Math.max(2, n.v * k); n.slot = Math.max(n.h + GAP, LINE); });
-  const tall = nodes => nodes.reduce((s, n) => s + n.slot, 0) - GAP;
+  const tall = (nodes: LaidNode[]) => nodes.reduce((s, n) => s + n.slot, 0) - GAP;
   const H = Math.max(H0, Math.ceil(Math.max(tall(left), tall(right))) + 20);
-  const stack = (nodes, x) => { let y = (H - tall(nodes)) / 2; nodes.forEach(n => { n.x = x; n.y = y + (n.slot - GAP - n.h) / 2; y += n.slot; }); };
+  const stack = (nodes: LaidNode[], x: number) => { let y = (H - tall(nodes)) / 2; nodes.forEach(n => { n.x = x; n.y = y + (n.slot - GAP - n.h) / 2; y += n.slot; }); };
   const xl = ox + LW, xm = W / 2 - NW / 2, xr = ox + CW - LW - NW;
   stack(left, xl); stack(right, xr);
   const mh = total * k, my = (H - mh) / 2;
-  const col = n => ({ in: 'var(--income)', save: 'var(--warn)', out: 'var(--spend)', kept: 'var(--good)' })[n.kind];
-  const band = (x0, y0, x1, y1, h) => { const c = (x0 + x1) / 2; return 'M' + x0 + ',' + y0 + 'C' + c + ',' + y0 + ' ' + c + ',' + y1 + ' ' + x1 + ',' + y1 + 'L' + x1 + ',' + (y1 + h) + 'C' + c + ',' + (y1 + h) + ' ' + c + ',' + (y0 + h) + ' ' + x0 + ',' + (y0 + h) + 'Z'; };
+  const col = (n: LaidNode) => ({ in: 'var(--income)', save: 'var(--warn)', out: 'var(--spend)', kept: 'var(--good)' } as Record<string, string>)[n.kind!];
+  const band = (x0: number, y0: number, x1: number, y1: number, h: number) => { const c = (x0 + x1) / 2; return 'M' + x0 + ',' + y0 + 'C' + c + ',' + y0 + ' ' + c + ',' + y1 + ' ' + x1 + ',' + y1 + 'L' + x1 + ',' + (y1 + h) + 'C' + c + ',' + (y1 + h) + ' ' + c + ',' + (y0 + h) + ' ' + x0 + ',' + (y0 + h) + 'Z'; };
   let links: Html | string = '', nodes: Html | string = '', my1 = my, my2 = my;
-  const share = (n, of) => of ? ' (' + Math.round(n.v / of * 100) + '%)' : '';
+  const share = (n: LaidNode, of: number) => of ? ' (' + Math.round(n.v / of * 100) + '%)' : '';
   left.forEach(n => { links = html`${links}<path class="lk" d="${band(xl + NW, n.y, xm, my1, n.h)}" fill="${col(n)}" data-tip="${n.name + ' → ' + money0(n.v) + share(n, total)}"/>`; my1 += n.h; });
   right.forEach(n => { links = html`${links}<path class="lk" d="${band(xm + NW, my2, xr, n.y, n.h)}" fill="${col(n)}" data-tip="${n.name + ' · ' + money0(n.v) + share(n, n.kind === 'kept' ? inc : spend) + (n.kind === 'kept' ? ' of income' : n.kind === 'out' ? ' of spending' : '')}"${n.id ? html` style="cursor:pointer" data-onclick="App.go('#/transactions?category=${n.id}')"` : ''}/>`; my2 += n.h; });
-  const label = (n, anchor, x, nm = fitText(n.name, LW - 14)) => html`<text x="${x}" y="${n.ly - 2}" text-anchor="${anchor}" class="sk-name">${nm !== n.name ? html`<title>${n.name}</title>` : ''}${nm}</text><text x="${x}" y="${n.ly + 12}" text-anchor="${anchor}" class="sk-amt amtx">${money0(n.v)}</text>`;
+  const label = (n: LaidNode, anchor: string, x: number, nm = fitText(n.name, LW - 14)) => html`<text x="${x}" y="${n.ly - 2}" text-anchor="${anchor}" class="sk-name">${nm !== n.name ? html`<title>${n.name}</title>` : ''}${nm}</text><text x="${x}" y="${n.ly + 12}" text-anchor="${anchor}" class="sk-amt amtx">${money0(n.v)}</text>`;
   // Keep two-line labels apart and inside the chart: centre each on its node, push it below the one above,
   // pull any that run off the bottom back up, then make sure the first one still clears the top edge
   const TOP = 14, BOT = H - 18;
-  const spread = col2 => {
+  const spread = (col2: LaidNode[]) => {
     let prev = -Infinity; col2.forEach(n => { n.ly = Math.max(n.y + n.h / 2, prev + LINE, TOP); prev = n.ly; });
     let next = Infinity; [...col2].reverse().forEach(n => { n.ly = Math.min(n.ly, next - LINE, BOT); next = n.ly; });
     prev = -Infinity; col2.forEach(n => { n.ly = Math.max(n.ly, prev + LINE, TOP); prev = n.ly; });
@@ -110,11 +116,11 @@ function sankeySvg({ left, right, inc, spend }, W) {
 }
 // Redraw each money-flow chart at the width its card actually has, now and whenever the card changes size
 const skSeen = new WeakSet();
-const skObs = 'ResizeObserver' in window ? new ResizeObserver(es => es.forEach(e => fitSankey1(e.target))) : null;
-function fitSankey1(sec) {
+const skObs = 'ResizeObserver' in window ? new ResizeObserver(es => es.forEach(e => fitSankey1(e.target as HTMLElement))) : null;
+function fitSankey1(sec: HTMLElement) {
   const svg = sec.querySelector('svg'), w = Math.round(sec.clientWidth - parseFloat(getComputedStyle(sec).paddingLeft) - parseFloat(getComputedStyle(sec).paddingRight));
-  if (!svg || !sec.isConnected || w <= 0 || Math.abs(w - +svg.dataset.w) < 2) return;
-  try { svg.outerHTML = sankeySvg(JSON.parse(sec.dataset.sk), w); } catch (e) { /* keep the chart as drawn */ }
+  if (!svg || !sec.isConnected || w <= 0 || Math.abs(w - Number(svg.dataset.w)) < 2) return;
+  try { svg.outerHTML = String(sankeySvg(JSON.parse(sec.dataset.sk!), w)); } catch (e) { /* keep the chart as drawn */ }
 }
 export function fitSankey() {
   document.querySelectorAll<HTMLElement>('#view .sankey[data-sk]').forEach(sec => {

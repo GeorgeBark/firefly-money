@@ -8,7 +8,7 @@ import { quickAdd } from './polish';
    native tab bar when running inside the iPhone app.
    ===================================================================== */
 const SHELL = document.documentElement.classList.contains('shell');
-function postNative(name, body) { try { window.webkit.messageHandlers[name].postMessage(body); } catch (e) { /* not in the app */ } }
+function postNative(name: string, body: unknown) { try { window.webkit!.messageHandlers[name].postMessage(body); } catch (e) { /* not in the app */ } }
 
 /* ---------- Title bar: large title collapses into a small one; back button on detail pages ---------- */
 const appbar = document.createElement('header');
@@ -63,7 +63,7 @@ addEventListener('hashchange', nativeChrome);
 setTimeout(nativeChrome, 0);
 
 /* ---------- Called by the native tab bar ---------- */
-function tabTap(id) {
+function tabTap(id: string) {
   if (id === 'add') return quickAdd();
   if (id === 'more') return moreSheet();
   const h = id === 'home' ? '#/' : '#/' + id, cur = location.hash || '#/';

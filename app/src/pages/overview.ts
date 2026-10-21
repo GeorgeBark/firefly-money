@@ -69,7 +69,7 @@ VIEWS[''] = async (r, paint) => {
   const build = slow => {
     const [prog, safe, insights, sparks, dayTx, incomeSrc, payNow, payPrev, piggies, nw] = slow || [];
     const wait = k => slow ? null : skeletonPanel(k);
-    const W = [
+    const W: [string, unknown][] = [
       ['safe', future ? '' : wait('safe') ?? safe],
       ['attention', attentionPanel({ uncat, uncatQ, bills: arr(bills), budgets: arr(budgets), limits, future })],
       ['networth', wait('networth') ?? App.netWorthPanel(nw)],

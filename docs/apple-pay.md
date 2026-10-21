@@ -18,7 +18,7 @@ In Money, open **Settings → Apple Pay** and copy the **Address** (ends in `/ap
 
 ### The quick way: add the ready-made shortcut
 
-1. On your iPhone, open [**Log to Money**](https://www.icloud.com/shortcuts/22455ce03531439eb0038b3a4756a724) and tap **Add Shortcut**. It asks for the **Address** and **Key** from step 1: paste them in.
+1. On your iPhone, open [**Log to Money**](https://www.icloud.com/shortcuts/0438843e50e74fb89c7fa20e4eda6ca0) and tap **Add Shortcut**. It asks for the **Address** and **Key** from step 1: paste them in.
 2. Open **Shortcuts → Automation**, tap **+**, and pick **Transaction**. Choose the cards, leave **When I Tap** on, pick **Run Immediately**, and tap **Next**.
 3. Pick **Run Shortcut**, choose **Log to Money**, and set its input to **Shortcut Input**.
 

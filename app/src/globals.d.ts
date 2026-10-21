@@ -7,3 +7,6 @@ interface Window {
   webkit?: any;
   parseHandler?: (src: string) => any[];
 }
+
+// Stylesheets imported for esbuild to bundle (vendor/leaflet.ts)
+declare module "*.css";

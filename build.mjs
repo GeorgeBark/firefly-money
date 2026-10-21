@@ -1,4 +1,5 @@
-// Bundles app/src into app/assets/js: boot.js (runs in <head> before first paint) and app.js (everything else).
+// Bundles app/src into app/assets/js: boot.js (runs in <head> before first paint), app.js (everything else) and
+// leaflet.js + leaflet.css (the map library, loaded by the Map page when it opens).
 // npm run build, or npm run watch to rebuild on every save while dev/mock_server.py is running.
 // npm run build:demo builds the online demo into site/ instead: the same app plus demo.js, which answers
 // the API calls in the browser with made-up data, as plain files for GitHub Pages (or any static host).
@@ -7,13 +8,14 @@ import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 
 const demo = process.argv.includes('--demo');
 const options = {
-  entryPoints: { boot: 'app/src/boot.ts', app: 'app/src/main.ts', ...(demo ? { demo: 'app/src/demo/demo.ts' } : {}) },
+  entryPoints: { boot: 'app/src/boot.ts', app: 'app/src/main.ts', leaflet: 'app/src/vendor/leaflet.ts', ...(demo ? { demo: 'app/src/demo/demo.ts' } : {}) },
   outdir: demo ? 'site/assets/js' : 'app/assets/js',
   bundle: true,
   minify: true,
   sourcemap: 'linked',
   format: 'iife',
   target: 'es2020',
+  loader: { '.png': 'dataurl' },   // the few pictures leaflet.css uses
   logLevel: 'info',
 };
 

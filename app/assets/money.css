@@ -775,13 +775,9 @@
   .review-main:hover .desc { text-decoration: underline; text-underline-offset: 3px; }
   @media (max-width: 600px) { .review-row { flex-wrap: wrap; } .review-row > .btn { margin-left: auto; } }
 
-  /* Map page (pages/map.ts): OpenStreetMap pictures with pins on top */
-  .map { position: relative; height: min(62vh, 560px); min-height: 320px; overflow: hidden; background: var(--faint, #eee); touch-action: none; cursor: grab; user-select: none; }
-  .map.dragging { cursor: grabbing; }
-  .map-tile { position: absolute; width: 256px; height: 256px; max-width: none; pointer-events: none; }
-  .map-pin { position: absolute; transform: translate(-50%, -50%); border-radius: 50%; border: 2px solid #fff; background: var(--spend, #e5484d); color: #fff;
-    font-family: inherit; font-size: 12px; font-weight: 600; line-height: 1; display: grid; place-items: center; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,.3); padding: 0; }
-  .map-pin.on { background: var(--accent); color: var(--on-accent); z-index: 2; }
-  .map-zoom { position: absolute; right: 10px; top: 10px; display: flex; flex-direction: column; gap: 6px; }
-  .map-credit { position: absolute; right: 0; bottom: 0; font-size: 11px; padding: 2px 6px; background: rgba(255,255,255,.8); color: #333; }
-  .map-credit a { color: inherit; }
+  /* Map page (pages/map.ts): a Leaflet map of OpenStreetMap pictures with pins on top */
+  .map { height: min(62vh, 560px); min-height: 320px; background: var(--faint, #eee); }
+  .map.leaflet-container { background: var(--faint, #eee); font: inherit; font-size: 12px; }
+  .leaflet-marker-icon.map-pin { border-radius: 50%; border: 2px solid #fff; background: var(--spend, #e5484d); color: #fff; font-size: 12px; font-weight: 600; line-height: 1;
+    display: grid; place-items: center; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,.3); box-sizing: border-box; }
+  .leaflet-marker-icon.map-pin.on { background: var(--accent); color: var(--on-accent); }

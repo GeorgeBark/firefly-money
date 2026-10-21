@@ -36,7 +36,7 @@ jobs:
         run: mkdir -p /tmp/pages && ln -s "$PWD/site" /tmp/pages/demo && (python3 -m http.server 8777 -d /tmp/pages &)
       - name: Smoke test the demo
         run: sleep 2 && BASE=http://127.0.0.1:8777/demo/ python3 dev/smoke_test.py
-      - uses: actions/upload-pages-artifact@v4
+      - uses: actions/upload-pages-artifact@v5
         if: github.event_name != 'pull_request'
         with:
           path: site
@@ -53,4 +53,4 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

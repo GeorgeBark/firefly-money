@@ -135,6 +135,12 @@ async def check(pw, width, height, mobile):
         await page.wait_for_selector('#dashCols')
         if await page.locator('#view .hero').count() or await page.evaluate("el('dash').dataset.cols") != '2':
             errors.append('hiding the net worth summary did not stick')
+        # A tile's own settings: fewer recent transactions
+        await page.locator('#dash [data-w="recent"] .obtn').click(); await page.wait_for_selector('#dash [data-w="recent"] .wopts:not([hidden]) select')
+        await page.locator('#dash [data-w="recent"] .wopts select').select_option('5'); await page.wait_for_function(PAINTED, timeout=15000)
+        await page.wait_for_selector('#dash [data-w="recent"] tr.click')
+        n = await page.locator('#dash [data-w="recent"] tr.click').count()
+        if n != 5: errors.append(f'the recent transactions setting showed {n} rows instead of 5')
         await page.evaluate('App.dashReset()'); await page.wait_for_function(PAINTED, timeout=15000)
         if not await page.locator('#view .hero').count(): errors.append('Reset did not bring the summary back')
         await page.evaluate('App.dashEdit(false)')

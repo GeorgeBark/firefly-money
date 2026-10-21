@@ -13,8 +13,8 @@ describe('gridSettle', () => {
   });
   it('lets the tile being dragged keep its spot and moves the others', () => {
     const ts = gridSettle([tile('a', 0, 0, 12, 10), tile('b', 0, 2, 12, 10)], 'b');
-    expect(ts.find(t => t.k === 'b').y).toBe(2);
-    expect(ts.find(t => t.k === 'a').y).toBe(12);
+    expect(ts.find(t => t.k === 'b')!.y).toBe(2);
+    expect(ts.find(t => t.k === 'a')!.y).toBe(12);
   });
   it('keeps gaps you leave on purpose', () => {
     const ts = gridSettle([tile('a', 0, 0, 12, 10), tile('b', 0, 30, 12, 10)]);
@@ -39,13 +39,13 @@ describe('gridSettle', () => {
 describe('gridDrop', () => {
   it('tucks a dragged tile under one whose lower half it lands in, instead of pushing that one down', () => {
     const ts = gridDrop([tile('a', 0, 0, 12, 20), tile('b', 0, 14, 12, 10)], 'b');
-    expect(ts.find(t => t.k === 'a').y).toBe(0);
-    expect(ts.find(t => t.k === 'b').y).toBe(20);
+    expect(ts.find(t => t.k === 'a')!.y).toBe(0);
+    expect(ts.find(t => t.k === 'b')!.y).toBe(20);
   });
   it('swaps once the dragged tile is past the other one\'s middle', () => {
     const ts = gridDrop([tile('a', 0, 0, 12, 20), tile('b', 0, 8, 12, 10)], 'b');
-    expect(ts.find(t => t.k === 'b').y).toBe(8);
-    expect(ts.find(t => t.k === 'a').y).toBe(18);
+    expect(ts.find(t => t.k === 'b')!.y).toBe(8);
+    expect(ts.find(t => t.k === 'a')!.y).toBe(18);
   });
 });
 

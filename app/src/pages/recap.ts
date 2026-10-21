@@ -1,4 +1,4 @@
-import { html, htmlList } from '../core/html';
+import { Html, html, htmlList } from '../core/html';
 import { api, getAll } from '../core/api';
 import { App, S, absDiff, arr, fmtDay, money, money0, monthRange, sumDiff, today, todayIso } from '../core/base';
 import { head, monthNav } from '../core/dom';
@@ -80,7 +80,7 @@ VIEWS.recap = async (r, paint) => {
   const billList = Object.values<any>(billOn).flat(), late = billList.filter(x => x.state === 'late');
 
   // A few plain sentences up top
-  const notes = [];
+  const notes: Html[] = [];
   if (earned) notes.push(kept >= 0 ? html`You kept <strong>${Math.round(rate * 100)}%</strong> of what came in (${money0(kept)}).` : html`You spent <strong>${money0(-kept)} more</strong> than came in.`);
   const mover = catRows.map(x => ({ ...x, d: x.v - (usualCat.get(x.name) || 0) })).filter(x => usualCat.get(x.name)).sort((a, b) => Math.abs(b.d) - Math.abs(a.d))[0];
   if (mover && Math.abs(mover.d) >= 25) notes.push(html`${mover.name} was <strong>${money0(Math.abs(mover.d))} ${mover.d > 0 ? 'above' : 'below'}</strong> usual.`);

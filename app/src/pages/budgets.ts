@@ -59,7 +59,7 @@ async function setLimit(bid, input) {
     else if (lim) await api('/budgets/' + bid + '/limits/' + lim.id, { method: 'PUT', body: { amount: String(num(val)), start: cur.start, end: cur.end } });
     else await api('/budgets/' + bid + '/limits', { method: 'POST', body: { amount: String(num(val)), start: cur.start, end: cur.end, currency_code: S.currency } });
     toast('Budget updated'); route();
-  } catch (e) { input.disabled = false; if (e instanceof AuthError) return showLogin(e.message); toast(e.message); }
+  } catch (e) { input.disabled = false; if (e instanceof AuthError) return showLogin(e.message); toast((e as Error).message); }
 }
 async function budgetForm(id) {
   const L = await lists(true), b = id ? L.budgets.find(x => x.id === id) : null;

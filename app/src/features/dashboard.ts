@@ -4,7 +4,7 @@ import { App, S, el } from '../core/base';
 import { vt, vtName } from '../core/dom';
 import { LS, buzz } from '../core/helpers';
 import { route } from '../core/router';
-import { GRID, ROW, gridDrop, gridSettle, snapStep } from './grid';
+import { GRID, ROW, type Tile, gridDrop, gridSettle, snapStep } from './grid';
 
 /* ---------- Customizable dashboard ----------
    Cards sit in columns you arrange yourself: each card stays in the column and at the height you put it. A wide card
@@ -61,7 +61,7 @@ function dashCount(L) {
 // Cards that are gone are dropped; new ones (and ones that changed between wide and narrow) are dealt in at the end.
 function dashPlace(L, keys, n, wide, est) {
   const seen = new Set(), ok = (k, isWide) => keys.includes(k) && !seen.has(k) && wide.includes(k) === isWide && seen.add(k);
-  const blocks = [];
+  const blocks: (string | string[][])[] = [];
   ((L.place || {})[n] || []).forEach(b => {
     if (typeof b === 'string') { if (ok(b, true)) blocks.push(b); return; }
     if (!Array.isArray(b)) return;
@@ -276,15 +276,16 @@ addEventListener('resize', (() => { let t = 0; return () => { clearTimeout(t); t
 // card up anywhere on it; touch uses the ⠿ handle so the page still scrolls. The card follows the pointer as a floating
 // copy, its slot moves to wherever it would land (the others slide out of the way), and the page scrolls when you hold
 // it near the top or bottom edge.
-let gridRO = null, gridMO = null;
+let gridRO: ResizeObserver | null = null, gridMO: MutationObserver | null = null;
 export function bindDash() {
-  if (gridRO) { gridRO.disconnect(); gridMO.disconnect(); gridRO = gridMO = null; }
+  if (gridRO) { gridRO.disconnect(); gridMO!.disconnect(); gridRO = gridMO = null; }
   const d = el('dash'); if (!d) return;
   if (d.classList.contains('grid')) return bindGrid(d);
   if (!d.classList.contains('editing')) return;
-  let drag = null;
-  const near = (els, x, y) => {      // the element under the pointer, or else the nearest one (so gaps count too)
-    let best = null, bd = Infinity;
+  let drag: { w: HTMLElement, id: number, x0: number, y0: number, x: number, y: number, ghost?: HTMLElement, raf: number } | null = null;
+  const dragging = () => drag!;
+  const near = (els: Element[], x, y) => {      // the element under the pointer, or else the nearest one (so gaps count too)
+    let best: Element | null = null, bd = Infinity;
     for (const e of els) {
       const r = e.getBoundingClientRect(), dx = Math.max(r.left - x, 0, x - r.right), dy = Math.max(r.top - y, 0, y - r.bottom), dist = dx * dx + dy * dy;
       if (dist < bd) { bd = dist; best = e; }
@@ -297,7 +298,7 @@ export function bindDash() {
     const ws = [...d.querySelectorAll('.w')], was = new Map(ws.map(w => [w, w.getBoundingClientRect()]));
     fn();
     ws.forEach(w => {
-      if (w === drag.w) return;
+      if (w === drag!.w) return;
       const a = was.get(w), b = w.getBoundingClientRect(), dx = a.left - b.left, dy = a.top - b.top;
       if (!dx && !dy) return;
       w.style.transition = 'none'; w.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
@@ -305,6 +306,7 @@ export function bindDash() {
     });
   };
   const put = (parent, ref) => {
+    const drag = dragging();
     if (ref === drag.w || (ref ? ref.previousElementSibling === drag.w : parent.lastElementChild === drag.w) && drag.w.parentElement === parent) return;
     flip(() => parent.insertBefore(drag.w, ref));
   };
@@ -329,7 +331,7 @@ export function bindDash() {
     drag.raf = requestAnimationFrame(tick);
   };
   const lift = () => {
-    const r = drag.w.getBoundingClientRect(), g = drag.w.cloneNode(true);
+    const drag = dragging(), r = drag.w.getBoundingClientRect(), g = drag.w.cloneNode(true) as HTMLElement;
     g.classList.add('dash-ghost'); g.removeAttribute('data-w');
     Object.assign(g.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px' });
     document.body.appendChild(g);
@@ -350,9 +352,9 @@ export function bindDash() {
     dashSave();
   };
   d.addEventListener('pointerdown', e => {
-    const w = (e.target as HTMLElement).closest('.w'); if (!w || e.button > 0 || (e.target as HTMLElement).closest('button, a, input, select, label, .wopts')) return;
+    const w = (e.target as HTMLElement).closest<HTMLElement>('.w'); if (!w || e.button > 0 || (e.target as HTMLElement).closest('button, a, input, select, label, .wopts')) return;
     if (e.pointerType !== 'mouse' && !(e.target as HTMLElement).closest('.grip')) return;     // touch: only the handle, so scrolling still works
-    drag = { w, id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY };
+    drag = { w, id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, raf: 0 };
     if (e.pointerType !== 'mouse') lift();
     try { d.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
     e.preventDefault();
@@ -361,7 +363,7 @@ export function bindDash() {
     if (!drag || e.pointerId !== drag.id) return;
     drag.x = e.clientX; drag.y = e.clientY;
     if (!drag.ghost) { if (Math.hypot(drag.x - drag.x0, drag.y - drag.y0) < 5) return; lift(); }
-    drag.ghost.style.transform = 'translate(' + (drag.x - drag.x0) + 'px,' + (drag.y - drag.y0) + 'px)';
+    drag.ghost!.style.transform = 'translate(' + (drag.x - drag.x0) + 'px,' + (drag.y - drag.y0) + 'px)';
     place();
   });
   d.addEventListener('pointerup', drop);
@@ -371,11 +373,13 @@ export function bindDash() {
 // Freeform tiles: re-measure whenever a tile changes size (data arriving, a narrower window) or is replaced, and let
 // you move tiles by dragging them (a mouse anywhere on the tile, touch by the ⠿ handle) and resize them by the corner.
 function bindGrid(d) {
-  let drag = null, raf = 0;
+  let drag: { w: HTMLElement, t: Tile, resize: boolean, id: number, x0: number, y0: number, x: number, y: number, r0: DOMRect, left: number,
+    over: Tile | null, lifted?: boolean, ghost?: HTMLElement, raf: number } | null = null, raf = 0;
+  const dragging = () => drag!;
   const relayout = () => { if (raf) return; raf = requestAnimationFrame(() => { raf = 0; if (d.isConnected) gridLayout(d, drag && drag.over); }); };
   if (window.ResizeObserver) {
-    gridRO = new ResizeObserver(relayout);
-    const watch = () => { d.querySelectorAll(':scope > .w').forEach(w => gridRO.observe(w)); relayout(); };
+    const ro = gridRO = new ResizeObserver(relayout);
+    const watch = () => { d.querySelectorAll(':scope > .w').forEach(w => ro.observe(w)); relayout(); };
     gridMO = new MutationObserver(watch); gridMO.observe(d, { childList: true });
     watch();
   }
@@ -383,6 +387,7 @@ function bindGrid(d) {
   if (!d.classList.contains('editing')) return;
   const cell = () => { const r = d.getBoundingClientRect(), gap = parseFloat(getComputedStyle(d).columnGap) || 20; return { r, gap, cw: (r.width - gap * (GRID - 1)) / GRID }; };
   const shift = over => {
+    const drag = dragging();
     if (drag.over && over.x === drag.over.x && over.y === drag.over.y && over.w === drag.over.w) return;
     drag.over = over;
     const ws = [...d.querySelectorAll(':scope > .w')].filter(w => w !== drag.w), was = new Map(ws.map(w => [w, w.getBoundingClientRect()]));
@@ -413,9 +418,10 @@ function bindGrid(d) {
     drag.raf = requestAnimationFrame(tick);
   };
   const lift = () => {
+    const drag = dragging();
     drag.lifted = true; d.classList.add('moving'); buzz(8);
     if (!drag.resize) {
-      const g = drag.w.cloneNode(true);
+      const g = drag.w.cloneNode(true) as HTMLElement;
       g.classList.add('dash-ghost'); g.removeAttribute('data-w'); g.style.gridColumn = g.style.gridRow = '';
       Object.assign(g.style, { left: drag.r0.left + 'px', top: drag.r0.top + 'px', width: drag.r0.width + 'px' });
       document.body.appendChild(g); drag.ghost = g; drag.w.classList.add('dragging');
@@ -436,11 +442,11 @@ function bindGrid(d) {
     }
   };
   d.addEventListener('pointerdown', e => {
-    const w: any = (e.target as HTMLElement).closest('.w'); if (!w || !w._g || e.button > 0 || (e.target as HTMLElement).closest('button, a, input, select, label, .wopts')) return;
+    const w = (e.target as HTMLElement).closest<HTMLElement & { _g?: Tile }>('.w'); if (!w || !w._g || e.button > 0 || (e.target as HTMLElement).closest('button, a, input, select, label, .wopts')) return;
     const resize = !!(e.target as HTMLElement).closest('.rsz');
     if (e.pointerType !== 'mouse' && !resize && !(e.target as HTMLElement).closest('.grip')) return;     // touch: the handle or the corner, so scrolling still works
     const r0 = w.getBoundingClientRect();
-    drag = { w, t: { ...w._g }, resize, id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, r0, left: r0.left, over: null };
+    drag = { w, t: { ...w._g }, resize, id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, r0, left: r0.left, over: null, raf: 0 };
     if (e.pointerType !== 'mouse') lift();
     try { d.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
     e.preventDefault();

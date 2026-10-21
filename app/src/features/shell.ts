@@ -25,13 +25,13 @@ function appbarScroll() {
 }
 function updateAppbar() {
   const h1 = document.querySelector<HTMLElement>('#view .head h1');
-  appbar.querySelector('.ab-title').textContent = h1 ? h1.textContent : '';
+  appbar.querySelector('.ab-title')!.textContent = h1 ? h1.textContent : '';
   const backP = [...document.querySelectorAll<HTMLElement>('#view > p')].find(p => { const a = p.querySelector('a.link'); return a && /^\s*←/.test(a.textContent); });
-  const btn = appbar.querySelector<HTMLElement>('.ab-back');
+  const btn = appbar.querySelector<HTMLElement>('.ab-back')!;
   if (backP) {
-    const a = backP.querySelector('a.link');
-    btn.hidden = false; btn.setAttribute('href', a.getAttribute('href'));
-    btn.querySelector('span').textContent = a.textContent.replace(/^\s*←\s*/, '');
+    const a = backP.querySelector('a.link')!;
+    btn.hidden = false; btn.setAttribute('href', a.getAttribute('href')!);
+    btn.querySelector('span')!.textContent = a.textContent.replace(/^\s*←\s*/, '');
     backP.classList.add('shell-hide');
   } else btn.hidden = true;
   appbarScroll();

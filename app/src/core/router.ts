@@ -114,8 +114,8 @@ export async function route(opts: any = {}) {
     if (S.staleTok === tok && tok === S.tok) setTimeout(revalidate, 50);
   } catch (e) {
     if (e instanceof AuthError) return showLogin(e.message);
-    if (opts.quiet && S.pageLive) { toast('Couldn’t refresh: ' + e.message); return; }
-    paint(html`<div class="error"><strong>Couldn’t load this page.</strong><br>${e.message}<br><br><button class="btn small" data-onclick="App.reload()">Try again</button></div>`);
+    if (opts.quiet && S.pageLive) { toast('Couldn’t refresh: ' + (e as Error).message); return; }
+    paint(html`<div class="error"><strong>Couldn’t load this page.</strong><br>${(e as Error).message}<br><br><button class="btn small" data-onclick="App.reload()">Try again</button></div>`);
   }
 }
 // The page on screen was drawn from out-of-date data: fetch what it needs again and redraw only if it changed.
@@ -164,7 +164,7 @@ async function recalcAll(btn) {
     toast('Recalculated everything from Firefly III');
   } catch (e) {
     if (e instanceof AuthError) return showLogin(e.message);
-    toast('Couldn’t recalculate: ' + e.message);
+    toast('Couldn’t recalculate: ' + (e as Error).message);
   } finally {
     S.recalcing = false;
     if (btn && btn.isConnected) { btn.disabled = false; btn.textContent = label; }

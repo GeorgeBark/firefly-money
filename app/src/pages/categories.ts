@@ -44,20 +44,20 @@ async function saveCategory() {
 async function addTag(input) {
   const tag = input.value.trim(); if (!tag) return;
   try { await api('/tags', { method: 'POST', body: { tag } }); invalidate(); toast('Tag added'); route(); }
-  catch (e) { if (e instanceof AuthError) return showLogin(e.message); toast(e.message); }
+  catch (e) { if (e instanceof AuthError) return showLogin(e.message); toast((e as Error).message); }
 }
 async function deleteTag(id) {
   const t = (S.lists.tags.find(x => x.id === id) || {}).name || 'this tag';
   if (!await confirmBox('Delete tag “' + t + '”?', 'The tag is removed from all transactions. The transactions themselves stay.')) return;
   try { await api('/tags/' + id, { method: 'DELETE' }); invalidate(); toast('Tag deleted'); route(); }
-  catch (e) { toast(e.message); }
+  catch (e) { toast((e as Error).message); }
 }
 async function deleteThing(path, id, noun) {
   const extra = { budget: 'Transactions in this budget are kept but will no longer have a budget.', category: 'Transactions keep existing but lose this category.',
     bill: 'Linked transactions are kept.', 'piggy bank': 'The money saved stays in your account; only the goal is removed.' }[noun] || '';
   if (!await confirmBox('Delete this ' + noun + '?', extra)) return;
   try { await api('/' + path + '/' + id, { method: 'DELETE' }); invalidate(); closeDrawer(); toast(noun[0].toUpperCase() + noun.slice(1) + ' deleted'); route(); }
-  catch (e) { formError(e.message); }
+  catch (e) { formError((e as Error).message); }
 }
 
 Object.assign(App, {

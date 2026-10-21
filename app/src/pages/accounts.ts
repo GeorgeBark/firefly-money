@@ -105,9 +105,9 @@ function payeePanel(a, groups) {
 }
 function balanceChart(groups, a, range) {
   const owed = isLiab(a);                       // loans read better as "amount owed" going down
-  const pts = [];
+  const pts: { d: string, v: number, desc: string, amt: number }[] = [];
   groups.flatMap(g => g.splits.map(s => ({ s, d: String(s.date) }))).sort((x, y) => x.d.localeCompare(y.d)).forEach(({ s, d }) => {
-    let after = null;
+    let after: number | null = null;
     if (s.source_id === a.id && s.sba != null) after = num(s.sba);
     else if (s.destination_id === a.id && s.dba != null) after = num(s.dba);
     if (after !== null) pts.push({ d, v: owed ? -after : after, desc: s.description, amt: s.source_id === a.id ? -s.amount : s.amount });
@@ -200,7 +200,7 @@ async function saveAccount() {
 async function deleteAccount(id) {
   if (!await confirmBox('Delete this account?', 'Firefly III will also delete every transaction that uses this account. This cannot be undone. To keep the history, uncheck "Active" instead.')) return;
   try { await api('/accounts/' + id, { method: 'DELETE' }); invalidate(); closeDrawer(); toast('Account deleted'); location.hash = '#/accounts'; }
-  catch (e) { formError(e.message); }
+  catch (e) { formError((e as Error).message); }
 }
 
 Object.assign(App, {

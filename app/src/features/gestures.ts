@@ -9,7 +9,7 @@ import { bindSwipe } from './phone';
 /* ---------- Pull to refresh (phones) ---------- */
 (function pullToRefresh() {
   if (!('ontouchstart' in window)) return;
-  const ind = el('ptr'); let y0 = null, d = 0, busyNow = false;
+  const ind = el('ptr'); let y0: number | null = null, d = 0, busyNow = false;
   const blocked = () => scrollY > 0 || el('app').hidden || el('drawer').classList.contains('open') || !el('palette').hidden || busyNow;
   addEventListener('touchstart', e => { y0 = blocked() || (e.target as HTMLElement).closest('#dash .grip') ? null : e.touches[0].clientY; d = 0; }, { passive: true });
   addEventListener('touchmove', e => {
@@ -63,7 +63,7 @@ export function bindFeed() {
       if (S.feed !== f || !m.isConnected) return;
       f.next++; appendRows(gs, f.opts);
       if (f.next > f.pages || !gs.length) { io.disconnect(); m.remove(); } else { io.unobserve(m); io.observe(m); }
-    } catch (e) { m.textContent = 'Couldn’t load more: ' + e.message; io.disconnect(); }
+    } catch (e) { m.textContent = 'Couldn’t load more: ' + (e as Error).message; io.disconnect(); }
     finally { f.busy = false; }
   }, { rootMargin: '700px 0px' });
   io.observe(m);
@@ -75,11 +75,11 @@ function appendRows(gs, opts) {
   const table = document.querySelector<HTMLElement>('#view table.feed'); if (!table || !gs.length) return;
   const t = document.createElement('template'); t.innerHTML = String(txRows(gs, opts));
   const bodies = [...t.content.querySelectorAll('tbody.day')], last = table.querySelector('tbody.day:last-of-type');
-  if (bodies.length && last && bodies[0].querySelector<HTMLElement>('.dayhead').dataset.day === last.querySelector<HTMLElement>('.dayhead').dataset.day) {
-    bodies.shift().querySelectorAll('tr[data-gid]').forEach(r => last.appendChild(r));
+  if (bodies.length && last && bodies[0].querySelector<HTMLElement>('.dayhead')!.dataset.day === last.querySelector<HTMLElement>('.dayhead')!.dataset.day) {
+    bodies.shift()!.querySelectorAll('tr[data-gid]').forEach(r => last.appendChild(r));
     const net = dayNet(last), span = last.querySelector('.dayhead .num') || document.createElement('span');
     span.className = 'num ' + (net < 0 ? '' : 'pos'); span.textContent = (net > 0 ? '+' : '') + money(net);
-    if (!span.isConnected) last.querySelector('.dayhead div').appendChild(span);
+    if (!span.isConnected) last.querySelector('.dayhead div')!.appendChild(span);
   }
   bodies.forEach(b => table.appendChild(b));
   bindSwipe();

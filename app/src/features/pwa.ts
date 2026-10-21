@@ -9,7 +9,7 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
     if (el('updateBar')) return;
     const b = document.createElement('div'); b.id = 'updateBar'; b.className = 'undo'; b.setAttribute('role', 'status');
     b.innerHTML = '<span>A new version of Money is ready</span><button type="button">Reload</button>';
-    b.querySelector('button').onclick = () => location.reload();
+    b.querySelector('button')!.onclick = () => location.reload();
     document.body.appendChild(b);
   };
   navigator.serviceWorker.addEventListener('message', e => { if (e.data === 'money-updated') updateBar(); });

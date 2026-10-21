@@ -26,7 +26,7 @@ const round2 = (x: number) => Math.round(x * 100) / 100;
 export function nextDate(from: string, freq: string, skip = 0) {
   const n = skip + 1, d = new Date(t(from));
   if (freq === 'weekly') return iso(+d + 7 * n * DAY);
-  const months = { monthly: 1, quarterly: 3, 'half-year': 6, yearly: 12 }[freq] * n, day = d.getUTCDate();
+  const months = ({ monthly: 1, quarterly: 3, 'half-year': 6, yearly: 12 } as Record<string, number>)[freq] * n, day = d.getUTCDate();
   const y = d.getUTCFullYear(), m = d.getUTCMonth() + months, last = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
   return iso(Date.UTC(y, m, Math.min(day, last), 12));
 }
@@ -38,7 +38,7 @@ export function findRecurring(charges: Charge[], today: string, opts: { toleranc
     if (!(c.amount > 0) || !c.date) return;
     const k = c.payeeId || c.payee.trim().toLowerCase();
     if (!groups.has(k)) groups.set(k, []);
-    groups.get(k).push(c);
+    groups.get(k)!.push(c);
   });
   const out: Recurring[] = [];
   groups.forEach(list => {

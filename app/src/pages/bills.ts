@@ -1,4 +1,4 @@
-import { html, htmlList } from '../core/html';
+import { Html, html, htmlList } from '../core/html';
 import { api, getAll } from '../core/api';
 import { busy } from '../core/auth';
 import { App, S, el, fmtDate, fmtDay, money, money0, monthRange, num, today, todayIso } from '../core/base';
@@ -71,7 +71,7 @@ function billCalendar(bills, cur) {
     return x.gid ? html`<button type="button" class="row" data-onclick="App.editTx('${x.gid}')">${inner}</button>` : html`<button type="button" class="row" data-onclick="App.billForm('${x.id}')">${inner}</button>`;
   };
   const lead = new Date(cur.y, cur.m, 1).getDay(), n = new Date(cur.y, cur.m + 1, 0).getDate();
-  const cells = [];
+  const cells: Html[] = [];
   for (let i = 0; i < lead; i++) cells.push(html`<div class="bcal-day pad"></div>`);
   for (let d = 1; d <= n; d++) {
     const iso = cur.start.slice(0, 8) + String(d).padStart(2, '0'), list = days[iso] || [];
@@ -115,7 +115,7 @@ async function billRaise(id) {
   try {
     await api('/bills/' + id, { method: 'PUT', body: { amount_max: String(r.last), ...(fixed ? { amount_min: String(r.last) } : {}) } });
     invalidate(); toast(at.name + ' updated to ' + money(r.last)); route();
-  } catch (e) { toast(e.message); }
+  } catch (e) { toast((e as Error).message); }
 }
 // A rule that links the payee's future charges (and, run once now, the past year's) to the new bill
 async function billRule(name, payee) {

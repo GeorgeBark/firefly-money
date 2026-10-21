@@ -1,4 +1,4 @@
-import { html, htmlList, raw } from '../core/html';
+import { type Html, html, htmlList, raw } from '../core/html';
 import { api, getAll, sleep } from '../core/api';
 import { App, S, absDiff, arr, el, fmtDate, fmtDay, isoDate, money, money0, monthRange, num, period, sumDiff, today, todayIso } from '../core/base';
 import { head, monthNav } from '../core/dom';
@@ -57,7 +57,7 @@ VIEWS[''] = async (r, paint) => {
   const nwKey = Object.keys(summary || {}).find(k => k.startsWith('net-worth-in'));
   const computedNW = own.filter(isAsset).reduce((s, a) => s + a.balance, 0) - loans.reduce((s, l) => s + l.debt, 0);
   const netWorth = nwKey ? num(summary[nwKey].monetary_value) : computedNW;
-  const last = all ? allTot : trend[5], before = all ? { spend: 0 } : trend[4];
+  const last = all ? allTot! : trend[5], before = all ? { spend: 0 } : trend[4];
 
   // categories
   const cats = new Map();
@@ -117,7 +117,7 @@ function skeletonPanel(k) {
   return html`<section class="panel" aria-busy="true"><h2>${DASH_NAMES[k] || ''}</h2><p class="lead">&nbsp;</p><div class="sk" style="height:${h}px"></div></section>`;
 }
 function attentionPanel({ uncat, uncatQ, bills, budgets, limits, future }) {
-  const items = [];
+  const items: Html[] = [];
   const n = uncat && uncat.meta && uncat.meta.pagination ? uncat.meta.pagination.total : 0;
   const now = new Date(), lastMonth = monthRange(now.getFullYear(), now.getMonth() - 1);
   if (!future && !S.all && S.y === now.getFullYear() && S.m === now.getMonth() && now.getDate() <= 7) items.push(html`<a class="row" href="#/recap" data-onclick="event.preventDefault();App.recapLast()"><span class="name">📊 Your ${lastMonth.label} recap is ready</span><span class="neutral">See it →</span></a>`);
@@ -165,7 +165,7 @@ function loansPanel(loans, prog: any = {}) {
   const rows = htmlList([...loans].sort((a, b) => b.debt - a.debt).map(l => {
     const pr = prog[l.id] || {}, paid = l.debt ? pr.pct ?? null : null;
     const months = pr.monthly > 0 && l.debt > 0 ? Math.ceil(l.debt / pr.monthly) : 0;
-    const bits = [];
+    const bits: string[] = [];
     if (paid !== null) bits.push(paid.toFixed(0) + '% paid' + (pr.repaid ? ' (' + money0(pr.repaid) + ' of ' + money0(pr.borrowed) + ')' : ' of ' + money0(pr.borrowed)));
     if (months) bits.push('about ' + months + ' month' + (months === 1 ? '' : 's') + ' to go at ' + money0(pr.monthly) + '/mo');
     else if (l.debt) bits.push('no payments in the last 3 months');

@@ -13,7 +13,7 @@ el('loginForm').onsubmit = async ev => {
   ev.preventDefault();
   const btn = (ev.target as HTMLElement).querySelector<HTMLButtonElement>('button[type=submit]')!;
   btn.disabled = true;
-  try { await signIn(el('loginPw').value, el('loginRemember').checked); el('loginPw').value = ''; showApp(); }
+  try { await signIn(el<HTMLInputElement>('loginPw').value, el<HTMLInputElement>('loginRemember').checked); el<HTMLInputElement>('loginPw').value = ''; showApp(); }
   catch (e) { el('loginErr').hidden = false; el('loginErr').textContent = (e as Error).message; }
   finally { btn.disabled = false; }
 };
@@ -28,7 +28,7 @@ export const THEMES = [
 function currentTheme() { return document.documentElement.getAttribute('data-theme') || 'auto'; }
 // border-box origin: otherwise the gradient tiles under the 2px border and a sliver of the opposite colour shows at the edge
 function drawThemes() {
-  el('themes').innerHTML = htmlList(THEMES.map(([k, label, sw]) => html`<button type="button" title="${label}" aria-label="${label} theme" class="${k === currentTheme() ? 'on' : ''}" style="background:${sw};background-origin:border-box" data-onclick="App.setTheme('${k}')"></button>`));
+  el('themes').innerHTML = String(htmlList(THEMES.map(([k, label, sw]) => html`<button type="button" title="${label}" aria-label="${label} theme" class="${k === currentTheme() ? 'on' : ''}" style="background:${sw};background-origin:border-box" data-onclick="App.setTheme('${k}')"></button>`)));
 }
 export function setTheme(k) {
   if (k === currentTheme()) return;
@@ -58,7 +58,7 @@ drawThemes();
   if (!/^https?:\/\//.test(href)) a.hidden = true;
 })();
 window.addEventListener('hashchange', () => { const instant = S.tabNav; S.tabNav = false; if (!el('app').hidden) route({ nav: true, instant }); });
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && el('drawer').classList.contains('open') && !el('confirm').open) closeDrawer(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && el('drawer').classList.contains('open') && !el<HTMLDialogElement>('confirm').open) closeDrawer(); });
 (async function boot() {
   await migrateSavedPassword();
   S.remember = S.signedIn = rememberedSignIn();
@@ -71,7 +71,8 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && el('drawer
   catch (e) { if (e instanceof AuthError) showLogin(S.remember ? 'Please sign in again.' : ''); else showApp(); }
 })();
 
-Object.assign(App, {
+// The methods markup handlers call (see events.ts), added to App and to its type
+const methods = {
   reload: route,
   newTx: async () => { await lists(); newTx(); },
   newTxFor: async id => { await lists(); newTx({ account: id }); },
@@ -88,7 +89,7 @@ Object.assign(App, {
   signOut: () => { signOut(); showLogin(); },
   // Small steps that markup handlers used to write inline (see events.js)
   go: h => { location.hash = h; },
-  submit: id => el(id).requestSubmit(),
+  submit: id => el<HTMLFormElement>(id).requestSubmit(),
   print: () => window.print(),
   removeRow: b => b.closest('.editor-row').remove(),
   palBackdrop: (e, box) => { if (e.target === box) App.closePalette(); },
@@ -98,4 +99,7 @@ Object.assign(App, {
   rulesSearch: f => { const q = f.q.value.trim(); location.hash = '#/rules' + (q ? '?q=' + encodeURIComponent(q) : ''); },
   reportsRange: f => { location.hash = '#/reports?start=' + f.s.value + '&end=' + f.e.value; },
   nativeSettings: () => window.webkit.messageHandlers.native.postMessage('settings'),
-});
+};
+Object.assign(App, methods);
+type Methods = typeof methods;
+declare module './base' { interface AppApi extends Methods {} }

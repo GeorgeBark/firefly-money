@@ -1,7 +1,7 @@
 import { html, htmlList } from '../core/html';
 import { api, getAll } from '../core/api';
 import { busy, withAuth } from '../core/auth';
-import { App, S, el, fmtDate, fmtDay, money, num, sameName, todayIso } from '../core/base';
+import { App, S, el, fmtDate, fmtDay, money, num, sameName, todayIso, type Field } from '../core/base';
 import { closeDrawer, confirmBox, formError, head, openDrawer, opt, toast } from '../core/dom';
 import { invalidate, isLiab, lists } from '../core/lists';
 import { VIEWS, route } from '../core/router';
@@ -23,8 +23,8 @@ VIEWS.recurring = async (r, paint) => {
   paint(html`${head('Recurring', 'Transactions Firefly creates for you automatically on a schedule', html`<button class="btn primary" data-onclick="App.recurForm()">+ New recurring</button>`)}<section class="panel flush">${rows ? html`<table class="tbl"><thead><tr><th>Name</th><th class="hide-s">From → To</th><th class="hide-s">Next</th><th class="r">Amount</th></tr></thead><tbody>${rows}</tbody></table>`
       : html`<div class="center-empty">Nothing recurring yet. Add rent, a salary or a subscription and Firefly will create it for you each time.</div>`}</section><p class="sub-s" style="margin-top:14px">Firefly creates these transactions on its daily cron job, so make sure the cron is set up in your Firefly install.</p>`);
 };
-function recurForm(id, forceType) {
-  const L = S.lists, at = id ? S.recCache[id] : null, rep = at ? (at.repetitions || [])[0] || {} : {};
+function recurForm(id?, forceType?) {
+  const L = S.lists!, at = id ? S.recCache![id] : null, rep = at ? (at.repetitions || [])[0] || {} : {};
   const type = forceType || (at ? at.type : 'withdrawal');
   const t = at && at.type === type ? (at.transactions || [])[0] || {} : at ? { amount: ((at.transactions || [])[0] || {}).amount, description: ((at.transactions || [])[0] || {}).description } : {};
   S.form = { id, type, origType: type };
@@ -40,13 +40,13 @@ function recurForm(id, forceType) {
     html`${id ? html`<button class="btn danger" data-onclick="App.deleteRecur('${id}')">Delete</button>` : ''}<span class="grow"></span><button class="btn" data-onclick="App.closeDrawer()">Cancel</button><button class="btn primary" id="recSave" data-onclick="App.submit('recForm')">${id ? 'Save' : 'Create'}</button>`);
 }
 function recurType(t) {
-  const keep = ['rc-title', 'rc-amount', 'rc-desc', 'rc-cat', 'rc-first', 'rc-every', 'rc-notes'].map(k => [k, el(k) ? el(k).value : '']);
+  const keep = ['rc-title', 'rc-amount', 'rc-desc', 'rc-cat', 'rc-first', 'rc-every', 'rc-notes'].map(k => [k, el<Field>(k) ? el<Field>(k).value : '']);
   recurForm(S.form.id, t);
-  keep.forEach(([k, v]) => { if (el(k)) el(k).value = v; });
+  keep.forEach(([k, v]) => { if (el(k)) el<Field>(k).value = v; });
 }
-function recurEnds() { const m = el('rc-endmode').value; el('rc-until-l').hidden = m !== 'date'; el('rc-count-l').hidden = m !== 'count'; }
+function recurEnds() { const m = el<HTMLSelectElement>('rc-endmode').value; el('rc-until-l').hidden = m !== 'date'; el('rc-count-l').hidden = m !== 'count'; }
 async function accountIdFor(name, kind) {
-  const L = S.lists, pool = kind === 'withdrawal' ? [...L.expense, ...L.own.filter(isLiab)] : [...L.revenue, ...L.own.filter(isLiab)];
+  const L = S.lists!, pool = kind === 'withdrawal' ? [...L.expense, ...L.own.filter(isLiab)] : [...L.revenue, ...L.own.filter(isLiab)];
   const hit = pool.find(a => sameName(a.name, name));
   if (hit) return hit.id;
   const res = await api('/accounts', { method: 'POST', body: { name: name.trim(), type: kind === 'withdrawal' ? 'expense' : 'revenue' } });
@@ -54,13 +54,13 @@ async function accountIdFor(name, kind) {
 }
 async function categoryIdFor(name) {
   if (!name) return '';
-  const hit = S.lists.categories.find(c => sameName(c.name, name));
+  const hit = S.lists!.categories.find(c => sameName(c.name, name));
   if (hit) return hit.id;
   const res = await api('/categories', { method: 'POST', body: { name: name.trim() } });
   return String(res.data.id);
 }
 async function saveRecur() {
-  const f = S.form, v = x => el(x) ? el(x).value.trim() : '';
+  const f = S.form, v = x => el<Field>(x) ? el<Field>(x).value.trim() : '';
   const type = f.type;
   if (!v('rc-title')) return formError('Give it a name.');
   if (!(num(v('rc-amount')) > 0)) return formError('Enter an amount above zero.');
@@ -79,7 +79,7 @@ async function saveRecur() {
     if (type === 'withdrawal' && v('rc-bud')) tx.budget_id = v('rc-bud');
     const first = v('rc-first'), freq = v('rc-freq'), d = new Date(first + 'T12:00:00');
     const moment = freq === 'monthly' ? String(d.getDate()) : freq === 'weekly' ? String(d.getDay() || 7) : freq === 'yearly' ? first : '';
-    const body: any = { type, title: v('rc-title'), first_date: first, apply_rules: el('rc-rules').checked, active: el('rc-active').checked, notes: el('rc-notes').value,
+    const body: any = { type, title: v('rc-title'), first_date: first, apply_rules: el<HTMLInputElement>('rc-rules').checked, active: el<HTMLInputElement>('rc-active').checked, notes: el<HTMLTextAreaElement>('rc-notes').value,
       repetitions: [{ type: freq, moment, skip: Math.max(0, parseInt(v('rc-every') || '1', 10) - 1), weekend: parseInt(v('rc-weekend'), 10) }], transactions: [tx] };
     const mode = v('rc-endmode');
     if (mode === 'date') { if (!v('rc-until')) throw new Error('Pick the end date.'); body.repeat_until = v('rc-until'); }
@@ -93,10 +93,14 @@ async function deleteRecur(id) {
   await withAuth(async () => { await api('/recurrences/' + id, { method: 'DELETE' }); closeDrawer(); toast('Recurring transaction deleted'); route(); });
 }
 
-Object.assign(App, {
+// The methods markup handlers call (see events.ts), added to App and to its type
+const methods = {
   recurForm,
   recurType,
   recurEnds,
   saveRecur,
   deleteRecur,
-});
+};
+Object.assign(App, methods);
+type Methods = typeof methods;
+declare module '../core/base' { interface AppApi extends Methods {} }

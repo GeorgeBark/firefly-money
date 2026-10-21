@@ -47,7 +47,7 @@ function bindChart() {
       const hit = (e.target as HTMLElement).closest && (e.target as HTMLElement).closest<HTMLElement>('[data-i]'); const tip = el('tip');
       if (!hit) { tip.hidden = true; return; }
       const d = (S.chartData || [])[Number(hit.dataset.i)]; if (!d) return;
-      tip.innerHTML = html`<strong>${d.label}</strong><br>Earned ${money0(d.income)}<br>Spent ${money0(d.spend)}<br>Kept ${money0(d.income - d.spend)}`;
+      tip.innerHTML = String(html`<strong>${d.label}</strong><br>Earned ${money0(d.income)}<br>Spent ${money0(d.spend)}<br>Kept ${money0(d.income - d.spend)}`);
       tip.hidden = false;
       // Pin the tip centred above the hovered month rather than at the cursor, so it never covers a neighbour's bars
       const col = (hit.closest('.col')?.querySelector('.band') || hit).getBoundingClientRect(), w = tip.offsetWidth, hgt = tip.offsetHeight;
@@ -83,7 +83,7 @@ export const typing = e => { const t = e.target; return t && (t.isContentEditabl
 document.addEventListener('keydown', e => {
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); if (!el('app').hidden) openPalette(); return; }
   if (el('app').hidden || typing(e) || e.metaKey || e.ctrlKey || e.altKey) return;
-  if (el('drawer').classList.contains('open') || !el('palette').hidden || el('confirm').open) return;
+  if (el('drawer').classList.contains('open') || !el('palette').hidden || el<HTMLDialogElement>('confirm').open) return;
   if (e.key === 'n' || e.key === 'N') { e.preventDefault(); quickAdd(); }
   if (e.key === '/') { const s = document.querySelector<HTMLInputElement>('#view .search input'); if (s) { e.preventDefault(); s.focus(); } }
 });
@@ -91,7 +91,7 @@ document.addEventListener('keydown', e => {
 /* ---------- Payee memory: fill category/budget from the last time ---------- */
 export async function payeeFill(i, name) {
   const f = S.form; if (!f || !name || !name.trim()) return;
-  const L = S.lists, pool = f.type === 'withdrawal' ? L.expense : L.revenue;
+  const L = S.lists!, pool = f.type === 'withdrawal' ? L.expense : L.revenue;
   const acc = pool.find(a => sameName(a.name, name)); if (!acc) return;
   try {
     const res = await api('/accounts/' + acc.id + '/transactions', { params: { limit: 25, page: 1 } });
@@ -107,7 +107,6 @@ export async function payeeFill(i, name) {
 }
 
 /* ---------- Undo for deleting transactions ---------- */
-S.pendingDel = new Set();
 function softDeleteTx(ids) {
   ids.forEach(id => S.pendingDel.add(id));
   document.querySelectorAll<HTMLElement>('#view tr[data-gid]').forEach(tr => { if (ids.includes(tr.dataset.gid)) tr.remove(); });
@@ -125,9 +124,9 @@ function softDeleteTx(ids) {
   };
   if (S.undoCommit) S.undoCommit();              // finish any earlier pending delete first
   S.undoCommit = () => { clearTimeout(S.undoT); S.undoCommit = null; commit(); };
-  box.innerHTML = html`<span>${ids.length === 1 ? 'Transaction deleted' : ids.length + ' transactions deleted'}</span><button type="button">Undo</button><span class="bar"></span>`;
+  box.innerHTML = String(html`<span>${ids.length === 1 ? 'Transaction deleted' : ids.length + ' transactions deleted'}</span><button type="button">Undo</button><span class="bar"></span>`);
   box.hidden = false;
-  box.querySelector('button').onclick = () => {
+  box.querySelector('button')!.onclick = () => {
     undone = true; clearTimeout(S.undoT); S.undoCommit = null; box.hidden = true;
     ids.forEach(id => S.pendingDel.delete(id)); toast('Restored'); route();
   };
@@ -146,11 +145,15 @@ function liveRuleFilter(q) {
   });
 }
 
-Object.assign(App, {
+// The methods markup handlers call (see events.ts), added to App and to its type
+const methods = {
   prefetch,
   afterPaint,
   quickAdd,
   payeeFill,
   softDeleteTx,
   liveRuleFilter,
-});
+};
+Object.assign(App, methods);
+type Methods = typeof methods;
+declare module '../core/base' { interface AppApi extends Methods {} }

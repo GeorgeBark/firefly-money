@@ -1,11 +1,11 @@
 import { html, htmlList } from '../core/html';
 import { api, getAll } from '../core/api';
 import { busy } from '../core/auth';
-import { App, S, absDiff, arr, el, fmtDate, fmtDay, money, money0, monthRange, num, period, todayIso } from '../core/base';
+import { App, S, absDiff, arr, el, fmtDate, fmtDay, money, money0, monthRange, num, period, today, todayIso, type Field } from '../core/base';
 import { closeDrawer, confirmBox, formError, head, monthNav, openDrawer, opt, toast } from '../core/dom';
 import { nameAvatar, normGroup, signed, txRows } from '../core/feed';
 import { logoDomain, setLogoSite } from '../core/logo';
-import { addDays } from '../core/helpers';
+import { addDays, daysBetween } from '../core/helpers';
 import { invalidate, isAsset, isCard, isLiab, lists, normAccount, planText, stripPlan, withPlan } from '../core/lists';
 import { VIEWS, hashWith, route } from '../core/router';
 import { loanHistory } from './loans';
@@ -59,7 +59,10 @@ VIEWS.account = async (r, paint) => {
   const period = range === 'month' ? { start: cur.start, end: cur.end, label: cur.label, short: cur.short }
     : range === 'year' ? { start: addDays(todayIso(), -365), end: todayIso(), label: 'the last 12 months', short: '12 mo' }
     : { label: 'all time', short: 'all time' };
-  const txs = await getAll('/accounts/' + r.id + '/transactions', period.start ? { start: period.start, end: period.end } : {});
+  // A payee or income source also gets its last twelve months summed up (see payeePanel)
+  const yearAgo = monthRange(today.getFullYear(), today.getMonth() - 11).start;
+  const [txs, year] = await Promise.all([getAll('/accounts/' + r.id + '/transactions', period.start ? { start: period.start, end: period.end } : {}),
+    isAsset(a) || isLiab(a) ? null : getAll('/accounts/' + r.id + '/transactions', { start: yearAgo, end: todayIso() }).catch(() => null)]);
   const groups = txs.map(normGroup).sort((x, y) => String(y.date).localeCompare(String(x.date)));
   const kind = isCard(a) ? 'card' : isLiab(a) ? 'liability' : a.type;
   const own = isAsset(a) || isLiab(a);
@@ -72,8 +75,34 @@ VIEWS.account = async (r, paint) => {
   const rangeBtn = (k, l) => html`<button type="button" class="${range === k ? 'on' : ''}" data-onclick="App.pickRange('${hashWith({ range: k, page: '' })}')">${l}</button>`;
   const owedStyle = isLiab(a) || isCard(a);
   paint(
-    html`<p style="margin:0 0 6px"><a class="link" href="#/accounts">← Accounts</a></p>${head(a.name, subtitle, html`${range === 'month' ? monthNav() : ''}${own ? html`<button class="btn" data-onclick="App.newTxFor('${a.id}')">+ Transaction</button>` : ''}${isAsset(a) || isLiab(a) ? html`<a class="btn" href="#/reconcile/${a.id}">Reconcile</a>` : ''}<button class="btn" data-onclick="App.accountForm('${a.id}','${kind}')">Edit</button>`)}<div class="seg" style="margin:-8px 0 20px">${rangeBtn('month', 'Month')}${rangeBtn('year', 'Last 12 months')}${rangeBtn('all', 'All time')}</div><div class="kpis">${own ? html`<div class="kpi"><div class="eyebrow">${owedStyle ? 'Balance' : 'Current balance'}</div><div class="val num">${headline}</div></div>` : ''}<div class="kpi"><div class="eyebrow">${isLiab(a) ? 'Paid' : 'In'} · ${period.short}</div><div class="val num pos">${money(inflow)}</div></div><div class="kpi"><div class="eyebrow">${isLiab(a) ? 'Borrowed' : 'Out'} · ${period.short}</div><div class="val num neg">${money(outflow)}</div></div><div class="kpi"><div class="eyebrow">Transactions</div><div class="val num">${groups.length}</div></div></div>${own ? html`<section class="panel chart" style="margin-bottom:20px"><h2>${owedStyle && isLiab(a) ? 'Amount owed' : 'Balance'} · ${period.label}</h2><p class="lead">After each transaction</p>${balanceChart(groups, a, range)}</section>` : ''}${stripPlan(a.notes) ? html`<section class="panel" style="margin-bottom:20px"><h2>Notes</h2><p style="margin:6px 0 0;white-space:pre-wrap">${stripPlan(a.notes)}</p></section>` : ''}<section class="panel flush">${txRows(shown, { accountId: own ? a.id : '', empty: 'No transactions in ' + period.label + '.' })}${pages > 1 ? html`<div class="more" id="feedMore"><span class="spin"></span>Loading older transactions…</div>` : ''}</section>`);
+    html`<p style="margin:0 0 6px"><a class="link" href="#/accounts">← Accounts</a></p>${head(a.name, subtitle, html`${range === 'month' ? monthNav() : ''}${own ? html`<button class="btn" data-onclick="App.newTxFor('${a.id}')">+ Transaction</button>` : ''}${isAsset(a) || isLiab(a) ? html`<a class="btn" href="#/reconcile/${a.id}">Reconcile</a>` : ''}<button class="btn" data-onclick="App.accountForm('${a.id}','${kind}')">Edit</button>`)}<div class="seg" style="margin:-8px 0 20px">${rangeBtn('month', 'Month')}${rangeBtn('year', 'Last 12 months')}${rangeBtn('all', 'All time')}</div><div class="kpis">${own ? html`<div class="kpi"><div class="eyebrow">${owedStyle ? 'Balance' : 'Current balance'}</div><div class="val num">${headline}</div></div><div class="kpi"><div class="eyebrow">${isLiab(a) ? 'Paid' : 'In'} · ${period.short}</div><div class="val num pos">${money(inflow)}</div></div><div class="kpi"><div class="eyebrow">${isLiab(a) ? 'Borrowed' : 'Out'} · ${period.short}</div><div class="val num neg">${money(outflow)}</div></div>`
+      : html`<div class="kpi"><div class="eyebrow">${a.type === 'revenue' ? 'Received' : 'Spent'} · ${period.short}</div><div class="val num ${a.type === 'revenue' ? 'pos' : 'neg'}">${money(a.type === 'revenue' ? outflow : inflow)}</div></div>`}<div class="kpi"><div class="eyebrow">Transactions</div><div class="val num">${groups.length}</div></div></div>${year ? payeePanel(a, year.map(normGroup)) : ''}${own ? html`<section class="panel chart" style="margin-bottom:20px"><h2>${owedStyle && isLiab(a) ? 'Amount owed' : 'Balance'} · ${period.label}</h2><p class="lead">After each transaction</p>${balanceChart(groups, a, range)}</section>` : ''}${stripPlan(a.notes) ? html`<section class="panel" style="margin-bottom:20px"><h2>Notes</h2><p style="margin:6px 0 0;white-space:pre-wrap">${stripPlan(a.notes)}</p></section>` : ''}<section class="panel flush">${txRows(shown, { accountId: own ? a.id : '', empty: 'No transactions in ' + period.label + '.' })}${pages > 1 ? html`<div class="more" id="feedMore"><span class="spin"></span>Loading older transactions…</div>` : ''}</section>`);
 };
+/* ---------- A payee's (or income source's) year: monthly totals, how often, typical amount, categories ---------- */
+export function payeeStats(groups, id: string, t: string) {
+  const charges = groups.flatMap(g => g.splits.filter(s => s.destination_id === id || s.source_id === id).map(s => ({ d: String(s.date).slice(0, 10), amt: s.amount, cat: s.category, bill: s.bill_name, gid: g.id })))
+    .sort((x, y) => x.d.localeCompare(y.d));
+  const y = +t.slice(0, 4), m = +t.slice(5, 7) - 1;
+  const months = [...Array(12)].map((_, i) => { const mr = monthRange(y, m - 11 + i); return { key: mr.start.slice(0, 7), label: mr.short, v: 0 }; });
+  const byKey = new Map(months.map(x => [x.key, x]));
+  charges.forEach(c => { const mo = byKey.get(c.d.slice(0, 7)); if (mo) mo.v += c.amt; });
+  const total = charges.reduce((s, c) => s + c.amt, 0), amts = charges.map(c => c.amt).sort((a, b) => a - b);
+  const gaps = charges.slice(1).map((c, i) => daysBetween(charges[i].d, c.d)).sort((a, b) => a - b);
+  const cats = new Map<string, number>(); charges.forEach(c => cats.set(c.cat || 'Uncategorized', (cats.get(c.cat || 'Uncategorized') || 0) + c.amt));
+  return { charges, months, total, perMonth: total / Math.max(1, 12 - months.findIndex(x => x.v > 0)), typical: amts.length ? amts[Math.floor(amts.length / 2)] : 0,
+    every: gaps.length ? gaps[Math.floor(gaps.length / 2)] : 0, first: charges[0], last: charges[charges.length - 1],
+    cats: [...cats].sort((a, b) => b[1] - a[1]), bill: (charges.find(c => c.bill) || {}).bill || '' };
+}
+const howOften = d => d <= 1 ? 'about daily' : d <= 9 ? 'about every ' + d + ' days' : d <= 17 ? 'about every two weeks' : d <= 40 ? 'about monthly' : d <= 100 ? 'every few months' : 'now and then';
+function payeePanel(a, groups) {
+  const p = payeeStats(groups, a.id, todayIso()), inc = a.type === 'revenue';
+  if (!p.charges.length) return html`<section class="panel" style="margin-bottom:20px"><h2>The last 12 months</h2><p class="empty">Nothing ${inc ? 'received from' : 'spent at'} ${a.name} in the last year.</p></section>`;
+  const W = innerWidth < 600 ? 420 : 960, H = 130, pb = 22, max = Math.max(1, ...p.months.map(x => x.v)), bw = W / 12;
+  const bars = htmlList(p.months.map((x, i) => { const h = (H - pb - 8) * x.v / max; return html`<g class="pt" data-tip="${x.label + ' · ' + money(x.v)}"><rect x="${(i * bw).toFixed(1)}" y="0" width="${bw.toFixed(1)}" height="${H - pb}" fill="transparent"/><rect x="${(i * bw + bw * .18).toFixed(1)}" y="${(H - pb - h).toFixed(1)}" width="${(bw * .64).toFixed(1)}" height="${Math.max(h, x.v ? 2 : 0).toFixed(1)}" rx="3" fill="${inc ? 'var(--good)' : 'var(--spend)'}" opacity="${i === 11 ? 1 : .7}"/><text x="${(i * bw + bw / 2).toFixed(1)}" y="${H - 5}" text-anchor="middle">${W < 960 ? x.label.slice(0, 1) : x.label}</text></g>`; }));
+  const stat = (label, v) => html`<div><div class="eyebrow">${label}</div><div class="num" style="font-size:18px">${v}</div></div>`;
+  const cats = htmlList(p.cats.slice(0, 4).map(([c, v]) => html`<span class="chip">${c} · ${Math.round(v / p.total * 100)}%</span>`));
+  return html`<section class="panel chart" style="margin-bottom:20px"><h2>The last 12 months</h2><p class="lead">${p.charges.length} ${inc ? 'payment' : 'charge'}${p.charges.length === 1 ? '' : 's'}${p.charges.length > 2 ? ', ' + howOften(p.every) : ''} · last ${fmtDate(p.last.d)}${p.bill ? ' · bill: ' + p.bill : ''}</p><div class="payee-stats">${stat(inc ? 'Received' : 'Spent', money0(p.total))}${stat('Per month', money0(p.perMonth))}${stat('Typical ' + (inc ? 'payment' : 'charge'), money(p.typical))}${stat('Since', fmtDate(p.first.d))}</div><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="By month" style="margin-top:14px">${bars}</svg>${cats ? html`<div style="margin-top:12px">${cats}</div>` : ''}</section>`;
+}
 function balanceChart(groups, a, range) {
   const owed = isLiab(a);                       // loans read better as "amount owed" going down
   const pts: { d: string, v: number, desc: string, amt: number }[] = [];
@@ -118,23 +147,23 @@ async function accountForm(id, kind) {
     f = html`${f}<label>Type<select id="a-ltype">${htmlList([['loan', 'Loan'], ['debt', 'Debt'], ['mortgage', 'Mortgage']].map(([v, l]) => opt(v, l, a ? a.liabType : 'loan')))}</select></label>`;
     if (!id) f = html`${f}<div class="grid2"><label>Amount you owe<input type="number" step="0.01" min="0.01" id="a-open" required></label><label>As of<input type="date" id="a-opendate" value="${todayIso()}" required></label></div>`;
     f = html`${f}<div class="grid2"><label>Interest %<input type="number" step="0.001" min="0" id="a-interest" value="${a ? num(a.interest) || '' : ''}" placeholder="0"></label><label>Per<select id="a-iperiod">${htmlList(['monthly', 'yearly', 'weekly', 'daily', 'quarterly', 'half-year'].map(v => opt(v, v, a ? a.interestPeriod || 'monthly' : 'monthly')))}</select></label></div>`;
-    const pl = (a && a.plan) || {};
+    const pl: { amount?: number, day?: number | null, from?: string } = (a && a.plan) || {};
     f = html`${f}<div class="grid2"><label>Monthly payment<input type="number" step="0.01" min="0" id="a-pamt" value="${pl.amount || ''}" placeholder="e.g. 500"></label><label>Due day of the month<input type="number" min="1" max="31" step="1" id="a-pday" value="${pl.day || ''}" placeholder="e.g. 30"></label></div><label>Paid from<select id="a-pfrom">${opt('', 'Not set', pl.from || '')}${htmlList(L.own.filter(x => !isLiab(x)).map(x => opt(x.name, x.name, pl.from || '')))}</select></label><p class="hint">Used by the Overview, Forecast and Loan planner. Saved in the loan’s notes in Firefly.</p>`;
   }
   if (id && (k === 'asset' || k === 'card' || k === 'liability')) {
-    const ob = k === 'asset' ? a.opening : Math.abs(a.opening);
-    f = html`${f}<div class="grid2"><label>${k === 'asset' ? 'Opening balance' : 'Opening amount owed'}<input type="number" step="0.01" id="a-open" value="${a.opening ? ob : ''}" placeholder="None"></label><label>Opening date<input type="date" id="a-opendate" value="${a.openingDate ? String(a.openingDate).slice(0, 10) : ''}"></label></div>`;
+    const ob = k === 'asset' ? a!.opening : Math.abs(a!.opening);
+    f = html`${f}<div class="grid2"><label>${k === 'asset' ? 'Opening balance' : 'Opening amount owed'}<input type="number" step="0.01" id="a-open" value="${a!.opening ? ob : ''}" placeholder="None"></label><label>Opening date<input type="date" id="a-opendate" value="${a!.openingDate ? String(a!.openingDate).slice(0, 10) : ''}"></label></div>`;
   }
   f = html`${f}<label>Website (for its logo)<input type="text" id="a-site" value="${a ? logoDomain(a.name) : ''}" placeholder="e.g. walmart.com" autocapitalize="off" spellcheck="false"></label><p class="hint">Guessed from the name. Clear it to show initials instead.</p>`;
   f = html`${f}<label>Notes<textarea id="a-notes" rows="3">${a ? (k === 'liability' ? stripPlan(a.notes) : a.notes) : ''}</textarea></label>`;
-  if (id) f = html`${f}<label class="check"><input type="checkbox" id="a-active"${a.active ? ' checked' : ''}> Active</label>`;
-  if (id && (k === 'asset' || k === 'card' || k === 'liability')) f = html`${f}<label class="check"><input type="checkbox" id="a-networth"${a.netWorth ? ' checked' : ''}> Include in net worth</label>`;
+  if (id) f = html`${f}<label class="check"><input type="checkbox" id="a-active"${a!.active ? ' checked' : ''}> Active</label>`;
+  if (id && (k === 'asset' || k === 'card' || k === 'liability')) f = html`${f}<label class="check"><input type="checkbox" id="a-networth"${a!.netWorth ? ' checked' : ''}> Include in net worth</label>`;
   f = html`${f}<button type="submit" hidden></button></form>`;
   openDrawer(id ? 'Edit account' : 'New account', f,
     html`${id ? html`<button class="btn danger" type="button" data-onclick="App.deleteAccount('${id}')">Delete</button>` : ''}<span class="grow"></span><button class="btn" data-onclick="App.closeDrawer()">Cancel</button><button class="btn primary" id="accSave" data-onclick="App.submit('accForm')">${id ? 'Save' : 'Create account'}</button>`);
 }
 async function saveAccount() {
-  const { kind, id, name } = S.form, v = x => el(x) ? el(x).value.trim() : '';
+  const { kind, id, name } = S.form, v = x => el<Field>(x) ? el<Field>(x).value.trim() : '';
   const b: any = { name: v('a-name'), notes: v('a-notes') };
   if (!b.name) return formError('Give the account a name.');
   const site = v('a-site').toLowerCase().replace(/^[a-z]+:\/\//, '').replace(/^www\./, '').split(/[/?#]/)[0];
@@ -160,7 +189,7 @@ async function saveAccount() {
     b.opening_balance_date = v('a-opendate') || todayIso();
   }
   if (!id) b.currency_code = S.currency;
-  if (id) { b.active = el('a-active').checked; if (el('a-networth')) b.include_net_worth = el('a-networth').checked; delete b.type; }
+  if (id) { b.active = el<HTMLInputElement>('a-active').checked; if (el<HTMLInputElement>('a-networth')) b.include_net_worth = el<HTMLInputElement>('a-networth').checked; delete b.type; }
   await busy(el('accSave'), async () => {
     const res = id ? await api('/accounts/' + id, { method: 'PUT', body: b }) : await api('/accounts', { method: 'POST', body: b });
     setLogoSite(b.name, site, name);
@@ -174,8 +203,12 @@ async function deleteAccount(id) {
   catch (e) { formError((e as Error).message); }
 }
 
-Object.assign(App, {
+// The methods markup handlers call (see events.ts), added to App and to its type
+const methods = {
   accountForm,
   saveAccount,
   deleteAccount,
-});
+};
+Object.assign(App, methods);
+type Methods = typeof methods;
+declare module '../core/base' { interface AppApi extends Methods {} }

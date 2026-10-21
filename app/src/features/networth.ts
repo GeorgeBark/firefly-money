@@ -45,8 +45,12 @@ function netWorthPanel(pts) {
 }
 function nwRange(y) { LS.set('nwYears', y === 3 ? 3 : 1); route(); }
 
-Object.assign(App, {
+// The methods markup handlers call (see events.ts), added to App and to its type
+const methods = {
   netWorthHistory,
   netWorthPanel,
   nwRange,
-});
+};
+Object.assign(App, methods);
+type Methods = typeof methods;
+declare module '../core/base' { interface AppApi extends Methods {} }

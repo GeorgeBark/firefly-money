@@ -6,7 +6,7 @@ import { route } from '../core/router';
 /* ---------- Settings that follow you between devices ----------
    The Overview layout and the choices below are kept in one Firefly user preference, so every device signed in to
    the same Firefly sees them. Theme, hide amounts and density stay with each device. The latest change wins. */
-export const SYNCED = ['dash', 'insightsHidden', 'fcExclude', 'fcBuffer', 'fcDays', 'fcAccount', 'loanPlan', 'subsHidden', 'nwYears', 'logos', 'logoSites'];
+export const SYNCED = ['dash', 'insightsHidden', 'fcExclude', 'fcBuffer', 'fcDays', 'fcAccount', 'fcWhatIf', 'loanPlan', 'subsHidden', 'nwYears', 'logos', 'logoSites', 'reviewedAt', 'reviewed'];
 const PREF = 'money_settings';
 let timer: any = 0, applying = false, pulledAt = 0;
 const syncOn = () => S.signedIn && !LS.get('syncOff', false);
@@ -67,9 +67,13 @@ async function syncNow() { await pushPrefs(); route(); }
 // Coming back to the app after a while picks up changes made on another device
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && Date.now() - pulledAt > 60000) syncPrefs(); });
 
-Object.assign(App, {
+// The methods markup handlers call (see events.ts), added to App and to its type
+const methods = {
   prefChanged,
   syncPrefs,
   toggleSync,
   syncNow,
-});
+};
+Object.assign(App, methods);
+type Methods = typeof methods;
+declare module '../core/base' { interface AppApi extends Methods {} }

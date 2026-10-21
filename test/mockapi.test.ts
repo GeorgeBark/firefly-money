@@ -43,4 +43,14 @@ describe('demo API', () => {
     expect(bal({ date: '2026-10-20' })).toBeCloseTo(bal({}), 2);
     expect(bal({ date: '2026-06-01' })).not.toBeCloseTo(bal({}), 2);
   });
+  it('has bills, marked paid by the charges linked to them', () => {
+    const api = createMockApi(now);
+    const bills = (api('/bills', { start: '2026-10-01', end: '2026-10-31' }) as any).data.map(b => b.attributes);
+    expect(bills.map(b => b.name)).toEqual(['StreamFlix', 'Tunes Plus', 'City Power & Light', 'Car insurance']);
+    expect(bills[0].pay_dates).toEqual(['2026-10-11']);
+    expect(bills[0].paid_dates).toHaveLength(1);
+    expect(bills[3].pay_dates).toEqual([]);
+    expect(bills[3].next_expected_match).toBe('2026-11-07');
+    expect((api('/bills/1/transactions', {}) as any).data.length).toBeGreaterThan(3);
+  });
 });

@@ -8,10 +8,9 @@ export type ApiError = Error & { status?: number };
 // after a while; they're also saved on the device so the app opens instantly with your last data.
 export const CACHE = new Map(), INFLIGHT = new Map();
 export const PAGES = new Map();     // page key → { frag, scroll, feed, html, chart }
-S.freshAfter = 0;          // cached responses older than this are fetched again
-// After a change, saved responses are only "out of date", not thrown away: the page you're on reloads fresh,
-// other pages show their saved data at once and then quietly update (see revalidate()).
-S.dirtyAt = 0;
+// Cached responses older than S.freshAfter are fetched again. After a change (S.dirtyAt), saved responses are only
+// "out of date", not thrown away: the page you're on reloads fresh, other pages show their saved data at once and
+// then quietly update (see revalidate()).
 export function clearCache() { S.dirtyAt = Date.now(); S.listsAt = 0; PAGES.forEach(p => { p.stale = true; }); }
 
 /* ---------- On-device copy of API responses (IndexedDB) ---------- */

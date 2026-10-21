@@ -85,7 +85,7 @@ export async function route(opts: any = {}) {
     return;
   }
   S.feed = null; S.kIdx = -1;
-  if (!opts.quiet) S.skelT = setTimeout(() => { if (tok === S.tok) { stashPage(prevFeed); v.innerHTML = skeleton(); } }, 140);
+  if (!opts.quiet) S.skelT = setTimeout(() => { if (tok === S.tok) { stashPage(prevFeed); v.innerHTML = String(skeleton()); } }, 140);
   const paint = markup => {
     if (tok !== S.tok) return;
     clearTimeout(S.skelT);
@@ -151,7 +151,7 @@ export async function refreshAll(opts: any = {}) {
 }
 // Recalculate: throw away every number this app has kept (responses in memory, saved pages, the copy on this
 // device, the offline cache, the account/category lists, the Categorize history) and redraw from Firefly III.
-async function recalcAll(btn) {
+async function recalcAll(btn?) {
   if (S.recalcing) return;
   S.recalcing = true;
   const label = btn && btn.textContent; if (btn) { btn.disabled = true; btn.textContent = 'Recalculating…'; }
@@ -191,6 +191,10 @@ document.addEventListener('click', e => {
   else if (a.closest('.tabbar') && document.documentElement.classList.contains('shell')) S.tabNav = true;   // app-style: tabs switch instantly
 });
 
-Object.assign(App, {
+// The methods markup handlers call (see events.ts), added to App and to its type
+const methods = {
   recalcAll,
-});
+};
+Object.assign(App, methods);
+type Methods = typeof methods;
+declare module './base' { interface AppApi extends Methods {} }

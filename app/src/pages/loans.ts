@@ -91,9 +91,13 @@ async function loanPay(id, v) {
 function loanSet(k, v) { const p = LS.get('loanPlan', { pays: {}, extra: 0, strategy: 'snowball' }); p[k] = k === 'extra' ? Math.max(0, num(v)) : v; LS.set('loanPlan', p); route(); }
 function loanReset() { LS.set('loanPlan', { pays: {}, extra: 0, strategy: 'snowball' }); route(); }
 
-Object.assign(App, {
+// The methods markup handlers call (see events.ts), added to App and to its type
+const methods = {
   loanPay,
   loanSet,
   loanReset,
   loanHistory,
-});
+};
+Object.assign(App, methods);
+type Methods = typeof methods;
+declare module '../core/base' { interface AppApi extends Methods {} }

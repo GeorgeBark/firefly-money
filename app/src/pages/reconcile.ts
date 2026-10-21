@@ -35,18 +35,18 @@ function recCalc() {
   const R = S.rec; if (!R) return;
   const disp = v => R.owed ? -v : v;
   const cleared = R.startBal + R.rows.filter(x => R.checked.has(x.jid)).reduce((s, x) => s + x.amt, 0);
-  const raw = el('rc-bal').value.trim(), stmt = raw === '' ? null : (R.owed ? -num(raw) : num(raw));
+  const raw = el<HTMLInputElement>('rc-bal').value.trim(), stmt = raw === '' ? null : (R.owed ? -num(raw) : num(raw));
   const diff = stmt === null ? null : Math.round((stmt - cleared) * 100) / 100;
   const newly = R.rows.filter(x => R.checked.has(x.jid) && !x.rec).length;
   el('rc-kpis').innerHTML =
-    html`<div class="kpi"><div class="eyebrow">Balance before ${fmtDay(R.start)}</div><div class="val num">${money(disp(R.startBal))}</div></div><div class="kpi"><div class="eyebrow">Ticked balance</div><div class="val num">${money(disp(cleared))}</div></div><div class="kpi"><div class="eyebrow">Difference</div><div class="val num ${diff === null ? '' : diff === 0 ? 'pos' : 'neg'}">${diff === null ? '—' : diff === 0 ? 'Balanced ✓' : money(disp(diff))}</div></div>`;
+    String(html`<div class="kpi"><div class="eyebrow">Balance before ${fmtDay(R.start)}</div><div class="val num">${money(disp(R.startBal))}</div></div><div class="kpi"><div class="eyebrow">Ticked balance</div><div class="val num">${money(disp(cleared))}</div></div><div class="kpi"><div class="eyebrow">Difference</div><div class="val num ${diff === null ? '' : diff === 0 ? 'pos' : 'neg'}">${diff === null ? '—' : diff === 0 ? 'Balanced ✓' : money(disp(diff))}</div></div>`);
   el('rc-actions').innerHTML =
-    html`<button class="btn primary" data-onclick="App.recFinish()"${newly ? '' : ' disabled'}>Mark ${newly} as reconciled</button>${diff ? html`<button class="btn" data-onclick="App.recAdjust()">Add a ${money(Math.abs(diff))} adjustment</button>` : ''}`;
+    String(html`<button class="btn primary" data-onclick="App.recFinish()"${newly ? '' : ' disabled'}>Mark ${newly} as reconciled</button>${diff ? html`<button class="btn" data-onclick="App.recAdjust()">Add a ${money(Math.abs(diff))} adjustment</button>` : ''}`);
   R.diff = diff;
 }
 function recTick(cb) { cb.checked ? S.rec.checked.add(cb.dataset.rec) : S.rec.checked.delete(cb.dataset.rec); recCalc(); }
 function recAll(on) { document.querySelectorAll<HTMLInputElement>('input[data-rec]:not(:disabled)').forEach(cb => { cb.checked = on; on ? S.rec.checked.add(cb.dataset.rec) : S.rec.checked.delete(cb.dataset.rec); }); recCalc(); }
-function recDates() { location.hash = '#/reconcile/' + S.rec.a.id + '?start=' + el('rc-start').value + '&end=' + el('rc-end').value + (el('rc-bal').value ? '&balance=' + encodeURIComponent(el('rc-bal').value) : ''); }
+function recDates() { location.hash = '#/reconcile/' + S.rec.a.id + '?start=' + el<HTMLInputElement>('rc-start').value + '&end=' + el<HTMLInputElement>('rc-end').value + (el<HTMLInputElement>('rc-bal').value ? '&balance=' + encodeURIComponent(el<HTMLInputElement>('rc-bal').value) : ''); }
 async function recFinish() {
   const R = S.rec, todo = R.rows.filter(x => R.checked.has(x.jid) && !x.rec);
   if (R.diff && !await confirmBox('The difference isn’t zero', 'You can still mark the ticked transactions as reconciled, but the account won’t match the statement yet.', 'Mark anyway')) return;
@@ -62,11 +62,15 @@ async function recAdjust() {
   newTx({ type: d > 0 ? 'deposit' : 'withdrawal', account: R.a.id, amount: String(Math.abs(d)), description: 'Reconciliation adjustment', date: R.end });
 }
 
-Object.assign(App, {
+// The methods markup handlers call (see events.ts), added to App and to its type
+const methods = {
   recCalc,
   recTick,
   recAll,
   recDates,
   recFinish,
   recAdjust,
-});
+};
+Object.assign(App, methods);
+type Methods = typeof methods;
+declare module '../core/base' { interface AppApi extends Methods {} }

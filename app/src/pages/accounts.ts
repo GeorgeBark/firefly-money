@@ -1,7 +1,7 @@
 import { html, htmlList } from '../core/html';
 import { api, getAll } from '../core/api';
 import { busy } from '../core/auth';
-import { App, S, absDiff, arr, el, fmtDate, fmtDay, money, money0, monthRange, num, period, todayIso } from '../core/base';
+import { App, S, absDiff, arr, el, fmtDate, fmtDay, money, money0, monthRange, num, period, todayIso, type Field } from '../core/base';
 import { closeDrawer, confirmBox, formError, head, monthNav, openDrawer, opt, toast } from '../core/dom';
 import { nameAvatar, normGroup, signed, txRows } from '../core/feed';
 import { logoDomain, setLogoSite } from '../core/logo';
@@ -118,23 +118,23 @@ async function accountForm(id, kind) {
     f = html`${f}<label>Type<select id="a-ltype">${htmlList([['loan', 'Loan'], ['debt', 'Debt'], ['mortgage', 'Mortgage']].map(([v, l]) => opt(v, l, a ? a.liabType : 'loan')))}</select></label>`;
     if (!id) f = html`${f}<div class="grid2"><label>Amount you owe<input type="number" step="0.01" min="0.01" id="a-open" required></label><label>As of<input type="date" id="a-opendate" value="${todayIso()}" required></label></div>`;
     f = html`${f}<div class="grid2"><label>Interest %<input type="number" step="0.001" min="0" id="a-interest" value="${a ? num(a.interest) || '' : ''}" placeholder="0"></label><label>Per<select id="a-iperiod">${htmlList(['monthly', 'yearly', 'weekly', 'daily', 'quarterly', 'half-year'].map(v => opt(v, v, a ? a.interestPeriod || 'monthly' : 'monthly')))}</select></label></div>`;
-    const pl = (a && a.plan) || {};
+    const pl: { amount?: number, day?: number | null, from?: string } = (a && a.plan) || {};
     f = html`${f}<div class="grid2"><label>Monthly payment<input type="number" step="0.01" min="0" id="a-pamt" value="${pl.amount || ''}" placeholder="e.g. 500"></label><label>Due day of the month<input type="number" min="1" max="31" step="1" id="a-pday" value="${pl.day || ''}" placeholder="e.g. 30"></label></div><label>Paid from<select id="a-pfrom">${opt('', 'Not set', pl.from || '')}${htmlList(L.own.filter(x => !isLiab(x)).map(x => opt(x.name, x.name, pl.from || '')))}</select></label><p class="hint">Used by the Overview, Forecast and Loan planner. Saved in the loan’s notes in Firefly.</p>`;
   }
   if (id && (k === 'asset' || k === 'card' || k === 'liability')) {
-    const ob = k === 'asset' ? a.opening : Math.abs(a.opening);
-    f = html`${f}<div class="grid2"><label>${k === 'asset' ? 'Opening balance' : 'Opening amount owed'}<input type="number" step="0.01" id="a-open" value="${a.opening ? ob : ''}" placeholder="None"></label><label>Opening date<input type="date" id="a-opendate" value="${a.openingDate ? String(a.openingDate).slice(0, 10) : ''}"></label></div>`;
+    const ob = k === 'asset' ? a!.opening : Math.abs(a!.opening);
+    f = html`${f}<div class="grid2"><label>${k === 'asset' ? 'Opening balance' : 'Opening amount owed'}<input type="number" step="0.01" id="a-open" value="${a!.opening ? ob : ''}" placeholder="None"></label><label>Opening date<input type="date" id="a-opendate" value="${a!.openingDate ? String(a!.openingDate).slice(0, 10) : ''}"></label></div>`;
   }
   f = html`${f}<label>Website (for its logo)<input type="text" id="a-site" value="${a ? logoDomain(a.name) : ''}" placeholder="e.g. walmart.com" autocapitalize="off" spellcheck="false"></label><p class="hint">Guessed from the name. Clear it to show initials instead.</p>`;
   f = html`${f}<label>Notes<textarea id="a-notes" rows="3">${a ? (k === 'liability' ? stripPlan(a.notes) : a.notes) : ''}</textarea></label>`;
-  if (id) f = html`${f}<label class="check"><input type="checkbox" id="a-active"${a.active ? ' checked' : ''}> Active</label>`;
-  if (id && (k === 'asset' || k === 'card' || k === 'liability')) f = html`${f}<label class="check"><input type="checkbox" id="a-networth"${a.netWorth ? ' checked' : ''}> Include in net worth</label>`;
+  if (id) f = html`${f}<label class="check"><input type="checkbox" id="a-active"${a!.active ? ' checked' : ''}> Active</label>`;
+  if (id && (k === 'asset' || k === 'card' || k === 'liability')) f = html`${f}<label class="check"><input type="checkbox" id="a-networth"${a!.netWorth ? ' checked' : ''}> Include in net worth</label>`;
   f = html`${f}<button type="submit" hidden></button></form>`;
   openDrawer(id ? 'Edit account' : 'New account', f,
     html`${id ? html`<button class="btn danger" type="button" data-onclick="App.deleteAccount('${id}')">Delete</button>` : ''}<span class="grow"></span><button class="btn" data-onclick="App.closeDrawer()">Cancel</button><button class="btn primary" id="accSave" data-onclick="App.submit('accForm')">${id ? 'Save' : 'Create account'}</button>`);
 }
 async function saveAccount() {
-  const { kind, id, name } = S.form, v = x => el(x) ? el(x).value.trim() : '';
+  const { kind, id, name } = S.form, v = x => el<Field>(x) ? el<Field>(x).value.trim() : '';
   const b: any = { name: v('a-name'), notes: v('a-notes') };
   if (!b.name) return formError('Give the account a name.');
   const site = v('a-site').toLowerCase().replace(/^[a-z]+:\/\//, '').replace(/^www\./, '').split(/[/?#]/)[0];
@@ -160,7 +160,7 @@ async function saveAccount() {
     b.opening_balance_date = v('a-opendate') || todayIso();
   }
   if (!id) b.currency_code = S.currency;
-  if (id) { b.active = el('a-active').checked; if (el('a-networth')) b.include_net_worth = el('a-networth').checked; delete b.type; }
+  if (id) { b.active = el<HTMLInputElement>('a-active').checked; if (el<HTMLInputElement>('a-networth')) b.include_net_worth = el<HTMLInputElement>('a-networth').checked; delete b.type; }
   await busy(el('accSave'), async () => {
     const res = id ? await api('/accounts/' + id, { method: 'PUT', body: b }) : await api('/accounts', { method: 'POST', body: b });
     setLogoSite(b.name, site, name);
@@ -174,8 +174,12 @@ async function deleteAccount(id) {
   catch (e) { formError((e as Error).message); }
 }
 
-Object.assign(App, {
+// The methods markup handlers call (see events.ts), added to App and to its type
+const methods = {
   accountForm,
   saveAccount,
   deleteAccount,
-});
+};
+Object.assign(App, methods);
+type Methods = typeof methods;
+declare module '../core/base' { interface AppApi extends Methods {} }

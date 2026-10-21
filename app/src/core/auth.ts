@@ -18,7 +18,7 @@ export function showLogin(msg?) {
   closeDrawer(); S.lists = null; forgetDeviceData();
   el('app').hidden = true; el('login').hidden = false;
   const e = el('loginErr'); e.hidden = !msg || msg === 'Wrong password.' && !S.key; e.textContent = msg || '';
-  el('loginPw').value = ''; el('loginPw').focus();
+  el<HTMLInputElement>('loginPw').value = ''; el<HTMLInputElement>('loginPw').focus();
 }
 export async function withAuth(fn) { try { return await fn(); } catch (e) { if (e instanceof AuthError) return showLogin(e.message); toast((e as Error).message); } }
 export async function busy(btn, fn) {

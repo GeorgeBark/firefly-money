@@ -3,7 +3,7 @@ import { AuthError, api, eachLimited, getAll } from '../core/api';
 import { showLogin } from '../core/auth';
 import { App, S, el, fmtDate, money, todayIso } from '../core/base';
 import { head, opt, toast } from '../core/dom';
-import { normGroup } from '../core/feed';
+import { type Group, normGroup } from '../core/feed';
 import { addDays } from '../core/helpers';
 import { lists } from '../core/lists';
 import { VIEWS, parseHash } from '../core/router';
@@ -39,7 +39,7 @@ VIEWS.inbox = async (r, paint) => {
   await lists();
   const q = 'has_no_category:true';
   const [found, h] = await Promise.all([getAll('/search/transactions', { query: q, search: q }), inboxHistory()]);
-  const items = [];
+  const items: Group[] = [];
   found.map(normGroup).forEach(g => { if (g.type !== 'transfer' && g.splits.some(s => !s.category)) items.push(g); });
   items.sort((a, b) => String(b.date).localeCompare(String(a.date)));
   if (!paint.live) return;
@@ -99,7 +99,7 @@ async function inboxSave() {
     bump(I.h.payee, s.type === 'deposit' ? s.source_id : s.destination_id, cat); bump(I.h.key, descKey(s.description), cat);
     toast('Saved' + (n > 1 ? ' · ' + n + ' transactions' : '') + (makeRule ? ' · rule created' : ''));
     renderInbox();
-  } catch (e) { if (e instanceof AuthError) return showLogin(e.message); btn.disabled = false; btn.textContent = 'Save'; toast(e.message); }
+  } catch (e) { if (e instanceof AuthError) return showLogin(e.message); btn.disabled = false; btn.textContent = 'Save'; toast((e as Error).message); }
 }
 document.addEventListener('keydown', e => {
   if (parseHash().name !== 'inbox' || !S.inbox || !el('inboxForm')) return;

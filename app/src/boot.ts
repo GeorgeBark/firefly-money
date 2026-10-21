@@ -2,7 +2,7 @@
 // Inside the iPhone app (or installed to the Home Screen): use the app-style shell.
 (function () {
   var d = document.documentElement, native = !!window.MONEY_NATIVE;
-  var standalone = (navigator as any).standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+  var standalone = (navigator as any).standalone || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
   if (native || standalone) d.classList.add('shell');
   if (native) { d.classList.add('native'); if (window.MONEY_NATIVE_TABS) d.classList.add('native-tabs');
     var m = document.querySelector<HTMLMetaElement>('meta[name=viewport]'); if (m) m.content += ', maximum-scale=1, user-scalable=no'; }

@@ -35,7 +35,7 @@ async function loadTxExtras(gid, jids) {
     box.innerHTML =
       html`<div class="extra"><h3>Attachments</h3>${attHtml}<label style="margin:12px 0 0">Add files<input type="file" id="attFile" multiple data-onchange="App.uploadAtt('${jids[0]}', this)"></label></div><div class="extra"><h3>Linked transactions</h3>${linkHtml}${types.length ? html`<div style="margin-top:12px"><div class="grid2"><label>This transaction…<select id="lnkType">${dirOpts}</select></label><label>…this one<input type="search" id="lnkQ" placeholder="Search description" data-onkeydown="App.linkKey(event)"></label></div><button class="btn small" type="button" data-onclick="App.findLink()">Find</button><div id="lnkResults" style="margin-top:10px"></div></div>` : ''}</div>`;
     S.extrasCtx = { gid, jids };
-  } catch (e) { if (el('txExtras')) el('txExtras').innerHTML = html`<p class="sub-s">${e.message}</p>`; }
+  } catch (e) { if (el('txExtras')) el('txExtras').innerHTML = html`<p class="sub-s">${(e as Error).message}</p>`; }
 }
 const refreshExtras = () => S.extrasCtx && loadTxExtras(S.extrasCtx.gid, S.extrasCtx.jids);
 async function uploadAtt(jid, input) {

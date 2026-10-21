@@ -18,6 +18,7 @@ export function normGroup(g) {
   const f = splits[0] || {};
   return { id: String(g.id), title: a.group_title || '', type: f.type, date: f.date, splits, total: splits.reduce((s, x) => s + x.amount, 0) };
 }
+export type Group = ReturnType<typeof normGroup>;
 // Signed amount: negative = money out. With an account in view, sign is relative to that account.
 export function signed(g, accountId) {
   if (accountId) return g.splits.reduce((s, x) => s + (x.source_id === accountId ? -x.amount : x.destination_id === accountId ? x.amount : 0), 0);
@@ -71,6 +72,8 @@ export function dayLabel(iso) {
   if (diff > 1 && diff < 7) return dt.toLocaleDateString('en-US', { weekday: 'long' });
   return dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', ...(dt.getFullYear() !== new Date().getFullYear() ? { year: 'numeric' } : {}) });
 }
+// What a rendered transaction row was drawn from, by group id, so a row can be redrawn or edited in place
+export type TxMeta = { g: Group, accountId: string, opts: { select: boolean, accountId: string } };
 S.txMeta = {};
 export function txRows(groups, opts: any = {}) {
   if (S.pendingDel && S.pendingDel.size) groups = groups.filter(g => !S.pendingDel.has(g.id));

@@ -2,7 +2,7 @@ import { html, htmlList } from '../core/html';
 import { App, S, el, money, num } from '../core/base';
 import { toast } from '../core/dom';
 import { dayLabel } from '../core/feed';
-import { isAsset, isLiab } from '../core/lists';
+import { type Account, isAsset, isLiab } from '../core/lists';
 import { nlDate } from './nldate';
 import { payeeFill } from './polish';
 import { collectTx, renderTxForm } from './txform';
@@ -32,7 +32,7 @@ function nlParse(text, submit) {
     else if (/^(transfer|transferred|moved|move)$/.test(lw)) { out.type = 'transfer'; used.add(i); }
     else if (lw[0] === '#' && lw.length > 1) { const c = L.categories.find(c => c.name.toLowerCase().startsWith(lw.slice(1))); out.category = c ? c.name : w.slice(1); used.add(i); }
   });
-  const accs = [];
+  const accs: { a: Account, i: number, from: boolean, to: boolean }[] = [];
   ws.forEach((w, i) => { if (used.has(i) || FILLER.has(w.toLowerCase())) return; const a = nlAccount(w.replace(/[,.]$/, '')); if (a && !accs.some(x => x.a.id === a.id)) { accs.push({ a, i, from: /^from$/i.test(ws[i - 1] || ''), to: /^to$/i.test(ws[i - 1] || '') }); used.add(i); } });
   // "for groceries" → category if it names one
   ws.forEach((w, i) => { if (!used.has(i) && /^for$/i.test(ws[i - 1] || '') && !out.category) { const c = L.categories.find(c => c.name.toLowerCase().startsWith(w.toLowerCase())); if (c && w.length >= 3) { out.category = c.name; used.add(i); } } });

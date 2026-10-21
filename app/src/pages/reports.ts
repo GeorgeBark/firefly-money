@@ -30,7 +30,7 @@ function shareTable(title, rows, opts: any = {}) {
 VIEWS.reports = async (r, paint) => {
   const L = await lists();
   const R = reportRange(r.q), p = { start: R.start, end: R.end };
-  const months = [];
+  const months: { start: string, end: string, label: string }[] = [];
   for (let d = new Date(R.start + 'T12:00:00'); isoDate(d) <= R.end && months.length < 36; d = new Date(d.getFullYear(), d.getMonth() + 1, 1, 12)) {
     const mr = monthRange(d.getFullYear(), d.getMonth());
     months.push({ start: mr.start < R.start ? R.start : mr.start, end: mr.end > R.end ? R.end : mr.end, label: mr.short + (months.length === 0 || d.getMonth() === 0 ? ' ’' + String(d.getFullYear()).slice(2) : '') });

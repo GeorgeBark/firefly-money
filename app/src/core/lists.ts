@@ -12,6 +12,7 @@ export function normAccount(a) {
     netWorth: t.include_net_worth !== false, openingDate: t.opening_balance_date || '', plan: parsePlan(t.notes),
   };
 }
+export type Account = ReturnType<typeof normAccount>;
 // A loan's planned monthly payment lives in its Firefly notes as one line, e.g.
 // "Monthly payment: $500.00 on day 30 from Chase Checking", so every device sees it.
 const PLAN_RE = /^[ \t]*Monthly payment:[ \t]*\$?([\d,.]+)(?:[ \t]+on day[ \t]+(\d{1,2}))?(?:[ \t]+from[ \t]+(.+?))?[ \t]*$/im;

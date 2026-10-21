@@ -2,6 +2,8 @@ import { S, arr } from './base';
 
 /* ================= API ================= */
 export class AuthError extends Error {}
+// What api() throws for a failed response: the message to show, and the HTTP status.
+export type ApiError = Error & { status?: number };
 // Responses are kept until something changes (your edits), you pull to refresh, or the app comes back
 // after a while; they're also saved on the device so the app opens instantly with your last data.
 export const CACHE = new Map(), INFLIGHT = new Map();
@@ -14,16 +16,16 @@ export function clearCache() { S.dirtyAt = Date.now(); S.listsAt = 0; PAGES.forE
 
 /* ---------- On-device copy of API responses (IndexedDB) ---------- */
 export const PDB = (() => {
-  let dbp = null, timer = null;
-  const queue = new Map();
-  const open = () => dbp || (dbp = new Promise((res, rej) => {
+  let dbp: Promise<IDBDatabase> | null = null, timer: ReturnType<typeof setTimeout> | undefined;
+  const queue = new Map<string, unknown>();
+  const open = () => dbp || (dbp = new Promise<IDBDatabase>((res, rej) => {
     try {
       const q = indexedDB.open('money-cache', 1);
       q.onupgradeneeded = () => q.result.createObjectStore('api');
       q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error);
     } catch (e) { rej(e); }
   }));
-  const run = async (mode, fn) => {
+  const run = async (mode: IDBTransactionMode, fn: (st: IDBObjectStore) => void) => {
     const db = await open();
     return new Promise((res, rej) => { const t = db.transaction('api', mode); fn(t.objectStore('api')); t.oncomplete = res; t.onerror = () => rej(t.error); t.onabort = () => rej(t.error); });
   };
@@ -31,13 +33,13 @@ export const PDB = (() => {
   return {
     async loadAll() {
       const db = await open();
-      return new Promise(res => {
-        const out = [], c = db.transaction('api', 'readonly').objectStore('api').openCursor();
+      return new Promise<[IDBValidKey, any][]>(res => {
+        const out: [IDBValidKey, any][] = [], c = db.transaction('api', 'readonly').objectStore('api').openCursor();
         c.onsuccess = () => { const cur = c.result; if (cur) { out.push([cur.key, cur.value]); cur.continue(); } else res(out); };
         c.onerror = () => res(out);
       });
     },
-    put(key, entry) { queue.set(key, entry); clearTimeout(timer); timer = setTimeout(flush, 500); },
+    put(key: string, entry: unknown) { queue.set(key, entry); clearTimeout(timer); timer = setTimeout(flush, 500); },
     clear() { queue.clear(); clearTimeout(timer); run('readwrite', st => st.clear()).catch(() => {}); },
   };
 })();
@@ -65,22 +67,22 @@ export async function api(path, opt: any = {}) {
 // fail like that (or lose the connection) are retried a few times before the error is shown.
 const NET_MAX = 6, NET_RETRY = [400, 1200, 3000], NET_BUSY = new Set([429, 502, 503, 504]);
 let netActive = 0;
- const netQueue = [];
-async function netSlot(fn) {
-  if (netActive >= NET_MAX) await new Promise(res => netQueue.push(res));
+const netQueue: (() => void)[] = [];
+async function netSlot<T>(fn: () => Promise<T>): Promise<T> {
+  if (netActive >= NET_MAX) await new Promise<void>(res => netQueue.push(res));
   netActive++;
   try { return await fn(); } finally { netActive--; const next = netQueue.shift(); if (next) next(); }
 }
-export const sleep = ms => new Promise(res => setTimeout(res, ms));
+export const sleep = (ms: number) => new Promise(res => setTimeout(res, ms));
 // Returns { r, body }: the slot is held until the whole response has arrived, not just its headers.
-async function netFetch(u, init, blob) {
+async function netFetch(u: URL, init: RequestInit, blob: boolean): Promise<{ r: Response, body: string | Blob }> {
   const read = init.method === 'GET';
   for (let attempt = 0; ; attempt++) {
-    let res = null, r = null, wait = NET_RETRY[attempt];
+    let res: { r: Response, body: string | Blob } | null = null, r: Response | null = null, wait = NET_RETRY[attempt];
     try { res = await netSlot(async () => { const x = await fetch(u, init); return { r: x, body: await (blob && x.ok ? x.blob() : x.text()) }; }); r = res.r; }
     catch (e) { if (!read || wait === undefined || !navigator.onLine) throw e; }
-    if (r && !(read && NET_BUSY.has(r.status) && wait !== undefined && navigator.onLine)) return res;
-    const ra = r && +r.headers.get('Retry-After');
+    if (r && !(read && NET_BUSY.has(r.status) && wait !== undefined && navigator.onLine)) return res!;
+    const ra = r ? +(r.headers.get('Retry-After') as string) : 0;
     if (ra > 0) wait = Math.min(10000, ra * 1000);
     await sleep(wait + Math.random() * 200);
   }
@@ -94,16 +96,16 @@ async function apiRaw(u, opt) {
   if (r.status === 401 && r.headers.get('X-Dash-Auth')) throw new AuthError('Wrong password.');
   if (r.status === 204) return null;
   if (opt.as === 'blob' && r.ok) return body;
-  const txt = body;
+  const txt = body as string;
   if (opt.as === 'text' && r.ok) return txt;
-  let j = null; try { j = txt ? JSON.parse(txt) : null; } catch (e) { /* not JSON */ }
+  let j: any = null; try { j = txt ? JSON.parse(txt) : null; } catch (e) { /* not JSON */ }
   if (!r.ok) {
     let msg = (j && j.errors && typeof j.errors === 'object') ? Object.values<any>(j.errors).flat().join(' ') : (j && j.message) || ('Request failed (' + r.status + ')');
     if (r.status === 401) msg = 'Firefly III rejected the access token. Check FIREFLY_TOKEN in the app settings.';
     if (r.status === 404 && !j) msg = 'Not found';
     if (r.status === 409 && (!j || !j.message)) msg = 'Firefly refused because this is still in use.';
     if (NET_BUSY.has(r.status) && !(j && j.message)) msg = 'Firefly III didn’t respond (' + r.status + '). It may be busy or restarting. Try again in a moment.';
-    const err: any = new Error(msg); err.status = r.status; throw err;
+    const err: ApiError = new Error(msg); err.status = r.status; throw err;
   }
   return j;
 }

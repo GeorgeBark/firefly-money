@@ -13,7 +13,7 @@ export async function loanHistory(loans) {
   const out: any = {};
   await Promise.all(loans.map(async l => {
     const groups = (await getAll('/accounts/' + l.id + '/transactions').catch(() => [])).map(normGroup);
-    const pays = [];
+    const pays: { d: string, a: number, from: string }[] = [];
     let borrowed = Math.abs(l.opening), repaid = 0;
     groups.forEach(g => g.splits.forEach(s => {
       if (s.type === 'opening balance') return;
@@ -74,7 +74,7 @@ VIEWS.loans = async (r, paint) => {
   const rows = htmlList(sim.loans.sort((a, b) => (a.paidOff ?? 9999) - (b.paidOff ?? 9999)).map(l => {
     const b0 = base.loans.find(x => x.id === l.id), h = hist[l.id] || {};
     const saved = b0.paidOff !== null && l.paidOff !== null ? b0.paidOff - l.paidOff : null;
-    return html`<tr><td><a class="desc" href="#/account/${l.id}" style="text-decoration:none">${l.name}</a><div class="sub-s">${h.last ? 'Last paid ' + money0(h.last.a) + ' on ' + fmtDay(h.last.d) : 'No payments yet'}${num(l.interest) ? ' · ' + num(l.interest) + '% ' + (l.period || 'interest') : ''}</div><div class="sub-s show-s">Owes ${money0(l.debt)}</div></td><td class="amt hide-s">${money0(l.debt)}</td><td class="r"><input class="inline num" type="number" min="0" step="10" value="${l.pay}" data-onchange="App.loanPay('${l.id}', this.value)" aria-label="Monthly payment for ${l.name}"></td><td class="r">${l.paidOff === null ? html`<span class="neg">Not being paid</span>` : html`<strong>${monthLabel(l.paidOff)}</strong><div class="sub-s">${l.paidOff} month${l.paidOff === 1 ? '' : 's'}${saved > 0 ? html` · <span class="down">${saved} sooner</span>` : ''}</div>`}</td><td class="hide-s" style="min-width:200px"><div class="track" style="height:10px"><div class="fill good" style="width:${((l.paidOff === null ? maxM : Math.min(l.paidOff, maxM)) / maxM * 100).toFixed(1)}%;${l.paidOff === null ? 'background:var(--spend);opacity:.35' : ''}"></div></div></td></tr>`;
+    return html`<tr><td><a class="desc" href="#/account/${l.id}" style="text-decoration:none">${l.name}</a><div class="sub-s">${h.last ? 'Last paid ' + money0(h.last.a) + ' on ' + fmtDay(h.last.d) : 'No payments yet'}${num(l.interest) ? ' · ' + num(l.interest) + '% ' + (l.period || 'interest') : ''}</div><div class="sub-s show-s">Owes ${money0(l.debt)}</div></td><td class="amt hide-s">${money0(l.debt)}</td><td class="r"><input class="inline num" type="number" min="0" step="10" value="${l.pay}" data-onchange="App.loanPay('${l.id}', this.value)" aria-label="Monthly payment for ${l.name}"></td><td class="r">${l.paidOff === null ? html`<span class="neg">Not being paid</span>` : html`<strong>${monthLabel(l.paidOff)}</strong><div class="sub-s">${l.paidOff} month${l.paidOff === 1 ? '' : 's'}${saved !== null && saved > 0 ? html` · <span class="down">${saved} sooner</span>` : ''}</div>`}</td><td class="hide-s" style="min-width:200px"><div class="track" style="height:10px"><div class="fill good" style="width:${((l.paidOff === null ? maxM : Math.min(l.paidOff, maxM)) / maxM * 100).toFixed(1)}%;${l.paidOff === null ? 'background:var(--spend);opacity:.35' : ''}"></div></div></td></tr>`;
   }));
   const totalDebt = model.reduce((s, l) => s + l.debt, 0), totalPay = model.reduce((s, l) => s + l.pay, 0) + (plan.strategy === 'now' ? 0 : +plan.extra || 0);
   const strat = (v, label, sub) => html`<button type="button" class="${plan.strategy === v ? 'on' : ''}" data-onclick="App.loanSet('strategy', '${v}')" title="${sub}">${label}</button>`;

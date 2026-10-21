@@ -13,8 +13,8 @@ const EXPORTS = [['transactions', 'Transactions'], ['accounts', 'Accounts'], ['b
   ['bills', 'Bills'], ['piggy-banks', 'Piggy banks'], ['recurring', 'Recurring transactions'], ['rules', 'Rules']];
 VIEWS.settings = async (r, paint) => {
   const L = await lists(true);
-  const [about, rates, hooks] = await Promise.all([
-    api('/about').catch(() => ({})), getAll('/exchange-rates').catch(() => null), getAll('/webhooks').catch(() => null),
+  const [about, rates, hooks, ingest] = await Promise.all([
+    api('/about').catch(() => ({})), getAll('/exchange-rates').catch(() => null), getAll('/webhooks').catch(() => null), ingestKey(),
   ]);
   const enabled = L.currencies.filter(c => c.enabled), disabled = L.currencies.filter(c => !c.enabled);
   const yr = new Date().getFullYear();
@@ -32,7 +32,7 @@ VIEWS.settings = async (r, paint) => {
   const syncOff = !!LS.get('syncOff', false), syncAt = LS.get('syncAt', 0);
   const syncHtml = html`<section class="panel"><h2>Sync between devices</h2><p class="lead">Your Overview layout, dismissed insights, forecast, loan plan and subscription choices are saved in Firefly III, so they follow you to every device. Theme, hidden amounts and density stay with each device.</p><label class="check"><input type="checkbox"${syncOff ? '' : ' checked'} data-onchange="App.toggleSync(this.checked)"> Sync this device’s settings</label><p class="sub-s">${syncOff ? 'Off: this device keeps its own settings.' : S.syncError ? html`<span class="up">Couldn’t sync: ${S.syncError}</span>` : syncAt ? 'Last synced ' + fmtDate(isoDate(new Date(syncAt))) + ' at ' + new Date(syncAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) + '.' : 'Nothing synced yet.'}</p>${syncOff ? '' : html`<button class="btn small" type="button" data-onclick="App.syncNow()">Sync now</button>`}</section>`;
   const logoHtml = html`<section class="panel"><h2>Logos</h2><p class="lead">Show payees’ and banks’ logos instead of their initials. Your Money server fetches each logo from DuckDuckGo’s icon service by the payee’s website (guessed from its name; change it in the account’s settings) and keeps it, so your browser never contacts another site.</p><label class="check"><input type="checkbox"${logosOn() ? ' checked' : ''} data-onchange="App.toggleLogos(this.checked)"> Show logos</label></section>`;
-  paint(html`${head('Settings', '', '')}<div class="cards">${recalcHtml}${syncHtml}${logoHtml}${cur}${rateHtml}${exp}${hookHtml}${aboutHtml}</div>`);
+  paint(html`${head('Settings', '', '')}<div class="cards">${recalcHtml}${syncHtml}${logoHtml}${applePayHtml(ingest)}${cur}${rateHtml}${exp}${hookHtml}${aboutHtml}</div>`);
 };
 // The build stamped into the Docker image by GitHub, e.g. "c78fd51 · 2026-09-30". Empty for a local build or plain files.
 function moneyVersion() {
@@ -98,12 +98,30 @@ async function deleteHook(id) {
   await withAuth(async () => { await api('/webhooks/' + id, { method: 'DELETE' }); toast('Webhook deleted'); route(); });
 }
 
+// Apple Pay auto-logging (app/ingest.js): the address and key the iPhone Shortcut sends each payment to.
+// Null when this server doesn't have it (an older image, or the plain-files setup without nginx).
+async function ingestKey(): Promise<string | null> {
+  try {
+    const r = await fetch('/api/money-ingest', { cache: 'no-store', headers: { 'X-Money': '1' } });
+    return r.ok ? (await r.json()).key || null : null;
+  } catch (e) { return null; }
+}
+function applePayHtml(key: string | null) {
+  if (!key) return '';
+  const url = location.origin + '/api/money-ingest';
+  return html`<section class="panel"><h2>Apple Pay</h2><p class="lead">Log Apple Pay purchases the moment you pay. An iPhone Shortcut sends the amount, merchant and card here, and Money adds the expense to the account named like the card, tagged “Apple Pay”, with the category from the last time. Your iPhone must be able to reach this address when you pay, so outside your home network it needs a VPN (like Tailscale) or a reverse proxy.</p><div class="list"><div class="row"><span class="name" style="flex:none">Address</span><span style="display:flex;gap:8px;align-items:center;min-width:0"><code style="overflow-wrap:anywhere;font-size:13px">${url}</code><button class="link" type="button" data-onclick="App.copyText('${url}', 'Address copied')">Copy</button></span></div><div class="row"><span class="name">Key</span><span style="display:flex;gap:8px;align-items:center"><code>••••••••</code><button class="link" type="button" data-onclick="App.copyText('${key}', 'Key copied')">Copy</button></span></div></div><p class="sub-s" style="margin-top:14px">Treat the key like a password: anyone with it can add expenses. Changing the dashboard password or Firefly token gives a new key. <a class="link" href="https://github.com/Muffy0906/firefly-money/blob/main/docs/apple-pay.md" target="_blank" rel="noopener">Set up the Shortcut ↗</a></p></section>`;
+}
+async function copyText(text, done) {
+  try { await navigator.clipboard.writeText(text); toast(done); } catch (e) { toast('Couldn’t copy. Your browser blocked it.'); }
+}
+
 function toggleLogos(on) { LS.set('logos', !!on); toast(on ? 'Logos on' : 'Logos off'); }
 
 // The methods markup handlers call (see events.ts), added to App and to its type
 const methods = {
   currency,
   toggleLogos,
+  copyText,
   addRate,
   deleteRate,
   exportData,

@@ -53,6 +53,7 @@ Firefly III is a great engine for your finances. Money is a faster, friendlier w
 - **Review queue:** new transactions (from imports, rules or other apps) wait on the Review page until you tick them off or mark them all reviewed.
 - **Transactions:** a feed grouped by day with sticky headers, merchant avatars and infinite scroll. You can change a category or budget inline, edit several at once, split, search, attach files and link transactions.
 - **Quick add in plain words:** type `coffee 5.40 amex yesterday`, `paycheck 2850 chase` or `transfer 400 from checking to savings last friday` and the form fills itself in. Payee memory then fills in the category and budget from the last time.
+- **Apple Pay auto-logging:** an iPhone Shortcut sends each Apple Pay tap to Money, which adds it to the card's account with the category from last time, tagged "Apple Pay". Set up in Settings → Apple Pay; see [docs/apple-pay.md](docs/apple-pay.md).
 - **Categorize inbox:** go through uncategorized expenses with keyboard shortcuts, and create a rule in one click.
 - **Net worth over time:** a card with month-end net worth for the last year (or each quarter for three years), with assets and debts.
 - **Find subscriptions:** the Bills page spots charges that repeat every week, month, quarter or year but aren't bills yet, and adds one as a bill in a tap, with a rule that links its past and future charges. It also flags subscriptions and bills whose price went up.
@@ -178,6 +179,7 @@ Point your proxy (Caddy, Traefik, Nginx Proxy Manager, Cloudflare Tunnel…) at 
 - The Firefly token isn't exposed to the browser, but anyone with the dashboard password can do anything the token can (read, edit, delete).
 - If you tick *Keep me signed in*, the session lasts 30 days and is renewed while you use the app, and the browser keeps a copy of your Firefly data on the device (IndexedDB and the offline cache) so the app opens instantly. Without it, the session ends when the browser closes (or after 12 hours unused) and no data is kept. **Sign out** (or any trip back to the sign-in screen) ends the session and deletes all of that saved data. Don't tick it on shared computers.
 - Sessions are signed with a key made from `DASH_PASSWORD` and `FIREFLY_TOKEN`, so changing either one signs out every device. There's no list of sessions on the server, so that's also how to sign out a lost device.
+- The Apple Pay key (Settings → Apple Pay) can only add expenses, not read anything. It's made from `DASH_PASSWORD` and `FIREFLY_TOKEN` too, so changing either one replaces it. Its endpoint allows 20 payments a minute per address.
 - Found a security problem? Please report it privately through this repo's **Security → Report a vulnerability** page rather than a public issue.
 
 ## Try it without Firefly (demo mode)

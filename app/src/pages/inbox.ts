@@ -60,7 +60,7 @@ function renderInbox() {
   const bud = top ? sug.pickBud(top.c) : '';
   I.paint(html`${head('Categorize', (I.items.length - I.i) + ' left' + (I.done ? ' · ' + I.done + ' done this session' : ''), html`<button class="btn" data-onclick="App.inboxSkip()">Skip <span class="neutral">S</span></button>`)}<div class="track" style="margin:-10px 0 24px"><div class="fill good" style="width:${(I.done / (I.done + I.items.length) * 100).toFixed(1)}%"></div></div><section class="panel" style="max-width:760px"><div class="row" style="align-items:flex-start"><div><div class="eyebrow">${fmtDate(g.date)} · ${s.type === 'deposit' ? 'Income' : 'Expense'}</div><div style="font-size:22px;font-weight:600;letter-spacing:-.01em;margin:4px 0">${s.description}</div><div class="sub-s">${s.source_name} → ${s.destination_name}${g.splits.length > 1 ? ' · part of “' + g.title + '”' : ''}</div></div><div class="big num ${s.type === 'deposit' ? 'pos' : ''}" style="font-size:34px">${money(s.amount)}</div></div><div style="margin:24px 0 6px" class="eyebrow">${sug.cats.length ? 'Suggestions' : 'No suggestion yet — pick a category'}</div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px">${htmlList(sug.cats.map((c, i) => html`<button class="btn${i === 0 ? ' primary' : ''}" data-onclick="App.inboxPick(${i})" data-cat="${c.c}"><span class="neutral" style="color:inherit;opacity:.6">${i + 1}</span> ${c.c} <span style="opacity:.6">${c.pct}%</span></button>`))}</div><form id="inboxForm" data-onsubmit="event.preventDefault();App.inboxSave()"><div class="grid2"><label>Category<input type="text" id="ib-cat" list="ib-dl" value="${top ? top.c : ''}" required></label>${s.type === 'withdrawal' ? html`<label>Budget<select id="ib-bud">${opt('', 'None', bud)}${htmlList(L.budgets.filter(b => b.active).map(b => opt(b.id, b.name, bud)))}</select></label>` : html`<span></span>`}</div><datalist id="ib-dl">${htmlList(L.categories.map(c => html`<option value="${c.name}">`))}</datalist>${similar.length ? html`<label class="check"><input type="checkbox" id="ib-similar" checked> Also do the ${similar.length} other uncategorized from ${payeeName}</label>` : ''}<label class="check"><input type="checkbox" id="ib-rule"${similar.length >= 1 && !sug.generic ? ' checked' : ''}> Always do this for ${sug.generic ? '“' + descKey(s.description) + '”' : payeeName} from now on (creates a rule)</label><div style="display:flex;gap:10px;margin-top:6px"><button class="btn primary" id="ib-save">Save <span style="opacity:.6">↵</span></button><button type="button" class="btn" data-onclick="App.editTx('${g.id}')">Open full transaction</button>${I.i > 0 ? html`<button type="button" class="link" data-onclick="App.inboxBack()">← Back</button>` : ''}</div></form></section><p class="sub-s" style="margin-top:14px">Keys: <strong>1–3</strong> pick a suggestion · <strong>Enter</strong> save · <strong>S</strong> skip. Suggestions come from how you categorized similar transactions over the past year.</p>`);
 }
-function inboxPick(i) { const b = document.querySelectorAll<HTMLElement>('[data-cat]')[i]; if (!b) return; el('ib-cat').value = b.dataset.cat; const bud = S.inbox.cur.pickBud(b.dataset.cat); if (el('ib-bud') && bud) el('ib-bud').value = bud; }
+function inboxPick(i) { const b = document.querySelectorAll<HTMLElement>('[data-cat]')[i]; if (!b) return; el<HTMLInputElement>('ib-cat').value = b.dataset.cat!; const bud = S.inbox.cur.pickBud(b.dataset.cat); if (el<HTMLSelectElement>('ib-bud') && bud) el<HTMLSelectElement>('ib-bud').value = bud; }
 function inboxSkip() { S.inbox.i++; renderInbox(); }
 function inboxBack() { S.inbox.i = Math.max(0, S.inbox.i - 1); renderInbox(); }
 async function ensureInboxGroup() {
@@ -72,10 +72,10 @@ async function ensureInboxGroup() {
 }
 async function inboxSave() {
   const I = S.inbox, { g, s, similar, payeeName, generic } = I.cur, L = S.lists;
-  const cat = el('ib-cat').value.trim(); if (!cat) return toast('Pick a category first.');
-  const bud = el('ib-bud') ? el('ib-bud').value : '';
-  const alsoSimilar = el('ib-similar') && el('ib-similar').checked, makeRule = el('ib-rule') && el('ib-rule').checked;
-  const btn = el('ib-save'); btn.disabled = true; btn.textContent = 'Saving…';
+  const cat = el<HTMLInputElement>('ib-cat').value.trim(); if (!cat) return toast('Pick a category first.');
+  const bud = el<HTMLSelectElement>('ib-bud') ? el<HTMLSelectElement>('ib-bud').value : '';
+  const alsoSimilar = el<HTMLInputElement>('ib-similar') && el<HTMLInputElement>('ib-similar').checked, makeRule = el<HTMLInputElement>('ib-rule') && el<HTMLInputElement>('ib-rule').checked;
+  const btn = el<HTMLButtonElement>('ib-save'); btn.disabled = true; btn.textContent = 'Saving…';
   const put = grp => api('/transactions/' + grp.id, { method: 'PUT', body: { apply_rules: false, transactions: grp.splits.filter(x => !x.category).map(x => {
     const o: any = { transaction_journal_id: x.jid, category_name: cat }; if (bud && x.type === 'withdrawal' && !x.budget_id) o.budget_id = bud; return o; }) } });
   try {
@@ -103,7 +103,7 @@ async function inboxSave() {
 }
 document.addEventListener('keydown', e => {
   if (parseHash().name !== 'inbox' || !S.inbox || !el('inboxForm')) return;
-  if (el('drawer').classList.contains('open') || !el('palette').hidden || el('confirm').open || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (el('drawer').classList.contains('open') || !el('palette').hidden || el<HTMLDialogElement>('confirm').open || e.metaKey || e.ctrlKey || e.altKey) return;
   const inField = /^(INPUT|SELECT|TEXTAREA)$/.test((e.target as HTMLElement).tagName) && (e.target as HTMLInputElement).type !== 'checkbox';
   if (!inField && /^[123]$/.test(e.key)) { e.preventDefault(); inboxPick(+e.key - 1); }
   else if (!inField && (e.key === 's' || e.key === 'S')) { e.preventDefault(); inboxSkip(); }

@@ -20,7 +20,7 @@ function kMark(i) {
 }
 document.addEventListener('keydown', e => {
   if (el('app').hidden || typing(e) || e.metaKey || e.ctrlKey || e.altKey) return;
-  if (el('drawer').classList.contains('open') || !el('palette').hidden || el('confirm').open || !el('pickpop').hidden) return;
+  if (el('drawer').classList.contains('open') || !el('palette').hidden || el<HTMLDialogElement>('confirm').open || !el('pickpop').hidden) return;
   const k = e.key;
   if (k === 'p' || k === 'P') { e.preventDefault(); return togglePrivacy(); }
   if (k === '?') { e.preventDefault(); return shortcutsSheet(); }

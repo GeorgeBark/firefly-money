@@ -9,7 +9,7 @@ type PalItem = { label: string, kind: string, go?: string, run?: () => void, low
 let palItems: PalItem[] = [], palShown: PalItem[] = [], palIdx = 0;
 export async function openPalette() {
   closeDrawer();
-  el('palette').hidden = false; el('palQ').value = ''; el('palQ').focus();
+  el('palette').hidden = false; el<HTMLInputElement>('palQ').value = ''; el<HTMLInputElement>('palQ').focus();
   const L = await lists().catch(() => null);
   const items: PalItem[] = NAV.map(([r, label, ic]) => ({ label, kind: 'Page', go: '#/' + r }));
   items.push({ label: 'New transaction', kind: 'Action', run: () => App.quickAdd() }, { label: 'New rule', kind: 'Action', run: () => { location.hash = '#/rules'; setTimeout(() => App.ruleForm(), 400); } },
@@ -37,15 +37,15 @@ function score(label, q) {
   return j === q.length ? 20 : 0;
 }
 function palFilter() {
-  const q = el('palQ').value.trim().toLowerCase();
+  const q = el<HTMLInputElement>('palQ').value.trim().toLowerCase();
   palShown = palItems.map(it => ({ it, s: score(it.label, q) - (it.low && q.length < 2 ? 50 : 0) })).filter(x => x.s > 0)
     .sort((a, b) => b.s - a.s).slice(0, 40).map(x => x.it);
-  if (q) palShown.push({ label: 'Search transactions for “' + el('palQ').value.trim() + '”', kind: 'Search', go: '#/transactions?search=' + encodeURIComponent(el('palQ').value.trim()) });
+  if (q) palShown.push({ label: 'Search transactions for “' + el<HTMLInputElement>('palQ').value.trim() + '”', kind: 'Search', go: '#/transactions?search=' + encodeURIComponent(el<HTMLInputElement>('palQ').value.trim()) });
   palIdx = 0; drawPal();
 }
 function drawPal() {
-  el('palList').innerHTML = palShown.length ? htmlList(palShown.map((it, i) => html`<div class="pal-item${i === palIdx ? ' on' : ''}" data-i="${i}" data-onmousemove="App.palHover(${i})" data-onclick="App.palRun(${i})"><span>${it.label}</span><span class="k">${it.kind}</span></div>`))
-    : html`<div class="pal-item"><span class="neutral">No matches</span></div>`;
+  el('palList').innerHTML = String(palShown.length ? htmlList(palShown.map((it, i) => html`<div class="pal-item${i === palIdx ? ' on' : ''}" data-i="${i}" data-onmousemove="App.palHover(${i})" data-onclick="App.palRun(${i})"><span>${it.label}</span><span class="k">${it.kind}</span></div>`))
+    : html`<div class="pal-item"><span class="neutral">No matches</span></div>`);
   const on = el('palList').querySelector('.on'); if (on) on.scrollIntoView({ block: 'nearest' });
 }
 function palHover(i) { if (i !== palIdx) { palIdx = i; drawPal(); } }

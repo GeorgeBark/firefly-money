@@ -150,8 +150,8 @@ function dashSave(mut?) {
   const L = dashLayout(), d = el('dash');
   if (d && d.classList.contains('editing') && !d.classList.contains('grid')) {
     const keysIn = node => [...node.querySelectorAll(':scope > .w')].map(w => w.dataset.w);
-    const blocks = [...d.children].map(ch => ch.classList.contains('band') ? [...ch.children].map(keysIn) : ch.dataset.w).filter(Boolean);
-    L.place = { ...L.place, [d.dataset.n]: blocks };
+    const blocks = ([...d.children] as HTMLElement[]).map(ch => ch.classList.contains('band') ? [...ch.children].map(keysIn) : ch.dataset.w).filter(Boolean);
+    L.place = { ...L.place, [d.dataset.n!]: blocks };
     L.order = blocks.flat(2).concat(L.order.filter(k => !d.querySelector('[data-w="' + k + '"]')));
   }
   if (!L.wide) L.wide = DASH_WIDE.slice();
@@ -185,7 +185,7 @@ function dashMove(k, dir) {
   dashAnimate(() => {
     if (!blk.classList.contains('band')) {       // a wide card: hop over it into the band on its far side
       const far = dir < 0 ? blk.previousElementSibling : blk.nextElementSibling;
-      if (!far || !far.classList.contains('band')) { const b = newBand(+d.dataset.n); dir < 0 ? blk.before(b) : blk.after(b); blk = b; } else blk = far;
+      if (!far || !far.classList.contains('band')) { const b = newBand(Number(d.dataset.n)); dir < 0 ? blk.before(b) : blk.after(b); blk = b; } else blk = far;
     }
     const to = blk.children[i]; dir < 0 ? to.appendChild(w) : to.prepend(w);
     dashSave();
@@ -201,7 +201,7 @@ function dashShift(k, dir) {
 function dashWide(k) {
   const w = dashCard(k), d = el('dash'); if (!w) return;
   if (d.classList.contains('grid')) {
-    const t = w._g, wide = t.w < GRID, nw = wide ? GRID : Math.round(GRID / Math.min(+d.dataset.n, 4)) || 8;
+    const t = w._g, wide = t.w < GRID, nw = wide ? GRID : Math.round(GRID / Math.min(Number(d.dataset.n), 4)) || 8;
     dashSave(x => { x.wide = wide ? [...new Set([...x.wide, k])] : x.wide.filter(y => y !== k); });
     gridMove(d, { k, x: wide ? 0 : Math.min(t.x, GRID - nw), y: t.y, w: nw });
     w.querySelector('.wbtn').textContent = wide ? 'Narrow' : 'Wide';
@@ -212,7 +212,7 @@ function dashWide(k) {
     if (on) w.closest('.band').after(w);       // full width, right below the band it was in
     else {                                     // back into a column: the shortest one of the band just above (or below)
       const near = [w.previousElementSibling, w.nextElementSibling].find(b => b && b.classList.contains('band'));
-      const band = near || (() => { const b = newBand(+d.dataset.n); w.after(b); return b; })();
+      const band = near || (() => { const b = newBand(Number(d.dataset.n)); w.after(b); return b; })();
       const cols = [...band.children];
       cols.reduce((a, c) => c.offsetHeight < a.offsetHeight ? c : a, cols[0])[near === w.previousElementSibling ? 'appendChild' : 'prepend'](w);
     }
@@ -262,7 +262,7 @@ function dashNudge(k, dx, dy) {
 // Close the gaps: every tile rises as far as it can, keeping its column and order
 function dashTidy() {
   const d = el('dash'); if (!d || !d.classList.contains('grid')) return;
-  d.querySelectorAll(':scope > .w').forEach(w => { w.dataset.float = '1'; });
+  d.querySelectorAll<HTMLElement>(':scope > .w').forEach(w => { w.dataset.float = '1'; });
   gridMove(d);
 }
 // The net-worth summary and the insight strip sit above the cards, so showing or hiding them redraws the page
@@ -270,7 +270,7 @@ function dashPart(p, on) { dashSave(x => { x.hidden = x.hidden.filter(y => y !==
 function dashReset() { LS.set('dash', {}); dashRedraw(); }
 // A window resize that changes how many columns fit redraws the overview with that count's arrangement
 addEventListener('resize', (() => { let t = 0; return () => { clearTimeout(t); t = setTimeout(() => {
-  const d = el('dash'); if (d && !d.classList.contains('moving') && (+d.dataset.n !== dashCount(dashLayout()) || (d.dataset.mode === 'grid') !== gridMode())) { S.pageKey = ''; PAGES.clear(); route({ quiet: true }); }
+  const d = el('dash'); if (d && !d.classList.contains('moving') && (Number(d.dataset.n) !== dashCount(dashLayout()) || (d.dataset.mode === 'grid') !== gridMode())) { S.pageKey = ''; PAGES.clear(); route({ quiet: true }); }
 }, 200); }; })());
 // Moving cards in Customize: pointer events, so it works the same with a mouse, a pen or a finger. A mouse can pick a
 // card up anywhere on it; touch uses the ⠿ handle so the page still scrolls. The card follows the pointer as a floating
@@ -295,11 +295,11 @@ export function bindDash() {
   // The first of these whose middle is below the pointer: the slot goes right before it
   const before = (els, y) => els.find(e => { const r = e.getBoundingClientRect(); return r.top + r.height / 2 > y; }) || null;
   const flip = fn => {
-    const ws = [...d.querySelectorAll('.w')], was = new Map(ws.map(w => [w, w.getBoundingClientRect()]));
+    const ws = [...d.querySelectorAll<HTMLElement>('.w')], was = new Map(ws.map(w => [w, w.getBoundingClientRect()]));
     fn();
     ws.forEach(w => {
       if (w === drag!.w) return;
-      const a = was.get(w), b = w.getBoundingClientRect(), dx = a.left - b.left, dy = a.top - b.top;
+      const a = was.get(w)!, b = w.getBoundingClientRect(), dx = a.left - b.left, dy = a.top - b.top;
       if (!dx && !dy) return;
       w.style.transition = 'none'; w.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
       void w.offsetWidth; w.style.transition = 'transform .2s ease'; w.style.transform = '';
@@ -318,7 +318,7 @@ export function bindDash() {
     const t = near([...d.querySelectorAll('.dcol'), ...d.querySelectorAll(':scope > .w.wide')].filter(c => c !== w), x, y); if (!t) return;
     if (t.classList.contains('dcol')) return put(t, before([...t.children].filter(c => c !== w), y));
     // Over a wide card: into the band just above or below it (a new one if there's none), in the column under the pointer
-    const r = t.getBoundingClientRect(), up = y < r.top + r.height / 2, n = +d.dataset.n;
+    const r = t.getBoundingClientRect(), up = y < r.top + r.height / 2, n = Number(d.dataset.n);
     let band = up ? t.previousElementSibling : t.nextElementSibling;
     if (!band || !band.classList.contains('band')) { band = newBand(n); up ? t.before(band) : t.after(band); }
     const col = band.children[Math.max(0, Math.min(n - 1, Math.floor((x - r.left) / (r.width / n))))];

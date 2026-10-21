@@ -1,7 +1,7 @@
 import { html, htmlList } from '../core/html';
 import { AuthError, api } from '../core/api';
 import { showLogin } from '../core/auth';
-import { App, S, el, fmtDate, money, num, sameName, todayIso } from '../core/base';
+import { App, S, el, fmtDate, money, num, sameName, todayIso, type Field } from '../core/base';
 import { closeDrawer, formError, icon, openDrawer, opt, toast, vt, vtName } from '../core/dom';
 import { avatarHtml, normGroup, payeeOf, signed } from '../core/feed';
 import { invalidate, isAsset, isCard, isLiab, lists } from '../core/lists';
@@ -81,8 +81,8 @@ export function renderTxForm() {
 }
 export function collectTx() {
   const f = S.form; if (!f || !el('txForm')) return;
-  const v = id => el(id) ? el(id).value : undefined;
-  f.date = v('f-date') ?? f.date; f.title = v('f-title') ?? f.title; f.rules = el('f-rules') ? el('f-rules').checked : f.rules;
+  const v = id => el<Field>(id) ? el<Field>(id).value : undefined;
+  f.date = v('f-date') ?? f.date; f.title = v('f-title') ?? f.title; f.rules = el<HTMLInputElement>('f-rules') ? el<HTMLInputElement>('f-rules').checked : f.rules;
   if (el('f-main')) f.main = v('f-main');
   if (el('f-src')) f.src = v('f-src');
   if (el('f-dst')) f.dst = v('f-dst');

@@ -29,7 +29,7 @@ export const NAV = [['', 'Overview', 'overview'], ['forecast', 'Forecast', 'fore
   ['budgets', 'Budgets', 'budgets'], ['categories', 'Categories & tags', 'categories'], ['bills', 'Bills', 'bills'], ['recurring', 'Recurring', 'recurring'],
   ['piggy', 'Piggy banks', 'piggy'], ['rules', 'Rules', 'rules'], ['reports', 'Reports', 'reports'], ['settings', 'Settings', 'settings']];
 export function drawNav(active) {
-  el('nav').innerHTML = htmlList(NAV.map(([r, label, ic]) => html`<a href="#/${r}" class="${r === active ? 'on' : ''}" data-onmouseenter="App.prefetch('${r}')">${icon(ic)}<span>${label}</span></a>`));
+  el('nav').innerHTML = String(htmlList(NAV.map(([r, label, ic]) => html`<a href="#/${r}" class="${r === active ? 'on' : ''}" data-onmouseenter="App.prefetch('${r}')">${icon(ic)}<span>${label}</span></a>`)));
   if (window.App && App.drawTabbar) App.drawTabbar(active);
 }
 let toastTimer;
@@ -39,8 +39,8 @@ export function toast(msg) {
 }
 export function confirmBox(title, text, okLabel = 'Delete') {
   return new Promise(res => {
-    const d = el('confirm');
-    d.innerHTML = html`<h3>${title}</h3><p>${text}</p><div class="btns"><button class="btn" value="no">Cancel</button><button class="btn primary" value="yes">${okLabel}</button></div>`;
+    const d = el<HTMLDialogElement>('confirm');
+    d.innerHTML = String(html`<h3>${title}</h3><p>${text}</p><div class="btns"><button class="btn" value="no">Cancel</button><button class="btn primary" value="yes">${okLabel}</button></div>`);
     d.querySelectorAll('button').forEach(b => b.onclick = () => { d.close(); res(b.value === 'yes'); });
     d.oncancel = () => res(false);
     d.showModal();
@@ -81,14 +81,14 @@ export function openDrawer(title, bodyHtml, footHtml?) {
   if (keep) {       // same transaction: keep the header node (it may be mid-animation) and swap the rest
     if (title !== 'Loading…') keep.querySelector('.eyebrow').textContent = title;
     d.querySelectorAll(':scope > .body, :scope > footer').forEach(n => n.remove());
-    d.insertAdjacentHTML('beforeend', html`<div class="body" id="drawerBody">${bodyHtml}</div>${footHtml ? html`<footer>${footHtml}</footer>` : ''}`);
+    d.insertAdjacentHTML('beforeend', String(html`<div class="body" id="drawerBody">${bodyHtml}</div>${footHtml ? html`<footer>${footHtml}</footer>` : ''}`));
     return;
   }
-  d.innerHTML = html`<div class="grab" aria-hidden="true"></div><header>${h ? drawerHeroHtml({ ...h, kicker: title === 'Loading…' ? h.kicker : title }) : html`<h2>${title}</h2>`}<button class="round" type="button" data-onclick="App.closeDrawer()" aria-label="Close">×</button></header><div class="body" id="drawerBody">${bodyHtml}</div>${footHtml ? html`<footer>${footHtml}</footer>` : ''}`;
+  d.innerHTML = String(html`<div class="grab" aria-hidden="true"></div><header>${h ? drawerHeroHtml({ ...h, kicker: title === 'Loading…' ? h.kicker : title }) : html`<h2>${title}</h2>`}<button class="round" type="button" data-onclick="App.closeDrawer()" aria-label="Close">×</button></header><div class="body" id="drawerBody">${bodyHtml}</div>${footHtml ? html`<footer>${footHtml}</footer>` : ''}`);
   if (!wasOpen) S.drawerReturn = document.activeElement;
   d.setAttribute('aria-label', title === 'Loading…' && h ? h.name : title);
   d.classList.add('open'); d.setAttribute('aria-hidden', 'false'); el('scrim').classList.add('open');
-  if (!wasOpen) setTimeout(() => { const f = d.querySelector('input:not([type=hidden]):not([type=checkbox]):not([type=date]), select'); if (f && innerWidth > 900) f.focus(); }, 280);
+  if (!wasOpen) setTimeout(() => { const f = d.querySelector<HTMLElement>('input:not([type=hidden]):not([type=checkbox]):not([type=date]), select'); if (f && innerWidth > 900) f.focus(); }, 280);
 }
 export function closeDrawer() {
   const d = el('drawer'), h = S.drawerHero;
@@ -103,7 +103,7 @@ export function closeDrawer() {
   };
   if (!row) return shut();
   // Morph the drawer's avatar back into its row while the drawer slides away
-  vt('drawer-close', () => { const dav = d.querySelector('.dhero .av'); if (dav) dav.style.viewTransitionName = ''; shut(); vtName(row, 'txav'); },
+  vt('drawer-close', () => { const dav = d.querySelector<HTMLElement>('.dhero .av'); if (dav) dav.style.viewTransitionName = ''; shut(); vtName(row, 'txav'); },
     () => vtName(d.querySelector('.dhero .av'), 'txav'));
 }
 export function formError(msg) {

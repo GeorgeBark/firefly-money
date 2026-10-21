@@ -33,9 +33,9 @@ async function loadTxExtras(gid, jids) {
     }))}</div>` : html`<p class="empty" style="padding-top:0">Not linked to anything.</p>`;
     const dirOpts = htmlList(types.flatMap(t => { const a = t.attributes; return a.inward === a.outward ? [opt(t.id + ':out', a.outward, '')] : [opt(t.id + ':out', a.outward, ''), opt(t.id + ':in', a.inward, '')]; }));
     box.innerHTML =
-      html`<div class="extra"><h3>Attachments</h3>${attHtml}<label style="margin:12px 0 0">Add files<input type="file" id="attFile" multiple data-onchange="App.uploadAtt('${jids[0]}', this)"></label></div><div class="extra"><h3>Linked transactions</h3>${linkHtml}${types.length ? html`<div style="margin-top:12px"><div class="grid2"><label>This transaction…<select id="lnkType">${dirOpts}</select></label><label>…this one<input type="search" id="lnkQ" placeholder="Search description" data-onkeydown="App.linkKey(event)"></label></div><button class="btn small" type="button" data-onclick="App.findLink()">Find</button><div id="lnkResults" style="margin-top:10px"></div></div>` : ''}</div>`;
+      String(html`<div class="extra"><h3>Attachments</h3>${attHtml}<label style="margin:12px 0 0">Add files<input type="file" id="attFile" multiple data-onchange="App.uploadAtt('${jids[0]}', this)"></label></div><div class="extra"><h3>Linked transactions</h3>${linkHtml}${types.length ? html`<div style="margin-top:12px"><div class="grid2"><label>This transaction…<select id="lnkType">${dirOpts}</select></label><label>…this one<input type="search" id="lnkQ" placeholder="Search description" data-onkeydown="App.linkKey(event)"></label></div><button class="btn small" type="button" data-onclick="App.findLink()">Find</button><div id="lnkResults" style="margin-top:10px"></div></div>` : ''}</div>`);
     S.extrasCtx = { gid, jids };
-  } catch (e) { if (el('txExtras')) el('txExtras').innerHTML = html`<p class="sub-s">${(e as Error).message}</p>`; }
+  } catch (e) { if (el('txExtras')) el('txExtras').innerHTML = String(html`<p class="sub-s">${(e as Error).message}</p>`); }
 }
 const refreshExtras = () => S.extrasCtx && loadTxExtras(S.extrasCtx.gid, S.extrasCtx.jids);
 async function uploadAtt(jid, input) {
@@ -55,15 +55,15 @@ async function deleteAtt(id) {
   await withAuth(async () => { await api('/attachments/' + id, { method: 'DELETE' }); toast('File removed'); refreshExtras(); });
 }
 async function findLink() {
-  const q = el('lnkQ').value.trim(); if (!q) return;
+  const q = el<HTMLInputElement>('lnkQ').value.trim(); if (!q) return;
   await withAuth(async () => {
     const res = await api('/search/transactions', { params: { query: q, search: q, limit: 8, page: 1 } });
     const gs = arr(res).map(normGroup).filter(g => g.id !== S.extrasCtx.gid);
-    el('lnkResults').innerHTML = gs.length ? html`<div class="list">${htmlList(gs.map(g => html`<div class="row"><span class="name">${g.title || g.splits[0].description} <span class="sub-s">${fmtDay(g.date)} · ${money(g.total)}</span></span><button class="btn small" type="button" data-onclick="App.makeLink('${g.splits[0].jid}')">Link</button></div>`))}</div>` : html`<p class="empty">No matches.</p>`;
+    el('lnkResults').innerHTML = String(gs.length ? html`<div class="list">${htmlList(gs.map(g => html`<div class="row"><span class="name">${g.title || g.splits[0].description} <span class="sub-s">${fmtDay(g.date)} · ${money(g.total)}</span></span><button class="btn small" type="button" data-onclick="App.makeLink('${g.splits[0].jid}')">Link</button></div>`))}</div>` : html`<p class="empty">No matches.</p>`);
   });
 }
 async function makeLink(otherJid) {
-  const [typeId, dir] = el('lnkType').value.split(':'), me = S.extrasCtx.jids[0];
+  const [typeId, dir] = el<HTMLSelectElement>('lnkType').value.split(':'), me = S.extrasCtx.jids[0];
   const body = dir === 'out' ? { link_type_id: typeId, outward_id: me, inward_id: otherJid } : { link_type_id: typeId, outward_id: otherJid, inward_id: me };
   await withAuth(async () => { await api('/transaction-links', { method: 'POST', body }); toast('Linked'); refreshExtras(); });
 }

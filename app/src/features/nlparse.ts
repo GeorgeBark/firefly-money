@@ -69,13 +69,13 @@ function nlParse(text, submit) {
     payee && type !== 'transfer' ? chip(type === 'deposit' ? 'From' : 'Payee', payee) : '',
     sp.category && (out.category || out.catHint) ? chip('Category', sp.category) : '',
   ]) : '';
-  const caret = el('nlq') ? el('nlq').selectionStart : text.length;
+  const caret = el<HTMLInputElement>('nlq') ? el<HTMLInputElement>('nlq').selectionStart : text.length;
   renderTxForm();
-  const q = el('nlq'); if (q) { q.focus(); try { q.setSelectionRange(caret, caret); } catch (e) { /* ignore */ } }
+  const q = el<HTMLInputElement>('nlq'); if (q) { q.focus(); try { q.setSelectionRange(caret, caret); } catch (e) { /* ignore */ } }
   if (payee && type !== 'transfer' && !out.category && !out.catHint) payeeFill(0, payee);
   if (submit) {
-    if (num(sp.amount) > 0 && sp.description.trim()) el('txForm').requestSubmit();
-    else { const miss = el('drawerBody').querySelector(num(sp.amount) > 0 ? '[data-k=description]' : '[data-k=amount]'); if (miss) miss.focus(); toast(num(sp.amount) > 0 ? 'Add a description' : 'Add an amount'); }
+    if (num(sp.amount) > 0 && sp.description.trim()) el<HTMLFormElement>('txForm').requestSubmit();
+    else { const miss = el('drawerBody').querySelector<HTMLElement>(num(sp.amount) > 0 ? '[data-k=description]' : '[data-k=amount]'); if (miss) miss.focus(); toast(num(sp.amount) > 0 ? 'Add a description' : 'Add an amount'); }
   }
 }
 

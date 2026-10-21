@@ -22,7 +22,7 @@ function drawCal() {
     if (i >= 35 && d.getMonth() !== m) break;
     cells = html`${cells}<button type="button" class="d${d.getMonth() !== m ? ' out' : ''}${iso === tIso ? ' today' : ''}${iso === sel ? ' sel' : ''}" data-d="${iso}">${d.getDate()}</button>`;
   }
-  el('calpop').innerHTML = html`<div class="ch"><button type="button" data-nav="-1" aria-label="Previous month">‹</button><span>${first.toLocaleString('en-US', { month: 'long', year: 'numeric' })}</span><button type="button" data-nav="1" aria-label="Next month">›</button></div><div class="grid7">${htmlList(['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map(x => html`<span class="dow">${x}</span>`))}${cells}</div><div class="cf"><button type="button" class="link" data-d="${tIso}">Today</button>${input.required ? '' : html`<button type="button" class="link" data-d="">Clear</button>`}</div>`;
+  el('calpop').innerHTML = String(html`<div class="ch"><button type="button" data-nav="-1" aria-label="Previous month">‹</button><span>${first.toLocaleString('en-US', { month: 'long', year: 'numeric' })}</span><button type="button" data-nav="1" aria-label="Next month">›</button></div><div class="grid7">${htmlList(['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map(x => html`<span class="dow">${x}</span>`))}${cells}</div><div class="cf"><button type="button" class="link" data-d="${tIso}">Today</button>${input.required ? '' : html`<button type="button" class="link" data-d="">Clear</button>`}</div>`);
 }
 function closeCal() { el('calpop').hidden = true; calInput = null; }
 el('calpop').addEventListener('mousedown', e => e.preventDefault());

@@ -69,18 +69,18 @@ async function budgetForm(id) {
     html`${id ? html`<button class="btn danger" data-onclick="App.deleteThing('budgets','${id}','budget')">Delete</button>` : ''}<span class="grow"></span><button class="btn" data-onclick="App.closeDrawer()">Cancel</button><button class="btn primary" id="budSave" data-onclick="App.submit('budForm')">${id ? 'Save' : 'Create budget'}</button>`);
 }
 async function saveBudget() {
-  const id = S.form.id, name = el('b-name').value.trim();
+  const id = S.form.id, name = el<HTMLInputElement>('b-name').value.trim();
   if (!name) return formError('Give the budget a name.');
   await busy(el('budSave'), async () => {
-    const body: any = { name, notes: el('b-notes').value };
-    const auto = el('b-auto').value, autoAmt = num(el('b-autoamt').value);
+    const body: any = { name, notes: el<HTMLTextAreaElement>('b-notes').value };
+    const auto = el<HTMLSelectElement>('b-auto').value, autoAmt = num(el<HTMLInputElement>('b-autoamt').value);
     if (auto !== 'none' && !(autoAmt > 0)) throw new Error('Set the monthly amount for the auto-budget.');
     body.auto_budget_type = auto;
-    if (auto !== 'none') { body.auto_budget_amount = String(autoAmt); body.auto_budget_period = el('b-autoper').value; body.auto_budget_currency_code = S.currency; }
-    if (id) { body.active = el('b-active').checked; await api('/budgets/' + id, { method: 'PUT', body }); }
+    if (auto !== 'none') { body.auto_budget_amount = String(autoAmt); body.auto_budget_period = el<HTMLSelectElement>('b-autoper').value; body.auto_budget_currency_code = S.currency; }
+    if (id) { body.active = el<HTMLInputElement>('b-active').checked; await api('/budgets/' + id, { method: 'PUT', body }); }
     else {
       const res = await api('/budgets', { method: 'POST', body: { ...body, active: true } });
-      const amt = num(el('b-amount').value), cur = monthRange(S.y, S.m);
+      const amt = num(el<HTMLInputElement>('b-amount').value), cur = monthRange(S.y, S.m);
       if (amt > 0 && res && res.data) await api('/budgets/' + res.data.id + '/limits', { method: 'POST', body: { amount: String(amt), start: cur.start, end: cur.end, currency_code: S.currency } });
     }
     invalidate(); closeDrawer(); toast(id ? 'Budget saved' : 'Budget created'); route();

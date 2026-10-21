@@ -1,7 +1,7 @@
 import { html, htmlList } from '../core/html';
 import { api, getAll } from '../core/api';
 import { busy, withAuth } from '../core/auth';
-import { App, S, el, fmtDate, fmtDay, money, num, sameName, todayIso } from '../core/base';
+import { App, S, el, fmtDate, fmtDay, money, num, sameName, todayIso, type Field } from '../core/base';
 import { closeDrawer, confirmBox, formError, head, openDrawer, opt, toast } from '../core/dom';
 import { invalidate, isLiab, lists } from '../core/lists';
 import { VIEWS, route } from '../core/router';
@@ -40,11 +40,11 @@ function recurForm(id, forceType) {
     html`${id ? html`<button class="btn danger" data-onclick="App.deleteRecur('${id}')">Delete</button>` : ''}<span class="grow"></span><button class="btn" data-onclick="App.closeDrawer()">Cancel</button><button class="btn primary" id="recSave" data-onclick="App.submit('recForm')">${id ? 'Save' : 'Create'}</button>`);
 }
 function recurType(t) {
-  const keep = ['rc-title', 'rc-amount', 'rc-desc', 'rc-cat', 'rc-first', 'rc-every', 'rc-notes'].map(k => [k, el(k) ? el(k).value : '']);
+  const keep = ['rc-title', 'rc-amount', 'rc-desc', 'rc-cat', 'rc-first', 'rc-every', 'rc-notes'].map(k => [k, el<Field>(k) ? el<Field>(k).value : '']);
   recurForm(S.form.id, t);
-  keep.forEach(([k, v]) => { if (el(k)) el(k).value = v; });
+  keep.forEach(([k, v]) => { if (el(k)) el<Field>(k).value = v; });
 }
-function recurEnds() { const m = el('rc-endmode').value; el('rc-until-l').hidden = m !== 'date'; el('rc-count-l').hidden = m !== 'count'; }
+function recurEnds() { const m = el<HTMLSelectElement>('rc-endmode').value; el('rc-until-l').hidden = m !== 'date'; el('rc-count-l').hidden = m !== 'count'; }
 async function accountIdFor(name, kind) {
   const L = S.lists, pool = kind === 'withdrawal' ? [...L.expense, ...L.own.filter(isLiab)] : [...L.revenue, ...L.own.filter(isLiab)];
   const hit = pool.find(a => sameName(a.name, name));
@@ -60,7 +60,7 @@ async function categoryIdFor(name) {
   return String(res.data.id);
 }
 async function saveRecur() {
-  const f = S.form, v = x => el(x) ? el(x).value.trim() : '';
+  const f = S.form, v = x => el<Field>(x) ? el<Field>(x).value.trim() : '';
   const type = f.type;
   if (!v('rc-title')) return formError('Give it a name.');
   if (!(num(v('rc-amount')) > 0)) return formError('Enter an amount above zero.');
@@ -79,7 +79,7 @@ async function saveRecur() {
     if (type === 'withdrawal' && v('rc-bud')) tx.budget_id = v('rc-bud');
     const first = v('rc-first'), freq = v('rc-freq'), d = new Date(first + 'T12:00:00');
     const moment = freq === 'monthly' ? String(d.getDate()) : freq === 'weekly' ? String(d.getDay() || 7) : freq === 'yearly' ? first : '';
-    const body: any = { type, title: v('rc-title'), first_date: first, apply_rules: el('rc-rules').checked, active: el('rc-active').checked, notes: el('rc-notes').value,
+    const body: any = { type, title: v('rc-title'), first_date: first, apply_rules: el<HTMLInputElement>('rc-rules').checked, active: el<HTMLInputElement>('rc-active').checked, notes: el<HTMLTextAreaElement>('rc-notes').value,
       repetitions: [{ type: freq, moment, skip: Math.max(0, parseInt(v('rc-every') || '1', 10) - 1), weekend: parseInt(v('rc-weekend'), 10) }], transactions: [tx] };
     const mode = v('rc-endmode');
     if (mode === 'date') { if (!v('rc-until')) throw new Error('Pick the end date.'); body.repeat_until = v('rc-until'); }

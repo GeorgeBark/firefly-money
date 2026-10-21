@@ -7,7 +7,9 @@ export const App: any = (window as any).App = {};
 export let today = new Date();
 export const setToday = (d: Date) => { today = d; };
 export const S: any = { y: today.getFullYear(), m: today.getMonth(), key: '', lists: null, tok: 0, form: null, currency: 'USD' };
-export const el = (id: string): any => document.getElementById(id);
+// An element by id, for ids the page is known to have; pass the element type when it matters: el<HTMLInputElement>('q')
+export const el = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
+export type Field = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
 export const pad = n => String(n).padStart(2, '0');
 export const isoDate = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
 export const todayIso = () => isoDate(new Date());

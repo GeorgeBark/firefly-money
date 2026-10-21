@@ -1,7 +1,7 @@
 import { html, htmlList } from '../core/html';
 import { api, getAll } from '../core/api';
 import { busy } from '../core/auth';
-import { App, S, absDiff, arr, el, fmtDate, fmtDay, money, money0, monthRange, num, period, todayIso } from '../core/base';
+import { App, S, absDiff, arr, el, fmtDate, fmtDay, money, money0, monthRange, num, period, todayIso, type Field } from '../core/base';
 import { closeDrawer, confirmBox, formError, head, monthNav, openDrawer, opt, toast } from '../core/dom';
 import { nameAvatar, normGroup, signed, txRows } from '../core/feed';
 import { logoDomain, setLogoSite } from '../core/logo';
@@ -134,7 +134,7 @@ async function accountForm(id, kind) {
     html`${id ? html`<button class="btn danger" type="button" data-onclick="App.deleteAccount('${id}')">Delete</button>` : ''}<span class="grow"></span><button class="btn" data-onclick="App.closeDrawer()">Cancel</button><button class="btn primary" id="accSave" data-onclick="App.submit('accForm')">${id ? 'Save' : 'Create account'}</button>`);
 }
 async function saveAccount() {
-  const { kind, id, name } = S.form, v = x => el(x) ? el(x).value.trim() : '';
+  const { kind, id, name } = S.form, v = x => el<Field>(x) ? el<Field>(x).value.trim() : '';
   const b: any = { name: v('a-name'), notes: v('a-notes') };
   if (!b.name) return formError('Give the account a name.');
   const site = v('a-site').toLowerCase().replace(/^[a-z]+:\/\//, '').replace(/^www\./, '').split(/[/?#]/)[0];
@@ -160,7 +160,7 @@ async function saveAccount() {
     b.opening_balance_date = v('a-opendate') || todayIso();
   }
   if (!id) b.currency_code = S.currency;
-  if (id) { b.active = el('a-active').checked; if (el('a-networth')) b.include_net_worth = el('a-networth').checked; delete b.type; }
+  if (id) { b.active = el<HTMLInputElement>('a-active').checked; if (el<HTMLInputElement>('a-networth')) b.include_net_worth = el<HTMLInputElement>('a-networth').checked; delete b.type; }
   await busy(el('accSave'), async () => {
     const res = id ? await api('/accounts/' + id, { method: 'PUT', body: b }) : await api('/accounts', { method: 'POST', body: b });
     setLogoSite(b.name, site, name);

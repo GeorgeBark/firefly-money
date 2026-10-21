@@ -80,7 +80,7 @@ async function exportData(kind, btn) {
   btn.disabled = true;
   await withAuth(async () => {
     const params: any = { type: 'csv' };
-    if (kind === 'transactions') { params.start = el('ex-start').value; params.end = el('ex-end').value; }
+    if (kind === 'transactions') { params.start = el<HTMLInputElement>('ex-start').value; params.end = el<HTMLInputElement>('ex-end').value; }
     const blob = await api('/data/export/' + kind, { params, as: 'blob' });
     saveBlob(blob, 'firefly-' + kind + '-' + todayIso() + '.csv');
   });

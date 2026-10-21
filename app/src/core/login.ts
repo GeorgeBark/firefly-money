@@ -11,9 +11,9 @@ import { blankSplit, collectTx, newTx, renderTxForm } from '../features/txform';
 function showApp() { S.lastRefresh = S.lastRefresh || Date.now(); el('login').hidden = true; el('app').hidden = false; el('fab').hidden = false; route(); if (App.syncPrefs) App.syncPrefs(); }
 el('loginForm').onsubmit = async ev => {
   ev.preventDefault();
-  const k = el('loginPw').value, btn = (ev.target as HTMLElement).querySelector<HTMLButtonElement>('button[type=submit]')!;
+  const k = el<HTMLInputElement>('loginPw').value, btn = (ev.target as HTMLElement).querySelector<HTMLButtonElement>('button[type=submit]')!;
   S.key = k; btn.disabled = true;
-  try { await api('/about'); saveKey(k, el('loginRemember').checked); showApp(); }
+  try { await api('/about'); saveKey(k, el<HTMLInputElement>('loginRemember').checked); showApp(); }
   catch (e) { el('loginErr').hidden = false; el('loginErr').textContent = e instanceof AuthError ? 'That password isn’t right.' : (e as Error).message; }
   finally { btn.disabled = false; }
 };
@@ -28,7 +28,7 @@ export const THEMES = [
 function currentTheme() { return document.documentElement.getAttribute('data-theme') || 'auto'; }
 // border-box origin: otherwise the gradient tiles under the 2px border and a sliver of the opposite colour shows at the edge
 function drawThemes() {
-  el('themes').innerHTML = htmlList(THEMES.map(([k, label, sw]) => html`<button type="button" title="${label}" aria-label="${label} theme" class="${k === currentTheme() ? 'on' : ''}" style="background:${sw};background-origin:border-box" data-onclick="App.setTheme('${k}')"></button>`));
+  el('themes').innerHTML = String(htmlList(THEMES.map(([k, label, sw]) => html`<button type="button" title="${label}" aria-label="${label} theme" class="${k === currentTheme() ? 'on' : ''}" style="background:${sw};background-origin:border-box" data-onclick="App.setTheme('${k}')"></button>`)));
 }
 export function setTheme(k) {
   if (k === currentTheme()) return;
@@ -58,7 +58,7 @@ drawThemes();
   if (!/^https?:\/\//.test(href)) a.hidden = true;
 })();
 window.addEventListener('hashchange', () => { const instant = S.tabNav; S.tabNav = false; if (!el('app').hidden) route({ nav: true, instant }); });
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && el('drawer').classList.contains('open') && !el('confirm').open) closeDrawer(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && el('drawer').classList.contains('open') && !el<HTMLDialogElement>('confirm').open) closeDrawer(); });
 (async function boot() {
   S.key = storedKey();
   // Signed in before: show the data saved on this device right away, then refresh it in the background.
@@ -87,7 +87,7 @@ Object.assign(App, {
   signOut: () => { clearKey(); S.key = ''; showLogin(); },
   // Small steps that markup handlers used to write inline (see events.js)
   go: h => { location.hash = h; },
-  submit: id => el(id).requestSubmit(),
+  submit: id => el<HTMLFormElement>(id).requestSubmit(),
   print: () => window.print(),
   removeRow: b => b.closest('.editor-row').remove(),
   palBackdrop: (e, box) => { if (e.target === box) App.closePalette(); },

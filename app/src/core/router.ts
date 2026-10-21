@@ -85,7 +85,7 @@ export async function route(opts: any = {}) {
     return;
   }
   S.feed = null; S.kIdx = -1;
-  if (!opts.quiet) S.skelT = setTimeout(() => { if (tok === S.tok) { stashPage(prevFeed); v.innerHTML = skeleton(); } }, 140);
+  if (!opts.quiet) S.skelT = setTimeout(() => { if (tok === S.tok) { stashPage(prevFeed); v.innerHTML = String(skeleton()); } }, 140);
   const paint = markup => {
     if (tok !== S.tok) return;
     clearTimeout(S.skelT);

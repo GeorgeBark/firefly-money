@@ -109,10 +109,32 @@ async function ingestKey(): Promise<string | null> {
 function applePayHtml(key: string | null) {
   if (!key) return '';
   const url = location.origin + '/api/money-ingest';
-  return html`<section class="panel"><h2>Apple Pay</h2><p class="lead">Log Apple Pay purchases the moment you pay. An iPhone Shortcut sends the amount, merchant and card here, and Money adds the expense to the account named like the card, tagged “Apple Pay”, with the category from the last time. Your iPhone must be able to reach this address when you pay, so outside your home network it needs a VPN (like Tailscale) or a reverse proxy.</p><div class="list"><div class="row"><span class="name" style="flex:none">Address</span><span style="display:flex;gap:8px;align-items:center;min-width:0"><code style="overflow-wrap:anywhere;font-size:13px">${url}</code><button class="link" type="button" data-onclick="App.copyText('${url}', 'Address copied')">Copy</button></span></div><div class="row"><span class="name">Key</span><span style="display:flex;gap:8px;align-items:center"><code>••••••••</code><button class="link" type="button" data-onclick="App.copyText('${key}', 'Key copied')">Copy</button></span></div></div><p class="sub-s" style="margin-top:14px">Treat the key like a password: anyone with it can add expenses. Changing the dashboard password or Firefly token gives a new key. <a class="link" href="https://github.com/Muffy0906/firefly-money/blob/main/docs/apple-pay.md" target="_blank" rel="noopener">Set up the Shortcut ↗</a></p></section>`;
+  return html`<section class="panel"><h2>Apple Pay</h2><p class="lead">Log Apple Pay purchases the moment you pay. An iPhone Shortcut sends the amount, merchant and card here, and Money adds the expense to the account named like the card, tagged “Apple Pay”, with the category from the last time. Your iPhone must be able to reach this address when you pay, so outside your home network it needs a VPN (like Tailscale) or a reverse proxy.</p><div class="list"><div class="row"><span class="name" style="flex:none">Address</span><span style="display:flex;gap:8px;align-items:center;min-width:0"><code style="overflow-wrap:anywhere;font-size:13px">${url}</code><button class="link" type="button" data-onclick="App.copyText('${url}', 'Address copied')">Copy</button></span></div><div class="row"><span class="name" style="flex:none">Key</span><span style="display:flex;gap:8px;align-items:center;min-width:0"><input id="applePayKey" type="password" readonly value="${key}" aria-label="Apple Pay key" autocomplete="off" spellcheck="false" style="flex:1;min-width:0;font-family:ui-monospace,monospace;font-size:13px" data-onclick="App.selectKey()"><button class="link" type="button" data-onclick="App.showKey(this)">Show</button><button class="link" type="button" data-onclick="App.copyText('${key}', 'Key copied')">Copy</button></span></div></div><p class="sub-s" style="margin-top:14px">Treat the key like a password: anyone with it can add expenses. Changing the dashboard password or Firefly token gives a new key. <a class="link" href="https://github.com/Muffy0906/firefly-money/blob/main/docs/apple-pay.md" target="_blank" rel="noopener">Set up the Shortcut ↗</a></p></section>`;
 }
+// The Clipboard API only works over HTTPS (or localhost), and most installs are plain HTTP on a home network,
+// so fall back to the older copy command, and if that's blocked too, show the key selected for copying by hand.
 async function copyText(text: string, done: string) {
-  try { await navigator.clipboard.writeText(text); toast(done); } catch (e) { toast('Couldn’t copy. Your browser blocked it.'); }
+  try {
+    if (window.isSecureContext && navigator.clipboard) { await navigator.clipboard.writeText(text); return toast(done); }
+  } catch (e) { /* blocked: try the old way */ }
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.readOnly = true; ta.setAttribute('aria-hidden', 'true');
+  ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0';
+  document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0, text.length);
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch (e) { /* not supported */ }
+  ta.remove();
+  if (ok) return toast(done);
+  const key = document.getElementById('applePayKey') as HTMLInputElement | null;
+  if (key && key.value === text) { if (key.type === 'password') showKey(key.parentElement!.querySelector('button')); else selectKey(); return toast('Your browser blocked copying. The key is selected: copy it from there.'); }
+  toast('Your browser blocked copying. Select the text and copy it yourself.');
+}
+function selectKey() { const k = el<HTMLInputElement>('applePayKey'); k.focus(); k.select(); k.setSelectionRange(0, k.value.length); }
+function showKey(btn: HTMLElement | null) {
+  const k = el<HTMLInputElement>('applePayKey'), hide = k.type === 'text' && btn && btn.textContent === 'Hide';
+  k.type = hide ? 'password' : 'text';
+  if (btn) btn.textContent = hide ? 'Show' : 'Hide';
+  if (!hide) selectKey();
 }
 
 function toggleLogos(on: boolean) { LS.set('logos', !!on); toast(on ? 'Logos on' : 'Logos off'); }
@@ -122,6 +144,8 @@ const methods = {
   currency,
   toggleLogos,
   copyText,
+  selectKey,
+  showKey,
   addRate,
   deleteRate,
   exportData,

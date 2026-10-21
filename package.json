@@ -13,8 +13,10 @@
     "test": "vitest run"
   },
   "devDependencies": {
+    "@types/leaflet": "1.9.22",
     "esbuild": "0.28.2",
     "jsdom": "30.1.3",
+    "leaflet": "1.9.4",
     "oxlint": "1.88.0",
     "typescript": "7.0.2",
     "vite": "8.3.4",

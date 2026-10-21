@@ -35,8 +35,11 @@
   html[data-theme="carbon"] .fill { box-shadow: 0 0 10px color-mix(in srgb, var(--spend) 70%, transparent); }
   html[data-theme="carbon"] .fill.good { box-shadow: 0 0 10px color-mix(in srgb, var(--good) 70%, transparent); }
   html[data-theme="carbon"] .btn.primary { box-shadow: 0 0 16px color-mix(in srgb, var(--accent) 45%, transparent); }
-  html[data-theme="carbon"] .nav a.on { box-shadow: inset 3px 0 0 var(--accent), 0 0 0 1px var(--line); }
-  html[data-theme="carbon"] .nav a.on svg { filter: drop-shadow(0 0 4px var(--accent)); }
+  /* selected nav: a soft accent tint plus a short glowing pill, instead of an outlined box with a corner-clipped bar */
+  html[data-theme="carbon"] .nav a.on { position: relative; background: color-mix(in srgb, var(--accent) 9%, transparent); box-shadow: none; }
+  html[data-theme="carbon"] .nav a.on::before { content: ""; position: absolute; left: 0; top: 50%; width: 3px; height: 16px; margin-top: -8px; border-radius: 0 3px 3px 0;
+    background: var(--accent); box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 60%, transparent); }
+  html[data-theme="carbon"] .nav a.on svg { filter: drop-shadow(0 0 3px color-mix(in srgb, var(--accent) 50%, transparent)); }
   html[data-theme="carbon"] .chart rect { filter: drop-shadow(0 0 6px currentColor); }
   html[data-theme="carbon"] .pos, html[data-theme="carbon"] .down { text-shadow: 0 0 10px color-mix(in srgb, var(--good) 45%, transparent); }
   html[data-theme="carbon"] .neg, html[data-theme="carbon"] .up { text-shadow: 0 0 10px color-mix(in srgb, var(--spend) 45%, transparent); }
@@ -691,6 +694,7 @@
     .brand { padding: 0 10px 0 4px; }
     .nav { display: flex; gap: 2px; }
     .nav a span { display: none; }
+    html[data-theme="carbon"] .nav a.on::before { display: none; }
     .side .spacer, .side .foot { display: none; }
     main { padding: 22px 16px 60px; }
     .hero, .grid { grid-template-columns: 1fr; }

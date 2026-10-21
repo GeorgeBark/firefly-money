@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { gridDrop, gridSettle, snapStep } from '../app/src/features/grid';
+import { type Tile, gridDrop, gridSettle, snapStep } from '../app/src/features/grid';
 
-const tile = (k, x, y, w, h, float = false) => ({ k, x, y, w, h, float });
-const overlaps = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
-const noOverlaps = ts => ts.every((a, i) => ts.every((b, j) => i === j || !overlaps(a, b)));
+const tile = (k: string, x: number, y: number, w: number, h: number, float = false): Tile => ({ k, x, y, w, h, float });
+const overlaps = (a: Tile, b: Tile) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+const noOverlaps = (ts: Tile[]) => ts.every((a, i) => ts.every((b, j) => i === j || !overlaps(a, b)));
 
 describe('gridSettle', () => {
   it('pushes an overlapped tile down just below the one above it', () => {

@@ -1,13 +1,11 @@
 {
   // Type checking only (npm run check); esbuild does the building.
-  // strict is on; noImplicitAny is still off while untyped parameters get types, module by module.
   "compilerOptions": {
     "target": "es2020",
     "module": "esnext",
     "moduleResolution": "bundler",
     "lib": ["es2022", "dom", "dom.iterable"],
     "strict": true,
-    "noImplicitAny": false,
     "noEmit": true,
     "isolatedModules": true,
     "skipLibCheck": true

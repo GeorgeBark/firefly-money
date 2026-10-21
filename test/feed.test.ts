@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { type Group, dayLabel, monogram, payeeOf } from '../app/src/core/feed';
 
 describe('payeeOf', () => {
-  const g = (type, splits, title = '') => ({ type, title, splits }) as unknown as Group;
+  const g = (type: string, splits: unknown[], title = '') => ({ type, title, splits }) as unknown as Group;
   it('uses the other side of the transaction', () => {
     expect(payeeOf(g('withdrawal', [{ destination_name: 'Shop', description: 'x' }]))).toEqual({ name: 'Shop', kind: 'withdrawal' });
     expect(payeeOf(g('deposit', [{ source_name: 'Employer', description: 'x' }]))).toEqual({ name: 'Employer', kind: 'deposit' });

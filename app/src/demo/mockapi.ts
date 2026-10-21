@@ -3,7 +3,7 @@
    all names and amounts are invented. Keep the two in step when the demo data changes. */
 
 // A small seeded random number generator (mulberry32), so the demo data is the same on every visit
-function seeded(seed) {
+function seeded(seed: number) {
   return () => {
     seed = (seed + 0x6d2b79f5) | 0;
     let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
@@ -37,7 +37,7 @@ export function createMockApi(now = new Date()) {
   const [ty, tm, td] = ymd(TODAY);
 
   const ACC: MockAccount[] = [];
-  const acc = (id, name, type, bal = 0, role: string | null = null, kw = {}) => {
+  const acc = (id: number, name: string, type: string, bal = 0, role: string | null = null, kw = {}) => {
     const a: MockAccount = { id: String(id), type: 'accounts', attributes: { name, type, current_balance: String(bal), account_role: role,
       active: true, currency_code: 'USD', include_net_worth: true, notes: '', opening_balance: '0', ...kw } };
     ACC.push(a); return a;
@@ -54,11 +54,11 @@ export function createMockApi(now = new Date()) {
     ['StreamFlix', 'Subscriptions', null, 15.49, 1], ['Tunes Plus', 'Subscriptions', null, 11.99, 1], ['City Power & Light', 'Utilities', null, 96, 1],
     ['Pharmacy Plus', 'Health', null, 23, 1], ['Big Box Store', 'Shopping', null, 55, 1],
   ];
-  const PID = {};
+  const PID: Record<string, string> = {};
   PAYEES.forEach((p, i) => { PID[p[0]] = String(100 + i); acc(100 + i, p[0], 'expense'); });
   const CATS = [...new Set([...PAYEES.map(p => p[1]), 'Salary', 'Travel'])].sort();
   const CAT_ID = Object.fromEntries(CATS.map((c, i) => [c, String(i + 1)]));
-  const BUDGETS = { Food: '1', Fun: '2' };
+  const BUDGETS: Record<string, string> = { Food: '1', Fun: '2' };
   const ACC_BY = Object.fromEntries(ACC.map(a => [a.id, a]));
 
   const PIGGIES = ([['Emergency fund', 10000, 6200, null], ['Summer trip', 2400, 950, iso(TODAY + 200 * DAY)]] as [string, number, number, string | null][])
@@ -75,7 +75,7 @@ export function createMockApi(now = new Date()) {
   const BILL_OF = Object.fromEntries(BILLS.filter(b => b[7]).map(b => [b[7], b]));
 
   let TX: MockGroup[] = [];
-  const addTx = (d: number, type, amt: number, description, src, dst, cat: string | null = null, bud: string | null = null) => {
+  const addTx = (d: number, type: string, amt: number, description: string, src: string, dst: string, cat: string | null = null, bud: string | null = null) => {
     const gid = String(TX.length + 1), s = ACC_BY[src].attributes, t = ACC_BY[dst].attributes;
     const bill = type === 'withdrawal' ? BILL_OF[t.name] : null;
     TX.push({ id: gid, type: 'transactions', attributes: { group_title: null, created_at: iso(d) + 'T18:00:00-05:00', transactions: [{
@@ -112,14 +112,15 @@ export function createMockApi(now = new Date()) {
   addTx(TODAY - Math.min(9, td - 1) * DAY, 'withdrawal', 312.40, 'Airline tickets', '3', PID['Online Store'], 'Travel');
   TX.sort((a, b) => (jd(b).date > jd(a).date ? 1 : jd(b).date < jd(a).date ? -1 : 0));
 
-  function jd(g) { return g.attributes.transactions[0]; }
-  const inRange = (g, q) => { const dd = jd(g).date.slice(0, 10); return (!q.start || dd >= q.start) && (!q.end || dd <= q.end); };
-  const page = (items, q) => {
+  function jd(g: MockGroup) { return g.attributes.transactions[0]; }
+  type Query = Record<string, string>;
+  const inRange = (g: MockGroup, q: Query) => { const dd = jd(g).date.slice(0, 10); return (!q.start || dd >= q.start) && (!q.end || dd <= q.end); };
+  const page = (items: unknown[], q: Query) => {
     const lim = +(q.limit || 50), p = +(q.page || 1), tot = items.length, pages = Math.max(1, Math.ceil(tot / lim));
     return { data: items.slice((p - 1) * lim, p * lim), meta: { pagination: { total: tot, count: Math.min(lim, tot), per_page: lim, current_page: p, total_pages: pages } } };
   };
-  const expenseByCat = (q, nocat = false) => {
-    const sums = new Map();
+  const expenseByCat = (q: Query, nocat = false) => {
+    const sums = new Map<string | null, number>();
     for (const g of TX) {
       const t = jd(g);
       if (t.type !== 'withdrawal' || !inRange(g, q)) continue;
@@ -128,15 +129,15 @@ export function createMockApi(now = new Date()) {
       sums.set(c, (sums.get(c) || 0) + +t.amount);
     }
     if (nocat) return [...sums.values()].map(v => ({ difference: '-' + v.toFixed(2), difference_float: -v, currency_code: 'USD' }));
-    return [...sums].map(([c, v]) => ({ id: CAT_ID[c], name: c, difference: '-' + v.toFixed(2), difference_float: -v, currency_code: 'USD' }));
+    return [...sums].map(([c, v]) => ({ id: CAT_ID[c!], name: c, difference: '-' + v.toFixed(2), difference_float: -v, currency_code: 'USD' }));
   };
-  const total = (q, type) => {
+  const total = (q: Query, type: string) => {
     const v = TX.filter(g => jd(g).type === type && inRange(g, q)).reduce((s, g) => s + +jd(g).amount, 0);
     return [{ difference: v.toFixed(2), difference_float: v, currency_code: 'USD' }];
   };
 
   // An account as it stood at the end of a past day: today's balance minus everything that moved it since
-  const balanceOn = (a, day: string) => {
+  const balanceOn = (a: MockAccount, day: string) => {
     const t = a.attributes;
     if (t.type !== 'asset' && t.type !== 'liability') return a;
     let moved = 0;
@@ -149,7 +150,8 @@ export function createMockApi(now = new Date()) {
     return { ...a, attributes: { ...t, current_balance: (+t.current_balance - moved).toFixed(2) } };
   };
   // The days a bill is due from start to end (ISO dates)
-  const billDue = (b, start: string, end: string) => {
+  type MockBill = (typeof BILLS)[number];
+  const billDue = (b: MockBill, start: string, end: string) => {
     const [fy, fm, fd] = ymd(b[5]), out: string[] = [];
     for (let k = 0; ; k += b[4] === 'monthly' ? 1 : 12) {
       const d = iso(utc(fy, fm + k, Math.min(fd, ymd(utc(fy, fm + k + 1, 0))[2])));
@@ -158,7 +160,7 @@ export function createMockApi(now = new Date()) {
     }
   };
   // A bill as Firefly answers it, for a date range: the days it's due in that range, and the charges that paid it
-  const billJson = (b, q) => {
+  const billJson = (b: MockBill, q: Query) => {
     const [id, name, lo, hi, freq, first, grp] = b, ranged = !!(q.start && q.end);
     const paid = ranged ? TX.filter(g => jd(g).bill_id === id && inRange(g, q)).map(g => ({ transaction_group_id: g.id, transaction_journal_id: g.id, date: jd(g).date })) : [];
     const next = billDue(b, iso(TODAY), iso(TODAY + 400 * DAY));
@@ -166,12 +168,12 @@ export function createMockApi(now = new Date()) {
       active: true, object_group_title: grp, currency_code: 'USD', notes: '', next_expected_match: next[0] ?? null,
       pay_dates: ranged ? billDue(b, q.start, q.end) : [], paid_dates: paid } };
   };
-  const PREFS = {};       // Firefly user preferences (Money keeps its synced settings in one), kept until the page reloads
+  const PREFS: Record<string, unknown> = {};       // Firefly user preferences (Money keeps its synced settings in one), kept until the page reloads
 
   // Answers one API call (path without /api/v1). Returns the JSON body, or null for 204 No Content;
   // throws NotFound for a 404.
   return function handle(path: string, q: Record<string, string>, method = 'GET', body: any = {}) {
-    let m;
+    let m: RegExpMatchArray | null;
     body = body || {};
     if (path === '/about') return { data: { version: '6.2.0' } };
     if (path === '/accounts') return page(q.date ? ACC.map(a => balanceOn(a, q.date)) : ACC, q);
@@ -183,7 +185,7 @@ export function createMockApi(now = new Date()) {
     if (path === '/preferences' && method === 'POST') {
       PREFS[body.name] = body.data; return { data: { id: '1', attributes: { name: body.name, data: body.data } } };
     }
-    if ((m = path.match(/^\/accounts\/(\d+)\/transactions$/))) return page(TX.filter(g => [jd(g).source_id, jd(g).destination_id].includes(m[1]) && inRange(g, q)), q);
+    if ((m = path.match(/^\/accounts\/(\d+)\/transactions$/))) return page(TX.filter(g => [jd(g).source_id, jd(g).destination_id].includes(m![1]) && inRange(g, q)), q);
     if ((m = path.match(/^\/accounts\/(\d+)$/))) return { data: ACC_BY[m[1]] };
     if (path === '/categories') return page(CATS.map(c => ({ id: CAT_ID[c], attributes: { name: c } })), q);
     if (path === '/budgets') {
@@ -195,7 +197,7 @@ export function createMockApi(now = new Date()) {
     if (path === '/budget-limits') return page([{ id: '1', attributes: { budget_id: '1', amount: '900' } }, { id: '2', attributes: { budget_id: '2', amount: '200' } }], q);
     if (path === '/piggy-banks') return page(PIGGIES, q);
     if (path === '/bills') return page(BILLS.map(b => billJson(b, q)), q);
-    if ((m = path.match(/^\/bills\/(\d+)\/transactions$/))) return page(TX.filter(g => jd(g).bill_id === m[1] && inRange(g, q)), q);
+    if ((m = path.match(/^\/bills\/(\d+)\/transactions$/))) return page(TX.filter(g => jd(g).bill_id === m![1] && inRange(g, q)), q);
     if (['/tags', '/recurrences', '/rule-groups', '/rules', '/link-types', '/webhooks', '/available-budgets'].includes(path)) return page([], q);
     if (path === '/currencies') return page([{ id: '1', attributes: { code: 'USD', name: 'US Dollar', symbol: '$', enabled: true, primary: true } }], q);
     if (path === '/summary/basic') return { 'net-worth-in-USD': { monetary_value: '5418.00' } };
@@ -218,8 +220,8 @@ export function createMockApi(now = new Date()) {
       return page(TX.filter(g => inRange(g, q) && (type === 'all' || type === 'default' || jd(g).type === type)), q);
     }
     if ((m = path.match(/^\/transactions\/(\d+)$/))) {
-      if (method === 'DELETE') { TX = TX.filter(g => g.id !== m[1]); return null; }
-      return { data: TX.find(g => g.id === m[1]) };
+      if (method === 'DELETE') { TX = TX.filter(g => g.id !== m![1]); return null; }
+      return { data: TX.find(g => g.id === m![1]) };
     }
     if (path === '/search/transactions') {
       const s = (q.query || '').toLowerCase();
@@ -228,7 +230,7 @@ export function createMockApi(now = new Date()) {
     }
     if ((m = path.match(/^\/(budgets|categories)\/(\d+)\/transactions$/))) {
       const key = m[1] === 'budgets' ? 'budget_id' : 'category_id';
-      return page(TX.filter(g => jd(g)[key] === m[2] && inRange(g, q)), q);
+      return page(TX.filter(g => jd(g)[key] === m![2] && inRange(g, q)), q);
     }
     return page([], q);
   };

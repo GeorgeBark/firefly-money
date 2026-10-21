@@ -8,7 +8,7 @@ describe('demo API', () => {
   });
   it('has about five months of transactions, newest first, none after today', () => {
     const { data } = createMockApi(now)('/transactions', { limit: '1000' }) as any;
-    const dates = data.map(g => g.attributes.transactions[0].date.slice(0, 10));
+    const dates = data.map((g: any) => g.attributes.transactions[0].date.slice(0, 10));
     expect(dates[0] <= '2026-10-20').toBe(true);
     expect(dates.at(-1)).toBe('2026-05-01');
     expect([...dates].sort().reverse()).toEqual(dates);
@@ -18,7 +18,7 @@ describe('demo API', () => {
     const r = api('/transactions', { limit: '10', page: '2', start: '2026-10-01', end: '2026-10-20' }) as any;
     expect(r.data).toHaveLength(10);
     expect(r.meta.pagination.current_page).toBe(2);
-    expect(r.data.every(g => g.attributes.transactions[0].date >= '2026-10-01')).toBe(true);
+    expect(r.data.every((g: any) => g.attributes.transactions[0].date >= '2026-10-01')).toBe(true);
   });
   it('category totals add up to total spending', () => {
     const api = createMockApi(now), q = { start: '2026-10-01', end: '2026-10-31' };
@@ -39,14 +39,14 @@ describe('demo API', () => {
   });
   it('gives balances as of a past date', () => {
     const api = createMockApi(now);
-    const bal = (q) => +(api('/accounts', q) as any).data[0].attributes.current_balance;
+    const bal = (q: Record<string, string>) => +(api('/accounts', q) as any).data[0].attributes.current_balance;
     expect(bal({ date: '2026-10-20' })).toBeCloseTo(bal({}), 2);
     expect(bal({ date: '2026-06-01' })).not.toBeCloseTo(bal({}), 2);
   });
   it('has bills, marked paid by the charges linked to them', () => {
     const api = createMockApi(now);
-    const bills = (api('/bills', { start: '2026-10-01', end: '2026-10-31' }) as any).data.map(b => b.attributes);
-    expect(bills.map(b => b.name)).toEqual(['StreamFlix', 'Tunes Plus', 'City Power & Light', 'Car insurance']);
+    const bills = (api('/bills', { start: '2026-10-01', end: '2026-10-31' }) as any).data.map((b: any) => b.attributes);
+    expect(bills.map((b: any) => b.name)).toEqual(['StreamFlix', 'Tunes Plus', 'City Power & Light', 'Car insurance']);
     expect(bills[0].pay_dates).toEqual(['2026-10-11']);
     expect(bills[0].paid_dates).toHaveLength(1);
     expect(bills[3].pay_dates).toEqual([]);

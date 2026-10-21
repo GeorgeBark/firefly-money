@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { billRises, findRecurring, nextDate } from '../app/src/features/subs';
 
-const c = (date, amount, payee = 'StreamFlix', billId = '') => ({ date, amount, payeeId: payee.toLowerCase(), payee, billId });
-const monthly = (payee, amount, months, day = 4, year = 2026) => months.map(m => c(year + '-' + String(m).padStart(2, '0') + '-' + String(day).padStart(2, '0'), amount, payee));
+const c = (date: string, amount: number, payee = 'StreamFlix', billId = '') => ({ date, amount, payeeId: payee.toLowerCase(), payee, billId });
+const monthly = (payee: string, amount: number, months: number[], day = 4, year = 2026) => months.map(m => c(year + '-' + String(m).padStart(2, '0') + '-' + String(day).padStart(2, '0'), amount, payee));
 
 describe('findRecurring', () => {
   it('finds a monthly subscription and when it comes next', () => {

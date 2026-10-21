@@ -16,6 +16,38 @@ export const DASH_NAMES = { safe: 'Safe to spend', attention: 'Needs attention',
   payees: 'Top payees', income: 'Income sources', goals: 'Savings goals', networth: 'Net worth' };
 // Rough card heights, only used to deal cards into columns evenly the first time
 const DASH_EST = { safe: 200, attention: 200, spending: 640, budgets: 300, cash: 300, cards: 290, loans: 250, bills: 220, heatmap: 420, payees: 640, income: 260, goals: 260, networth: 330 };
+// Each tile's own settings (the ⚙ button while customizing), saved in money.dash opts {tile: {setting: value}}
+const yes = [true, false];
+export const TILE_OPTS = {
+  recent: [{ id: 'count', label: 'Transactions to show', options: [5, 8, 10, 15, 20, 25], def: 8 }],
+  spending: [{ id: 'count', label: 'Categories to show', options: [5, 8, 12, 20], def: 8 }, { id: 'compare', label: 'Compare with last month', options: yes, def: true }],
+  payees: [{ id: 'count', label: 'Payees to show', options: [5, 8, 10, 15], def: 8 }, { id: 'compare', label: 'Compare with last month', options: yes, def: true }],
+  budgets: [{ id: 'unset', label: 'Show budgets without an amount', options: yes, def: true }],
+  cash: [{ id: 'zero', label: 'Show accounts with a zero balance', options: yes, def: true }, { id: 'closed', label: 'Show closed accounts', options: yes, def: false },
+    { id: 'sparks', label: 'Show 30-day trend lines', options: yes, def: true }],
+  cards: [{ id: 'paidOff', label: 'Show paid-off cards', options: yes, def: true }, { id: 'closed', label: 'Show closed cards', options: yes, def: false },
+    { id: 'sparks', label: 'Show 30-day trend lines', options: yes, def: true }],
+  loans: [{ id: 'paidOff', label: 'Show paid-off loans', options: yes, def: true }, { id: 'closed', label: 'Show closed loans', options: yes, def: false }],
+  bills: [{ id: 'days', label: 'Look ahead', options: [7, 14, 30, 45], def: 45, unit: 'days' }],
+  goals: [{ id: 'done', label: 'Show goals already reached', options: yes, def: true }],
+  cashflow: [{ id: 'months', label: 'Months to show', options: [3, 6, 12], def: 6 }],
+};
+// A tile's setting, or its default when unset or no longer one of the choices
+export function tileOpt(k, id) {
+  const o = (TILE_OPTS[k] || []).find(x => x.id === id); if (!o) return undefined;
+  const v = ((LS.get('dash', {}).opts || {})[k] || {})[id];
+  return o.options.includes(v) ? v : o.def;
+}
+function tileOptsPanel(k) {
+  const os = TILE_OPTS[k]; if (!os) return '';
+  return html`<div class="wopts"${S.dashOptsOpen === k ? '' : ' hidden'}>${htmlList(os.map(o => {
+    const v = tileOpt(k, o.id);
+    return typeof o.def === 'boolean'
+      ? html`<label class="check"><input type="checkbox"${v ? ' checked' : ''} data-onchange="App.dashOpt('${k}','${o.id}',this.checked)"> ${o.label}</label>`
+      : html`<label class="wopt">${o.label}<select data-onchange="App.dashOpt('${k}','${o.id}',this.value)">${htmlList(o.options.map(x => html`<option value="${x}"${x === v ? ' selected' : ''}>${x}${o.unit ? ' ' + o.unit : ''}</option>`))}</select></label>`;
+  }))}</div>`;
+}
+const optsButton = k => TILE_OPTS[k] ? html`<button type="button" class="obtn" data-onclick="App.dashOpts('${k}')" aria-label="Settings for this tile" title="Settings">⚙</button>` : '';
 const DASH_COLS = ['', 1, 2, 3, 4];      // '' = as many ~380px columns as fit (max 3)
 // hidden also holds the parts above the cards ('hero', 'insights'); cols is the chosen column count; place[n] the arrangement
 const dashLayout = () => ({ order: [], hidden: [], wide: null, cols: '', place: {}, ...LS.get('dash', {}) });
@@ -101,8 +133,8 @@ function dashboard(W, top = '') {
     const body = map[k]; if (!body) return '';
     const off = L.hidden.includes(k); if (off && !edit) return '';
     const isWide = wide.includes(k), g = spot[k];
-    if (grid) return html`<div class="w${off ? ' off' : ''}" data-w="${k}" data-gx="${g.x}" data-gy="${g.y}" data-gw="${g.w}"${g.float ? html` data-float="1"` : ''} style="grid-column:${g.x + 1} / span ${g.w};grid-row:${g.y + 1} / span ${g.h}">${edit ? html`<div class="wctl"><span class="grip" title="Drag to move" aria-hidden="true">⠿</span><strong>${DASH_NAMES[k] || k}</strong><span class="grow"></span><button type="button" data-onclick="App.dashNudge('${k}',-1,0)" aria-label="Move left">←</button><button type="button" data-onclick="App.dashNudge('${k}',1,0)" aria-label="Move right">→</button><button type="button" data-onclick="App.dashNudge('${k}',0,-1)" aria-label="Move up">↑</button><button type="button" data-onclick="App.dashNudge('${k}',0,1)" aria-label="Move down">↓</button><button type="button" class="wbtn" data-onclick="App.dashWide('${k}')">${g.w === GRID ? 'Narrow' : 'Wide'}</button><button type="button" class="hbtn" data-onclick="App.dashHide('${k}')">${off ? 'Show' : 'Hide'}</button></div><span class="rsz" title="Drag to resize" aria-hidden="true"></span>` : ''}${body}</div>`;
-    return html`<div class="w${isWide ? ' wide' : ''}${off ? ' off' : ''}" data-w="${k}">${edit ? html`<div class="wctl"><span class="grip" title="Drag to move" aria-hidden="true">⠿</span><strong>${DASH_NAMES[k] || k}</strong><span class="grow"></span>${n > 1 && !isWide ? html`<button type="button" data-onclick="App.dashShift('${k}',-1)" aria-label="Move left">←</button><button type="button" data-onclick="App.dashShift('${k}',1)" aria-label="Move right">→</button>` : ''}<button type="button" data-onclick="App.dashMove('${k}',-1)" aria-label="Move up">↑</button><button type="button" data-onclick="App.dashMove('${k}',1)" aria-label="Move down">↓</button><button type="button" class="wbtn" data-onclick="App.dashWide('${k}')">${isWide ? 'Narrow' : 'Wide'}</button><button type="button" class="hbtn" data-onclick="App.dashHide('${k}')">${off ? 'Show' : 'Hide'}</button></div>` : ''}${body}</div>`;
+    if (grid) return html`<div class="w${off ? ' off' : ''}" data-w="${k}" data-gx="${g.x}" data-gy="${g.y}" data-gw="${g.w}"${g.float ? html` data-float="1"` : ''} style="grid-column:${g.x + 1} / span ${g.w};grid-row:${g.y + 1} / span ${g.h}">${edit ? html`<div class="wctl"><span class="grip" title="Drag to move" aria-hidden="true">⠿</span><strong>${DASH_NAMES[k] || k}</strong><span class="grow"></span><button type="button" data-onclick="App.dashNudge('${k}',-1,0)" aria-label="Move left">←</button><button type="button" data-onclick="App.dashNudge('${k}',1,0)" aria-label="Move right">→</button><button type="button" data-onclick="App.dashNudge('${k}',0,-1)" aria-label="Move up">↑</button><button type="button" data-onclick="App.dashNudge('${k}',0,1)" aria-label="Move down">↓</button>${optsButton(k)}<button type="button" class="wbtn" data-onclick="App.dashWide('${k}')">${g.w === GRID ? 'Narrow' : 'Wide'}</button><button type="button" class="hbtn" data-onclick="App.dashHide('${k}')">${off ? 'Show' : 'Hide'}</button></div>${tileOptsPanel(k)}<span class="rsz" title="Drag to resize" aria-hidden="true"></span>` : ''}${body}</div>`;
+    return html`<div class="w${isWide ? ' wide' : ''}${off ? ' off' : ''}" data-w="${k}">${edit ? html`<div class="wctl"><span class="grip" title="Drag to move" aria-hidden="true">⠿</span><strong>${DASH_NAMES[k] || k}</strong><span class="grow"></span>${n > 1 && !isWide ? html`<button type="button" data-onclick="App.dashShift('${k}',-1)" aria-label="Move left">←</button><button type="button" data-onclick="App.dashShift('${k}',1)" aria-label="Move right">→</button>` : ''}<button type="button" data-onclick="App.dashMove('${k}',-1)" aria-label="Move up">↑</button><button type="button" data-onclick="App.dashMove('${k}',1)" aria-label="Move down">↓</button>${optsButton(k)}<button type="button" class="wbtn" data-onclick="App.dashWide('${k}')">${isWide ? 'Narrow' : 'Wide'}</button><button type="button" class="hbtn" data-onclick="App.dashHide('${k}')">${off ? 'Show' : 'Hide'}</button></div>${tileOptsPanel(k)}` : ''}${body}</div>`;
   };
   const body = grid ? htmlList(keys.map(card)) : htmlList(blocks.map(blk => {
     if (typeof blk === 'string') return card(blk);
@@ -187,6 +219,19 @@ function dashWide(k) {
     w.classList.toggle('wide', on); w.querySelector('.wbtn').textContent = on ? 'Narrow' : 'Wide';
     dashSave();
   });
+}
+// ⚙: show or hide a tile's settings
+function dashOpts(k) {
+  S.dashOptsOpen = S.dashOptsOpen === k ? null : k;
+  document.querySelectorAll('#dash .wopts').forEach((p: any) => { p.hidden = p.closest('.w').dataset.w !== S.dashOptsOpen; });
+}
+// Change one setting: save it and redraw (the tile may need different data); its settings stay open
+function dashOpt(k, id, v) {
+  const o = (TILE_OPTS[k] || []).find(x => x.id === id); if (!o) return;
+  if (typeof o.def === 'number') v = +v;
+  if (!o.options.includes(v)) return;
+  dashSave(x => { x.opts = { ...x.opts, [k]: { ...(x.opts || {})[k], [id]: v } }; });
+  dashRedraw();
 }
 function dashHide(k) {
   const L = dashSave(x => { x.hidden = x.hidden.includes(k) ? x.hidden.filter(y => y !== k) : [...x.hidden, k]; });
@@ -305,7 +350,7 @@ export function bindDash() {
     dashSave();
   };
   d.addEventListener('pointerdown', e => {
-    const w = (e.target as HTMLElement).closest('.w'); if (!w || e.button > 0 || (e.target as HTMLElement).closest('button, a, input')) return;
+    const w = (e.target as HTMLElement).closest('.w'); if (!w || e.button > 0 || (e.target as HTMLElement).closest('button, a, input, select, label, .wopts')) return;
     if (e.pointerType !== 'mouse' && !(e.target as HTMLElement).closest('.grip')) return;     // touch: only the handle, so scrolling still works
     drag = { w, id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY };
     if (e.pointerType !== 'mouse') lift();
@@ -391,7 +436,7 @@ function bindGrid(d) {
     }
   };
   d.addEventListener('pointerdown', e => {
-    const w: any = (e.target as HTMLElement).closest('.w'); if (!w || !w._g || e.button > 0 || (e.target as HTMLElement).closest('button, a, input')) return;
+    const w: any = (e.target as HTMLElement).closest('.w'); if (!w || !w._g || e.button > 0 || (e.target as HTMLElement).closest('button, a, input, select, label, .wopts')) return;
     const resize = !!(e.target as HTMLElement).closest('.rsz');
     if (e.pointerType !== 'mouse' && !resize && !(e.target as HTMLElement).closest('.grip')) return;     // touch: the handle or the corner, so scrolling still works
     const r0 = w.getBoundingClientRect();
@@ -417,6 +462,8 @@ Object.assign(App, {
   dashboard,
   dashButton,
   dashEdit,
+  dashOpts,
+  dashOpt,
   dashMove,
   dashWide,
   dashHide,

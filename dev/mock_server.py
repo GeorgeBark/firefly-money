@@ -253,8 +253,18 @@ class H(BaseHTTPRequestHandler):
         if LATENCY: time.sleep(LATENCY)        # simulate a real Firefly server (set LATENCY=0.15)
         if FAIL_RATE and method == 'GET' and _flaky.random() < FAIL_RATE:
             self.send_response(502); self.send_header('Content-Type', 'text/html'); self.end_headers(); self.wfile.write(b'<html><body>502 Bad Gateway</body></html>'); return
-        if self.headers.get('X-Dash-Key') != 'demo':
+        if u.path == '/api/money-session':     # stands in for app/session.js: the password is "demo"
+            raw = self.rfile.read(int(self.headers.get('Content-Length', 0)))
+            try: ok = method == 'POST' and json.loads(raw or b'{}').get('password') == 'demo'
+            except (ValueError, AttributeError): ok = False
+            if method == 'POST' and not ok:
+                self.send_response(401); self.send_header('X-Dash-Auth', 'required'); self.end_headers(); return
+            self.send_response(204)
+            self.send_header('Set-Cookie', 'money_session=%s; Path=/api/; HttpOnly; SameSite=Strict' % ('demo' if ok else '') + ('' if ok else '; Max-Age=0'))
+            self.end_headers(); return
+        if 'money_session=demo' not in (self.headers.get('Cookie') or ''):
             self.send_response(401); self.send_header('X-Dash-Auth', 'required'); self.end_headers(); return
+        if not self.headers.get('X-Money'): self.send_response(403); self.end_headers(); return
         body = {}
         if method in ('POST', 'PUT'):
             raw = self.rfile.read(int(self.headers.get('Content-Length', 0)))

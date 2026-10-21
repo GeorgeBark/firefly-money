@@ -1,6 +1,6 @@
 import { html, htmlList } from './html';
 import { AuthError, CACHE, PDB, api } from './api';
-import { clearKey, saveKey, showLogin, storedKey } from './auth';
+import { migrateSavedPassword, rememberedSignIn, showLogin, signIn, signOut } from './auth';
 import { App, S, el, today } from './base';
 import { closeDrawer, vt } from './dom';
 import { lists } from './lists';
@@ -11,10 +11,10 @@ import { blankSplit, collectTx, newTx, renderTxForm } from '../features/txform';
 function showApp() { S.lastRefresh = S.lastRefresh || Date.now(); el('login').hidden = true; el('app').hidden = false; el('fab').hidden = false; route(); if (App.syncPrefs) App.syncPrefs(); }
 el('loginForm').onsubmit = async ev => {
   ev.preventDefault();
-  const k = el<HTMLInputElement>('loginPw').value, btn = (ev.target as HTMLElement).querySelector<HTMLButtonElement>('button[type=submit]')!;
-  S.key = k; btn.disabled = true;
-  try { await api('/about'); saveKey(k, el<HTMLInputElement>('loginRemember').checked); showApp(); }
-  catch (e) { el('loginErr').hidden = false; el('loginErr').textContent = e instanceof AuthError ? 'That password isn’t right.' : (e as Error).message; }
+  const btn = (ev.target as HTMLElement).querySelector<HTMLButtonElement>('button[type=submit]')!;
+  btn.disabled = true;
+  try { await signIn(el<HTMLInputElement>('loginPw').value, el<HTMLInputElement>('loginRemember').checked); el<HTMLInputElement>('loginPw').value = ''; showApp(); }
+  catch (e) { el('loginErr').hidden = false; el('loginErr').textContent = (e as Error).message; }
   finally { btn.disabled = false; }
 };
 export const THEMES = [
@@ -60,14 +60,15 @@ drawThemes();
 window.addEventListener('hashchange', () => { const instant = S.tabNav; S.tabNav = false; if (!el('app').hidden) route({ nav: true, instant }); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && el('drawer').classList.contains('open') && !el<HTMLDialogElement>('confirm').open) closeDrawer(); });
 (async function boot() {
-  S.key = storedKey();
+  await migrateSavedPassword();
+  S.remember = S.signedIn = rememberedSignIn();
   // Signed in before: show the data saved on this device right away, then refresh it in the background.
   if (S.key && S.remember) {
     try { (await PDB.loadAll()).forEach(([k, e]) => { if (e && e.t > Date.now() - 14 * 864e5 && !CACHE.has(k)) CACHE.set(k, e); }); } catch (e) { /* no saved data */ }
     if (CACHE.size) { S.bootStale = true; S.lastRefresh = Date.now(); showApp(); return; }
   }
-  try { await api('/about'); showApp(); }
-  catch (e) { if (e instanceof AuthError) showLogin(S.key ? 'Please sign in again.' : ''); else showApp(); }
+  try { await api('/about'); S.signedIn = true; showApp(); }
+  catch (e) { if (e instanceof AuthError) showLogin(S.remember ? 'Please sign in again.' : ''); else showApp(); }
 })();
 
 // The methods markup handlers call (see events.ts), added to App and to its type
@@ -85,7 +86,7 @@ const methods = {
   thisMonth: () => { if (S.all) { S.all = false; return route({ nav: true }); } S.vtDir = (S.y - today.getFullYear()) * 12 + S.m - today.getMonth() > 0 ? 'prev' : 'next'; S.y = today.getFullYear(); S.m = today.getMonth(); route(); },
   shiftMonth: (d: number) => { S.vtDir = d > 0 ? 'next' : 'prev'; S.m += d; const x = new Date(S.y, S.m, 1); S.y = x.getFullYear(); S.m = x.getMonth(); route({ nav: true }); },
   setTheme,
-  signOut: () => { clearKey(); S.key = ''; showLogin(); },
+  signOut: () => { signOut(); showLogin(); },
   // Small steps that markup handlers used to write inline (see events.js)
   go: (h: string) => { location.hash = h; },
   submit: (id: string) => el<HTMLFormElement>(id).requestSubmit(),

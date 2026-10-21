@@ -77,14 +77,14 @@ Firefly III is a great engine for your finances. Money is a faster, friendlier w
 ## How it works
 
 ```
-Browser ──(password in a header)──▶ nginx container ──(your Firefly token)──▶ Firefly III API
-          serves the app             checks the password,
-                                     adds the token, proxies /api/
+Browser ──(session cookie)──▶ nginx container ──(your Firefly token)──▶ Firefly III API
+          serves the app         checks the session,
+                                 adds the token, proxies /api/
 ```
 
 - nginx serves the app (`index.html` and its `assets/`) and proxies `/api/*` to Firefly III.
 - Your Firefly **access token lives only in the nginx container**. It's added on the server side and never sent to the browser.
-- The browser has to send the **dashboard password** (`X-Dash-Key` header) with every API call. Without it nginx answers `401`.
+- Signing in with the **dashboard password** gives the browser a session cookie, signed by nginx (`app/session.js`, nginx's built-in JavaScript module). API calls without a valid session get `401`. The cookie is `HttpOnly`, so the page's own scripts can't read it, and the password itself is never stored in the browser.
 
 ## Requirements
 
@@ -110,7 +110,7 @@ Open `http://<your-server>:8090` and sign in with your `DASH_PASSWORD`.
 |-----------------|------------|
 | `FIREFLY_URL`   | How the container reaches Firefly, e.g. `http://192.168.1.20:8080` or `http://firefly:8080` (same Docker network). No trailing slash. It's also used for the sidebar's "Open Firefly III" link, so a LAN address works better than a Docker-only hostname if you want that link to work. |
 | `FIREFLY_TOKEN` | Your Firefly Personal Access Token. |
-| `DASH_PASSWORD` | The password for the Money sign-in screen. Use something long, and don't start it with `~`. |
+| `DASH_PASSWORD` | The password for the Money sign-in screen. Use something long. Changing it signs every device out. |
 | `MONEY_PORT`    | Port on the host (default `8090`). |
 | `LISTEN_PORT`   | Port inside the container (default `80`). Only needed when you run the container as a non-root user (e.g. `user: "568:568"`) on a host that doesn't let such users use ports below 1024; then set something like `8080` and map the host port to it. |
 
@@ -168,15 +168,16 @@ Then go to **Docker → Add Container**, pick **firefly-money** under **Template
 ### Running behind a reverse proxy
 
 Point your proxy (Caddy, Traefik, Nginx Proxy Manager, Cloudflare Tunnel…) at the container's port. Two things to know:
-- **Use HTTPS** for anything beyond your home network. The password is sent with every request.
+- **Use HTTPS** for anything beyond your home network. The session cookie is sent with every request (and marked `Secure` when the proxy says the request came over HTTPS with `X-Forwarded-Proto`).
 - Installing as an app and the offline cache only work over HTTPS (or on `localhost`).
 
 ## Security notes
 
 - Money has **one shared password** and no user accounts. Treat it like the key to your finances. The safest setup is on your LAN or behind a VPN (Tailscale, WireGuard), or behind a reverse proxy that adds its own sign-in (Authelia, Cloudflare Access…).
-- The nginx config has no rate limiting on password attempts. If you expose Money to the internet, add it at your proxy or use one of the options above.
+- Sign-in attempts are limited to 10 a minute (after a first 5) per address, and API calls to 50 a second with large bursts allowed, which only stops floods. Behind a reverse proxy all visitors share the proxy's address, so someone guessing passwords can briefly lock you out of signing in too (an already signed-in device keeps working).
 - The Firefly token isn't exposed to the browser, but anyone with the dashboard password can do anything the token can (read, edit, delete).
-- If you tick *Keep me signed in*, the browser remembers the password in `localStorage` and keeps a copy of your Firefly data on the device (IndexedDB and the offline cache) so the app opens instantly. Without it, nothing is kept after the tab closes. **Sign out** (or any trip back to the sign-in screen) deletes the password and all of that saved data. Don't tick it on shared computers.
+- If you tick *Keep me signed in*, the session lasts 30 days and is renewed while you use the app, and the browser keeps a copy of your Firefly data on the device (IndexedDB and the offline cache) so the app opens instantly. Without it, the session ends when the browser closes (or after 12 hours unused) and no data is kept. **Sign out** (or any trip back to the sign-in screen) ends the session and deletes all of that saved data. Don't tick it on shared computers.
+- Sessions are signed with a key made from `DASH_PASSWORD` and `FIREFLY_TOKEN`, so changing either one signs out every device. There's no list of sessions on the server, so that's also how to sign out a lost device.
 - Found a security problem? Please report it privately through this repo's **Security → Report a vulnerability** page rather than a public issue.
 
 ## Try it without Firefly (demo mode)

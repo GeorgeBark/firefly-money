@@ -22,12 +22,14 @@ services:
     # Prefer running your local copy of the files instead of the published image?
     # Build the scripts first (npm install && npm run build, which needs Node.js),
     # then comment out "image:" above, and uncomment these lines:
-    # image: nginx:1.27-alpine
+    # image: nginx:1.31-alpine
     # environment:  (keep the three variables above, and add:)
-    #   NGINX_ENVSUBST_FILTER: "^(FIREFLY_URL|FIREFLY_TOKEN|DASH_PASSWORD|LISTEN_PORT|NGINX_LOCAL_RESOLVERS)$"
+    #   NGINX_ENVSUBST_FILTER: "^(FIREFLY_URL|FIREFLY_TOKEN|LISTEN_PORT|NGINX_LOCAL_RESOLVERS)$"
     #   NGINX_ENTRYPOINT_LOCAL_RESOLVERS: "1"
     #   LISTEN_PORT: "80"
     # volumes:
+    #   - ./app/nginx.conf:/etc/nginx/nginx.conf:ro
+    #   - ./app/session.js:/etc/nginx/money/session.js:ro
     #   - ./app/default.conf.template:/etc/nginx/templates/default.conf.template:ro
     #   - ./app/index.html:/etc/nginx/templates/index.html.template:ro
     #   - ./app/assets:/usr/share/nginx/html/assets:ro

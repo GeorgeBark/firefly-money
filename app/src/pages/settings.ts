@@ -80,7 +80,7 @@ async function exportData(kind, btn) {
   btn.disabled = true;
   await withAuth(async () => {
     const params: any = { type: 'csv' };
-    if (kind === 'transactions') { params.start = el('ex-start').value; params.end = el('ex-end').value; }
+    if (kind === 'transactions') { params.start = el<HTMLInputElement>('ex-start').value; params.end = el<HTMLInputElement>('ex-end').value; }
     const blob = await api('/data/export/' + kind, { params, as: 'blob' });
     saveBlob(blob, 'firefly-' + kind + '-' + todayIso() + '.csv');
   });
@@ -100,7 +100,8 @@ async function deleteHook(id) {
 
 function toggleLogos(on) { LS.set('logos', !!on); toast(on ? 'Logos on' : 'Logos off'); }
 
-Object.assign(App, {
+// The methods markup handlers call (see events.ts), added to App and to its type
+const methods = {
   currency,
   toggleLogos,
   addRate,
@@ -109,4 +110,7 @@ Object.assign(App, {
   addHook,
   toggleHook,
   deleteHook,
-});
+};
+Object.assign(App, methods);
+type Methods = typeof methods;
+declare module '../core/base' { interface AppApi extends Methods {} }

@@ -116,7 +116,11 @@ function hideInsight(btn) {
   vt('ins', () => { card.remove(); if (!rest.length) box.remove(); }, () => rest.forEach((c, i) => vtName(c, 'ins' + i)));
 }
 
-Object.assign(App, {
+// The methods markup handlers call (see events.ts), added to App and to its type
+const methods = {
   insightCards,
   hideInsight,
-});
+};
+Object.assign(App, methods);
+type Methods = typeof methods;
+declare module '../core/base' { interface AppApi extends Methods {} }

@@ -1,7 +1,7 @@
 import { html, htmlList } from '../core/html';
 import { AuthError, api } from '../core/api';
 import { showLogin } from '../core/auth';
-import { App, S, el, fmtDate, money, num, sameName, todayIso } from '../core/base';
+import { App, S, el, fmtDate, money, num, sameName, todayIso, type AppApi, type Field } from '../core/base';
 import { closeDrawer, formError, icon, openDrawer, opt, toast, vt, vtName } from '../core/dom';
 import { avatarHtml, normGroup, payeeOf, signed } from '../core/feed';
 import { invalidate, isAsset, isCard, isLiab, lists } from '../core/lists';
@@ -10,7 +10,7 @@ import { route } from '../core/router';
 /* ================= Transaction form ================= */
 export function blankSplit() { return { jid: '', description: '', amount: '', counter: '', category: '', budget: '', bill: '', tags: '', notes: '', fa: '', fc: '', orig: {} }; }
 export function newTx(preset: any = {}) {
-  const L = S.lists; S.drawerHero = null;
+  const L = S.lists!; S.drawerHero = null;
   const firstAsset = (L.own.find(a => isAsset(a) && !isCard(a)) || L.own[0] || {}).id || '';
   S.form = { id: '', type: preset.type || 'withdrawal', date: preset.date || todayIso(), title: '', main: preset.account || firstAsset, src: preset.account || firstAsset, dst: '', rules: true, splits: [blankSplit()] };
   if (preset.description) S.form.splits[0].description = preset.description;
@@ -54,12 +54,12 @@ export async function editTx(id) {
   }
 }
 export function accountOptions(sel, allowEmpty) {
-  const L = S.lists;
+  const L = S.lists!;
   const group = (label, list) => list.length ? html`<optgroup label="${label}">${htmlList(list.map(a => opt(a.id, a.name, sel)))}</optgroup>` : '';
   return html`${allowEmpty ? opt('', 'Choose…', sel) : ''}${group('Bank accounts', L.own.filter(a => isAsset(a) && !isCard(a)))}${group('Credit cards', L.own.filter(isCard))}${group('Loans & debts', L.own.filter(isLiab))}`;
 }
 export function renderTxForm() {
-  const f = S.form, L = S.lists, multi = f.splits.length > 1;
+  const f = S.form, L = S.lists!, multi = f.splits.length > 1;
   const typeBtn = (t, label) => html`<button type="button" class="${f.type === t ? 'on' : ''}" data-onclick="App.txType('${t}')">${label}</button>`;
   const counterList = f.type === 'withdrawal' ? [...L.expense, ...L.own.filter(isLiab)] : [...L.revenue, ...L.own.filter(isLiab)];
   let accountsHtml;
@@ -77,12 +77,12 @@ export function renderTxForm() {
   const scroll = wasOpen ? el('drawerBody').scrollTop : 0;
   openDrawer(f.id ? 'Edit transaction' : 'New transaction', body, foot);
   if (wasOpen) el('drawerBody').scrollTop = scroll;
-  if (f.id && window.App.loadTxExtras) App.loadTxExtras(f.id, f.splits.map(s => s.jid).filter(Boolean));
+  if (f.id && (window.App as Partial<AppApi>).loadTxExtras) App.loadTxExtras(f.id, f.splits.map(s => s.jid).filter(Boolean));
 }
 export function collectTx() {
   const f = S.form; if (!f || !el('txForm')) return;
-  const v = id => el(id) ? el(id).value : undefined;
-  f.date = v('f-date') ?? f.date; f.title = v('f-title') ?? f.title; f.rules = el('f-rules') ? el('f-rules').checked : f.rules;
+  const v = id => el<Field>(id) ? el<Field>(id).value : undefined;
+  f.date = v('f-date') ?? f.date; f.title = v('f-title') ?? f.title; f.rules = el<HTMLInputElement>('f-rules') ? el<HTMLInputElement>('f-rules').checked : f.rules;
   if (el('f-main')) f.main = v('f-main');
   if (el('f-src')) f.src = v('f-src');
   if (el('f-dst')) f.dst = v('f-dst');
@@ -92,7 +92,7 @@ export function collectTx() {
   });
 }
 function resolveCounter(name, kind) {
-  const L = S.lists, pool = kind === 'withdrawal' ? [...L.expense, ...L.own.filter(isLiab)] : [...L.revenue, ...L.own.filter(isLiab)];
+  const L = S.lists!, pool = kind === 'withdrawal' ? [...L.expense, ...L.own.filter(isLiab)] : [...L.revenue, ...L.own.filter(isLiab)];
   const hit = pool.find(a => sameName(a.name, name));
   return hit ? { id: hit.id } : { name: name.trim() };
 }
@@ -166,8 +166,12 @@ async function deleteTx() {
   App.softDeleteTx([f.id]);
 }
 
-Object.assign(App, {
+// The methods markup handlers call (see events.ts), added to App and to its type
+const methods = {
   editTx,
   saveTx,
   deleteTx,
-});
+};
+Object.assign(App, methods);
+type Methods = typeof methods;
+declare module '../core/base' { interface AppApi extends Methods {} }

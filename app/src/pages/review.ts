@@ -40,7 +40,11 @@ function reviewDone(id) {
 }
 function reviewAll() { LS.set('reviewedAt', new Date().toISOString()); LS.set('reviewed', []); route(); }
 
-Object.assign(App, {
+// The methods markup handlers call (see events.ts), added to App and to its type
+const methods = {
   reviewDone,
   reviewAll,
-});
+};
+Object.assign(App, methods);
+type Methods = typeof methods;
+declare module '../core/base' { interface AppApi extends Methods {} }

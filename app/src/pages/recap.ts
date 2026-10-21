@@ -25,7 +25,11 @@ async function netOn(date) {
 }
 // Open the recap of the month before the one picked (from the Overview in the first days of a month)
 function recapLast() { S.all = false; const d = new Date(today.getFullYear(), today.getMonth() - 1, 1); S.y = d.getFullYear(); S.m = d.getMonth(); location.hash = '#/recap'; }
-Object.assign(App, { recapLast });
+// The methods markup handlers call (see events.ts), added to App and to its type
+const methods = { recapLast };
+Object.assign(App, methods);
+type Methods = typeof methods;
+declare module '../core/base' { interface AppApi extends Methods {} }
 
 VIEWS.recap = async (r, paint) => {
   await lists();

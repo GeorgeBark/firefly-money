@@ -15,7 +15,7 @@ function detectIncome(groups, accIds) {
   const by: any = {};
   groups.forEach(g => g.splits.forEach(s => {
     if (s.type !== 'deposit' || !accIds.includes(s.destination_id)) return;
-    const src = S.lists.byId[s.source_id]; if (src && isLiab(src)) return;          // loan money isn't income
+    const src = S.lists!.byId[s.source_id]; if (src && isLiab(src)) return;          // loan money isn't income
     (by[s.source_id] = by[s.source_id] || { name: s.source_name, list: [] }).list.push({ d: String(s.date).slice(0, 10), a: s.amount, cat: s.category });
   }));
   const out: Income[] = [];
@@ -192,11 +192,15 @@ async function safeCard() {
   } catch (e) { return ''; }
 }
 
-Object.assign(App, {
+// The methods markup handlers call (see events.ts), added to App and to its type
+const methods = {
   fcToggle,
   fcSet,
   fcBuffer,
   fcWhatIfAdd,
   fcWhatIfDel,
   safeCard,
-});
+};
+Object.assign(App, methods);
+type Methods = typeof methods;
+declare module '../core/base' { interface AppApi extends Methods {} }

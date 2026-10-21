@@ -72,7 +72,11 @@ function tabTap(id) {
   location.hash = h;
 }
 
-Object.assign(App, {
+// The methods markup handlers call (see events.ts), added to App and to its type
+const methods = {
   tabTap,
   updateAppbar,
-});
+};
+Object.assign(App, methods);
+type Methods = typeof methods;
+declare module '../core/base' { interface AppApi extends Methods {} }

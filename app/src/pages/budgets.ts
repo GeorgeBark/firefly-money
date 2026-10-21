@@ -65,30 +65,34 @@ async function budgetForm(id) {
   const L = await lists(true), b = id ? L.budgets.find(x => x.id === id) : null;
   S.form = { id };
   openDrawer(id ? 'Edit budget' : 'New budget',
-    html`<form id="budForm" data-onsubmit="event.preventDefault();App.saveBudget()"><label>Name<input type="text" id="b-name" value="${b ? b.name : ''}" required></label>${!id ? html`<label>Amount for ${monthRange(S.y, S.m).label} (optional)<input type="number" min="0" step="1" id="b-amount"></label>` : ''}${(() => { const bc = (S.budgetCache || {})[id] || {}; return html`<div class="grid2"><label>Auto-budget<select id="b-auto">${htmlList([['none', 'Off'], ['reset', 'Same amount every month'], ['rollover', 'Roll over what’s left'], ['adjusted', 'Adjust for overspending']].map(([v, l]) => opt(v, l, bc.auto || 'none')))}</select></label><label>Amount<input type="number" min="0" step="1" id="b-autoamt" value="${bc.autoAmt || ''}"></label></div><label>Every<select id="b-autoper">${htmlList(AUTO_PERIODS.map(([v, l]) => opt(v, l, bc.autoPeriod || 'monthly')))}</select></label><p class="hint">Firefly sets the budget’s amount at the start of each period. “Roll over” carries what’s left (or overspent) into the next period; “Adjust” only takes off what you overspent.</p>`; })()}<label>Notes<textarea id="b-notes" rows="3">${b ? b.notes : ''}</textarea></label>${id ? html`<label class="check"><input type="checkbox" id="b-active"${b.active ? ' checked' : ''}> Active</label>` : ''}<button type="submit" hidden></button></form>`,
+    html`<form id="budForm" data-onsubmit="event.preventDefault();App.saveBudget()"><label>Name<input type="text" id="b-name" value="${b ? b.name : ''}" required></label>${!id ? html`<label>Amount for ${monthRange(S.y, S.m).label} (optional)<input type="number" min="0" step="1" id="b-amount"></label>` : ''}${(() => { const bc = (S.budgetCache || {})[id] || {}; return html`<div class="grid2"><label>Auto-budget<select id="b-auto">${htmlList([['none', 'Off'], ['reset', 'Same amount every month'], ['rollover', 'Roll over what’s left'], ['adjusted', 'Adjust for overspending']].map(([v, l]) => opt(v, l, bc.auto || 'none')))}</select></label><label>Amount<input type="number" min="0" step="1" id="b-autoamt" value="${bc.autoAmt || ''}"></label></div><label>Every<select id="b-autoper">${htmlList(AUTO_PERIODS.map(([v, l]) => opt(v, l, bc.autoPeriod || 'monthly')))}</select></label><p class="hint">Firefly sets the budget’s amount at the start of each period. “Roll over” carries what’s left (or overspent) into the next period; “Adjust” only takes off what you overspent.</p>`; })()}<label>Notes<textarea id="b-notes" rows="3">${b ? b.notes : ''}</textarea></label>${id ? html`<label class="check"><input type="checkbox" id="b-active"${b!.active ? ' checked' : ''}> Active</label>` : ''}<button type="submit" hidden></button></form>`,
     html`${id ? html`<button class="btn danger" data-onclick="App.deleteThing('budgets','${id}','budget')">Delete</button>` : ''}<span class="grow"></span><button class="btn" data-onclick="App.closeDrawer()">Cancel</button><button class="btn primary" id="budSave" data-onclick="App.submit('budForm')">${id ? 'Save' : 'Create budget'}</button>`);
 }
 async function saveBudget() {
-  const id = S.form.id, name = el('b-name').value.trim();
+  const id = S.form.id, name = el<HTMLInputElement>('b-name').value.trim();
   if (!name) return formError('Give the budget a name.');
   await busy(el('budSave'), async () => {
-    const body: any = { name, notes: el('b-notes').value };
-    const auto = el('b-auto').value, autoAmt = num(el('b-autoamt').value);
+    const body: any = { name, notes: el<HTMLTextAreaElement>('b-notes').value };
+    const auto = el<HTMLSelectElement>('b-auto').value, autoAmt = num(el<HTMLInputElement>('b-autoamt').value);
     if (auto !== 'none' && !(autoAmt > 0)) throw new Error('Set the monthly amount for the auto-budget.');
     body.auto_budget_type = auto;
-    if (auto !== 'none') { body.auto_budget_amount = String(autoAmt); body.auto_budget_period = el('b-autoper').value; body.auto_budget_currency_code = S.currency; }
-    if (id) { body.active = el('b-active').checked; await api('/budgets/' + id, { method: 'PUT', body }); }
+    if (auto !== 'none') { body.auto_budget_amount = String(autoAmt); body.auto_budget_period = el<HTMLSelectElement>('b-autoper').value; body.auto_budget_currency_code = S.currency; }
+    if (id) { body.active = el<HTMLInputElement>('b-active').checked; await api('/budgets/' + id, { method: 'PUT', body }); }
     else {
       const res = await api('/budgets', { method: 'POST', body: { ...body, active: true } });
-      const amt = num(el('b-amount').value), cur = monthRange(S.y, S.m);
+      const amt = num(el<HTMLInputElement>('b-amount').value), cur = monthRange(S.y, S.m);
       if (amt > 0 && res && res.data) await api('/budgets/' + res.data.id + '/limits', { method: 'POST', body: { amount: String(amt), start: cur.start, end: cur.end, currency_code: S.currency } });
     }
     invalidate(); closeDrawer(); toast(id ? 'Budget saved' : 'Budget created'); route();
   });
 }
 
-Object.assign(App, {
+// The methods markup handlers call (see events.ts), added to App and to its type
+const methods = {
   setLimit,
   budgetForm,
   saveBudget,
-});
+};
+Object.assign(App, methods);
+type Methods = typeof methods;
+declare module '../core/base' { interface AppApi extends Methods {} }

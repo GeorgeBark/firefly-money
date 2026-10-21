@@ -1,7 +1,7 @@
 import { Html, html, htmlList } from '../core/html';
 import { api, getAll } from '../core/api';
 import { busy } from '../core/auth';
-import { App, S, el, fmtDate, fmtDay, money, money0, monthRange, num, today, todayIso } from '../core/base';
+import { App, S, el, fmtDate, fmtDay, money, money0, monthRange, num, today, todayIso, type Field } from '../core/base';
 import { closeDrawer, formError, head, monthNav, openDrawer, opt, toast } from '../core/dom';
 import { normGroup } from '../core/feed';
 import { LS, addDays } from '../core/helpers';
@@ -136,25 +136,29 @@ function billForm(id, pre?) {
     html`${id ? html`<button class="btn danger" data-onclick="App.deleteThing('bills','${id}','bill')">Delete</button>` : ''}<span class="grow"></span><button class="btn" data-onclick="App.closeDrawer()">Cancel</button><button class="btn primary" id="billSave" data-onclick="App.submit('billForm')">${id ? 'Save' : 'Create bill'}</button>`);
 }
 async function saveBill() {
-  const id = S.form.id, v = x => el(x).value.trim();
+  const id = S.form.id, v = x => el<Field>(x).value.trim();
   const mn = num(v('bl-min')), mx = num(v('bl-max'));
   if (!v('bl-name')) return formError('Give the bill a name.');
   if (mx < mn) return formError('The highest amount can’t be below the lowest.');
-  const body: any = { name: v('bl-name'), amount_min: String(mn), amount_max: String(mx), date: v('bl-date'), repeat_freq: v('bl-freq'), skip: parseInt(v('bl-skip') || '0', 10), active: el('bl-active').checked, notes: el('bl-notes').value, object_group_title: v('bl-group') };
+  const body: any = { name: v('bl-name'), amount_min: String(mn), amount_max: String(mx), date: v('bl-date'), repeat_freq: v('bl-freq'), skip: parseInt(v('bl-skip') || '0', 10), active: el<HTMLInputElement>('bl-active').checked, notes: el<HTMLTextAreaElement>('bl-notes').value, object_group_title: v('bl-group') };
   if (!id) body.currency_code = S.currency;
   await busy(el('billSave'), async () => {
     await api(id ? '/bills/' + id : '/bills', { method: id ? 'PUT' : 'POST', body });
-    const linked = !id && S.form.payee && el('bl-rule') && el('bl-rule').checked;
+    const linked = !id && S.form.payee && el<HTMLInputElement>('bl-rule') && el<HTMLInputElement>('bl-rule').checked;
     if (linked) await billRule(body.name, S.form.payee);
     invalidate(); closeDrawer(); toast(id ? 'Bill saved' : linked ? 'Bill created · past charges linked' : 'Bill created'); route();
   });
 }
 
-Object.assign(App, {
+// The methods markup handlers call (see events.ts), added to App and to its type
+const methods = {
   billForm,
   saveBill,
   subAdd,
   subIgnore,
   billRaise,
   billsView,
-});
+};
+Object.assign(App, methods);
+type Methods = typeof methods;
+declare module '../core/base' { interface AppApi extends Methods {} }

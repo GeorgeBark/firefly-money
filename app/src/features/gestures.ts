@@ -17,7 +17,7 @@ import { bindSwipe } from './phone';
     d = Math.max(0, Math.min(120, (e.touches[0].clientY - y0) * .5));
     if (scrollY > 0) d = 0;
     ind.style.transform = 'translate(-50%, ' + (d - 50) + 'px) rotate(' + d * 3 + 'deg)';
-    ind.style.opacity = Math.min(1, d / 60);
+    ind.style.opacity = String(Math.min(1, d / 60));
     const armed = d >= 70;
     if (armed !== ind.classList.contains('armed')) { ind.classList.toggle('armed', armed); if (armed) buzz(10); }
   }, { passive: true });
@@ -33,7 +33,7 @@ import { bindSwipe } from './phone';
 
 /* ---------- Bottom sheet: drag the handle down to dismiss (phones) ---------- */
 (function sheetDrag() {
-  const d = el('drawer'); let sy = null, sd = 0, t0 = 0;
+  const d = el('drawer'); let sy: number | null = null, sd = 0, t0 = 0;
   d.addEventListener('touchstart', e => {
     if (innerWidth > 900 || !(e.target as HTMLElement).closest('.grab, header') || (e.target as HTMLElement).closest('button')) return;
     sy = e.touches[0].clientY; sd = 0; t0 = Date.now(); d.classList.add('dragging');

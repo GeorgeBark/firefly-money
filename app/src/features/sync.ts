@@ -67,9 +67,13 @@ async function syncNow() { await pushPrefs(); route(); }
 // Coming back to the app after a while picks up changes made on another device
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && Date.now() - pulledAt > 60000) syncPrefs(); });
 
-Object.assign(App, {
+// The methods markup handlers call (see events.ts), added to App and to its type
+const methods = {
   prefChanged,
   syncPrefs,
   toggleSync,
   syncNow,
-});
+};
+Object.assign(App, methods);
+type Methods = typeof methods;
+declare module '../core/base' { interface AppApi extends Methods {} }

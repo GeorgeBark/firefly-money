@@ -33,10 +33,10 @@ async function categoryForm(id) {
     html`${id ? html`<button class="btn danger" data-onclick="App.deleteThing('categories','${id}','category')">Delete</button>` : ''}<span class="grow"></span><button class="btn" data-onclick="App.closeDrawer()">Cancel</button><button class="btn primary" id="catSave" data-onclick="App.submit('catForm')">${id ? 'Save' : 'Create category'}</button>`);
 }
 async function saveCategory() {
-  const id = S.form.id, name = el('c-name').value.trim();
+  const id = S.form.id, name = el<HTMLInputElement>('c-name').value.trim();
   if (!name) return formError('Give the category a name.');
   await busy(el('catSave'), async () => {
-    const body = { name, notes: el('c-notes').value };
+    const body = { name, notes: el<HTMLTextAreaElement>('c-notes').value };
     await api(id ? '/categories/' + id : '/categories', { method: id ? 'PUT' : 'POST', body });
     invalidate(); closeDrawer(); toast(id ? 'Category saved' : 'Category created'); route();
   });
@@ -47,7 +47,7 @@ async function addTag(input) {
   catch (e) { if (e instanceof AuthError) return showLogin(e.message); toast((e as Error).message); }
 }
 async function deleteTag(id) {
-  const t = (S.lists.tags.find(x => x.id === id) || {}).name || 'this tag';
+  const t = (S.lists!.tags.find(x => x.id === id) || {}).name || 'this tag';
   if (!await confirmBox('Delete tag “' + t + '”?', 'The tag is removed from all transactions. The transactions themselves stay.')) return;
   try { await api('/tags/' + id, { method: 'DELETE' }); invalidate(); toast('Tag deleted'); route(); }
   catch (e) { toast((e as Error).message); }
@@ -60,10 +60,14 @@ async function deleteThing(path, id, noun) {
   catch (e) { formError((e as Error).message); }
 }
 
-Object.assign(App, {
+// The methods markup handlers call (see events.ts), added to App and to its type
+const methods = {
   categoryForm,
   saveCategory,
   addTag,
   deleteTag,
   deleteThing,
-});
+};
+Object.assign(App, methods);
+type Methods = typeof methods;
+declare module '../core/base' { interface AppApi extends Methods {} }

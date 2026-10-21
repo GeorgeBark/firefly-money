@@ -1,13 +1,54 @@
+import type { Html } from './html';
+import type { Group, TxMeta } from './feed';
+import type { Lists } from './lists';
+
 /* ================= Settings ================= */
 export const PAGE_SIZE = 50;
 
 /* ================= State & helpers ================= */
 // The methods that markup handlers (data-onclick and friends, see events.ts) call; each module adds its own.
-export const App: any = (window as any).App = {};
+// Each module adds its methods to the AppApi type next to where it adds them to App.
+export interface AppApi {}
+export const App = window.App = {} as AppApi;
 export let today = new Date();
 export const setToday = (d: Date) => { today = d; };
-export const S: any = { y: today.getFullYear(), m: today.getMonth(), key: '', lists: null, tok: 0, form: null, currency: 'USD' };
-export const el = (id: string): any => document.getElementById(id);
+// Firefly's JSON as the API returns it. Not typed yet: each use reads the fields it needs.
+export type ApiData = any;
+// The open form in the drawer. Each form keeps its own fields here (txform.ts has the biggest).
+export type FormState = ApiData;
+export type Feed = { next: number, pages: number, opts: { accountId?: string, select?: boolean }, more: (n: number) => Promise<Group[]>, busy?: boolean };
+// The app's state: what's on screen, what's open, and data kept between pages
+export interface State {
+  y: number, m: number, all?: boolean,                 // the month in view, or all time
+  key: string, remember?: boolean,                       // the dashboard password and whether it's kept on this device
+  currency: string,
+  lists: Lists | null, listsAt?: number,
+  freshAfter: number, dirtyAt: number,                   // cached responses older than freshAfter are fetched again; older than dirtyAt are out of date (api.ts)
+  tok: number, staleTok?: number,                        // bumped on every navigation, so late responses for an old page are dropped
+  form: FormState | null,
+  // Pages and navigation
+  pageKey?: string, pageHtml?: string | Html, pageLive?: boolean, pageCacheable?: boolean, pageDepth?: number, painted?: boolean, bootStale?: boolean,
+  navN?: number, curNav?: number, tabNav?: boolean, kIdx?: number, skelT?: ReturnType<typeof setTimeout>,
+  vtDir?: string, vtRun?: (ViewTransition & { kind?: string }) | null, vtFrom?: { node: Element, t: number } | null, lastPtr?: { x: number, y: number },
+  // Cache freshness (api.ts)
+  swr?: boolean, swrOff?: number, lastRefresh?: number, refreshing?: Promise<void> | null, recalcing?: boolean,
+  // Transaction lists
+  feed?: Feed | null, txMeta: Record<string, TxMeta>, txPage?: Group[], sel?: Set<string>, pendingDel: Set<string>,
+  undoCommit?: (() => void) | null, undoT?: ReturnType<typeof setTimeout>, chartData?: { label: string, income: number, spend: number, go?: string }[],
+  // The drawer
+  drawerHero?: { id: string, av: Html, name: string, date: string, kicker: string, amount: string } | null, drawerReturn?: HTMLElement | null, drawerTok?: number,
+  extrasCtx?: { gid: string, jids: string[] }, linkTypes?: ApiData[] | null,
+  // Data kept by pages
+  billCache?: Record<string, ApiData>, billRises?: Record<string, ApiData>, subs?: ApiData[], budgetCache?: Record<string, ApiData>, budgetLimits?: Record<string, ApiData>,
+  piggyCache?: Record<string, ApiData>, recCache?: Record<string, ApiData>, rules?: Record<string, ApiData>, ruleGroups?: ApiData[], rates?: ApiData[],
+  rec?: ApiData, inbox?: ApiData, inboxHist?: { t: number, v: ApiData } | null, loanModel?: ApiData,
+  dashEdit?: boolean, dashOptsOpen?: string | null, syncError?: string,
+}
+export const S: State = { y: today.getFullYear(), m: today.getMonth(), key: '', lists: null, tok: 0, form: null, currency: 'USD',
+  freshAfter: 0, dirtyAt: 0, txMeta: {}, pendingDel: new Set() };
+// An element by id, for ids the page is known to have; pass the element type when it matters: el<HTMLInputElement>('q')
+export const el = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
+export type Field = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
 export const pad = n => String(n).padStart(2, '0');
 export const isoDate = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
 export const todayIso = () => isoDate(new Date());

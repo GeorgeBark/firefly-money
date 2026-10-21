@@ -119,6 +119,8 @@ function skeletonPanel(k) {
 function attentionPanel({ uncat, uncatQ, bills, budgets, limits, future }) {
   const items = [];
   const n = uncat && uncat.meta && uncat.meta.pagination ? uncat.meta.pagination.total : 0;
+  const now = new Date(), lastMonth = monthRange(now.getFullYear(), now.getMonth() - 1);
+  if (!future && !S.all && S.y === now.getFullYear() && S.m === now.getMonth() && now.getDate() <= 7) items.push(html`<a class="row" href="#/recap" data-onclick="event.preventDefault();App.recapLast()"><span class="name">📊 Your ${lastMonth.label} recap is ready</span><span class="neutral">See it →</span></a>`);
   if (n) items.push(html`<a class="row" href="#/inbox"><span class="name">🏷 ${n} expense${n === 1 ? '' : 's'} without a category</span><span class="neutral">Categorize →</span></a>`);
   const week = isoDate(new Date(Date.now() + 7 * 864e5));
   bills.filter(b => b.attributes.active !== false && !(b.attributes.paid_dates || []).length).forEach(b => {

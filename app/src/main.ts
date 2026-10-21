@@ -33,6 +33,7 @@ import './pages/reconcile';
 import './pages/rules';
 import './pages/recurring';
 import './pages/reports';
+import './pages/recap';
 import './pages/settings';
 import './features/palette';
 import './features/polish';

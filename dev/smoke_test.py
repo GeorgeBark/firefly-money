@@ -8,7 +8,7 @@ import asyncio, os, re, sys
 from playwright.async_api import async_playwright
 
 BASE = os.environ.get('BASE', 'http://127.0.0.1:8765/')   # e.g. a flaky demo server: BASE=http://127.0.0.1:8766/
-PAGES = ['', 'forecast', 'transactions', 'inbox', 'accounts', 'account/1', 'account/3?range=all', 'account/102', 'loans', 'budgets', 'categories',
+PAGES = ['', 'forecast', 'transactions', 'inbox', 'review', 'accounts', 'account/1', 'account/3?range=all', 'account/102', 'loans', 'budgets', 'categories',
          'bills', 'recurring', 'piggy', 'rules', 'reports', 'recap', 'settings']
 # The markup's event handlers (data-onclick="App.x(…)") in the page and the TypeScript sources (not the minified
 # bundle), with the JS concatenations ' + … + ' and template values ${…} filled in with 1
@@ -144,6 +144,19 @@ async def check(pw, width, height, mobile):
         logos = await page.evaluate("[...document.querySelectorAll('#view img.logo')].map(i => i.complete && i.naturalWidth > 0 && i.classList.contains('ok'))")
         # (the static demo build has no logo server, so there every logo falls back)
         if not all(logos) or (not logos and '/demo/' not in BASE): errors.append(f'payee logos did not load or fall back cleanly: {logos}')
+        # Bills calendar: the demo's monthly bills sit on their days
+        await goto(page, 'bills?view=calendar'); await page.wait_for_selector('#view .bcal-grid')
+        if await page.locator('#view .bcal .bpill').count() < 3: errors.append('the bills calendar shows fewer than 3 bills')
+        # Review: ticking one off takes it out of the queue
+        await goto(page, 'review'); await page.wait_for_selector('#view .review-row')
+        n = await page.locator('#view .review-row').count()
+        await page.locator('#view .review-row .btn').first.click(); await page.wait_for_timeout(900)
+        if await page.locator('#view .review-row').count() != n - 1: errors.append('ticking off a transaction did not take it out of the review queue')
+        # Forecast what-if: adding one puts it in the list of what's coming
+        await goto(page, 'forecast'); await page.wait_for_selector('form.whatif')
+        await page.fill('form.whatif input[name=label]', 'Smoke test laptop'); await page.fill('form.whatif input[name=amount]', '900')
+        await page.locator('form.whatif button').click(); await page.wait_for_function(PAINTED, timeout=15000); await page.wait_for_timeout(400)
+        if not await page.locator('#view .tbl .desc', has_text='Smoke test laptop').count(): errors.append('a forecast what-if did not show up')
         await goto(page, ''); await page.wait_for_selector('#dash [data-w="payees"] .cat', timeout=15000)
         await page.evaluate('App.dashEdit(true)'); await page.wait_for_selector('#dashCols')
         # A tile's own settings: fewer recent transactions

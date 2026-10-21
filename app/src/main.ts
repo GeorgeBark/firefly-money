@@ -40,6 +40,7 @@ import './features/polish';
 import './features/datepicker';
 import './pages/forecast';
 import './pages/inbox';
+import './pages/review';
 import './features/pwa';
 import './features/insights';
 import './features/prefs';

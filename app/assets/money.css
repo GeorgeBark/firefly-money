@@ -764,3 +764,13 @@
   /* ---------- Forecast what-ifs ---------- */
   .whatif { display: grid; grid-template-columns: 2fr 1fr 1fr 1.2fr 1.2fr auto; gap: 8px; align-items: center; }
   @media (max-width: 800px) { .whatif { grid-template-columns: 1fr 1fr; } .whatif input[name=label] { grid-column: 1 / -1; } }
+
+  /* ---------- Review queue ---------- */
+  .review-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); transition: opacity .2s, transform .2s; }
+  .review-row:first-child { border-top: none; padding-top: 0; }
+  .review-row.gone { opacity: 0; transform: translateX(24px); }
+  .review-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; border: 0; background: none; font: inherit; color: inherit; cursor: pointer; text-align: left; padding: 0; }
+  .review-main .txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .review-main .desc, .review-main .sub-s { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .review-main:hover .desc { text-decoration: underline; text-underline-offset: 3px; }
+  @media (max-width: 600px) { .review-row { flex-wrap: wrap; } .review-row > .btn { margin-left: auto; } }

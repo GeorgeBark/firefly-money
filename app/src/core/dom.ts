@@ -15,6 +15,7 @@ const ICONS = {
   recurring: html`<path d="M17 2l3 3-3 3M4 11V9a4 4 0 0 1 4-4h12M7 22l-3-3 3-3M20 13v2a4 4 0 0 1-4 4H4"/>`,
   rules: html`<path d="M4 6h10M4 12h16M4 18h7M17 4v4M11 16v4"/>`,
   recap: html`<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4M8 15l2.5 2.5L16 12"/>`,
+  review: html`<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9.5"/>`,
   reports: html`<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>`,
   settings: html`<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>`,
   piggy: html`<path d="M5 11a7 6 0 0 1 13-2h2v4l-2 1-1 4h-3v-2h-4v2H7l-1-4a5 5 0 0 1-1-3z"/><circle cx="15" cy="11" r=".6"/>`,
@@ -25,7 +26,7 @@ const ICONS = {
   density: html`<path d="M4 6h16M4 10h16M4 14h16M4 18h16"/>`,
 };
 export const icon = k => html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ICONS[k]}</svg>`;
-export const NAV = [['', 'Overview', 'overview'], ['forecast', 'Forecast', 'forecast'], ['transactions', 'Transactions', 'transactions'], ['inbox', 'Categorize', 'inbox'],
+export const NAV = [['', 'Overview', 'overview'], ['forecast', 'Forecast', 'forecast'], ['transactions', 'Transactions', 'transactions'], ['inbox', 'Categorize', 'inbox'], ['review', 'Review', 'review'],
   ['accounts', 'Accounts', 'accounts'], ['loans', 'Loan planner', 'loans'],
   ['budgets', 'Budgets', 'budgets'], ['categories', 'Categories & tags', 'categories'], ['bills', 'Bills', 'bills'], ['recurring', 'Recurring', 'recurring'],
   ['piggy', 'Piggy banks', 'piggy'], ['rules', 'Rules', 'rules'], ['recap', 'Monthly recap', 'recap'], ['reports', 'Reports', 'reports'], ['settings', 'Settings', 'settings']];

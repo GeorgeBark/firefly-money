@@ -26,7 +26,7 @@ export function bindSwipe() {
     }, { passive: true });
     tr.addEventListener('touchend', () => {
       tr.classList.remove('swiping'); tr.style.transform = '';
-      if (active && dx < -80) { tr.removeAttribute('data-onclick'); App.softDeleteTx([tr.dataset.gid]); }
+      if (active && dx < -80) { tr.removeAttribute('data-onclick'); App.softDeleteTx([tr.dataset.gid!]); }
       tr.classList.remove('swipe-del'); active = false;
     });
   });

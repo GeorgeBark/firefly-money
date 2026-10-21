@@ -8,9 +8,9 @@ import { closeDrawer, formError, toast } from './dom';
 
 const SESSION = '/api/money-session', FLAG = 'moneySignedIn';
 export function rememberedSignIn() { try { return localStorage.getItem(FLAG) === '1'; } catch (e) { return false; } }
-function setRemembered(on) { S.remember = on; try { if (on) localStorage.setItem(FLAG, '1'); else localStorage.removeItem(FLAG); } catch (e) { /* storage blocked */ } }
+function setRemembered(on: boolean) { S.remember = on; try { if (on) localStorage.setItem(FLAG, '1'); else localStorage.removeItem(FLAG); } catch (e) { /* storage blocked */ } }
 let signingOut: Promise<unknown> = Promise.resolve();
-export async function signIn(password, remember) {
+export async function signIn(password: string, remember: boolean) {
   await signingOut;      // or the sign-out's cookie could land after this sign-in's
   const r = await fetch(SESSION, { method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'application/json', 'X-Money': '1' }, body: JSON.stringify({ password, remember: !!remember }) });
   if (r.status === 401) throw new AuthError('That password isn’t right.');
@@ -34,15 +34,15 @@ function forgetDeviceData() {
   CACHE.clear(); PAGES.clear(); PDB.clear(); S.signedIn = false; setRemembered(false);
   try { if (window.caches) caches.open('money-v1').then(c => c.keys().then(ks => ks.forEach(k => { if (new URL(k.url).pathname.startsWith('/api/')) c.delete(k); }))).catch(() => {}); } catch (e) { /* no Cache Storage */ }
 }
-export function showLogin(msg?) {
+export function showLogin(msg?: string) {
   closeDrawer(); S.lists = null; forgetDeviceData();
   el('app').hidden = true; el('login').hidden = false;
   const e = el('loginErr'); e.hidden = !msg; e.textContent = msg || '';
   el<HTMLInputElement>('loginPw').value = ''; el<HTMLInputElement>('loginPw').focus();
 }
-export async function withAuth(fn) { try { return await fn(); } catch (e) { if (e instanceof AuthError) return showLogin(e.message); toast((e as Error).message); } }
-export async function busy(btn, fn) {
+export async function withAuth<T>(fn: () => Promise<T>) { try { return await fn(); } catch (e) { if (e instanceof AuthError) return showLogin(e.message); toast((e as Error).message); } }
+export async function busy(btn: HTMLButtonElement | null | undefined, fn: () => Promise<unknown>) {
   if (btn) { btn.disabled = true; btn.dataset.l = btn.textContent; btn.textContent = 'Saving…'; }
   try { await fn(); } catch (e) { if (e instanceof AuthError) return showLogin(e.message); formError((e as Error).message); }
-  finally { if (btn && btn.isConnected) { btn.disabled = false; btn.textContent = btn.dataset.l; } }
+  finally { if (btn && btn.isConnected) { btn.disabled = false; btn.textContent = btn.dataset.l!; } }
 }

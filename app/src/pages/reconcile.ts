@@ -48,7 +48,7 @@ function recTick(cb) { cb.checked ? S.rec.checked.add(cb.dataset.rec) : S.rec.ch
 function recAll(on) { document.querySelectorAll<HTMLInputElement>('input[data-rec]:not(:disabled)').forEach(cb => { cb.checked = on; on ? S.rec.checked.add(cb.dataset.rec) : S.rec.checked.delete(cb.dataset.rec); }); recCalc(); }
 function recDates() { location.hash = '#/reconcile/' + S.rec.a.id + '?start=' + el<HTMLInputElement>('rc-start').value + '&end=' + el<HTMLInputElement>('rc-end').value + (el<HTMLInputElement>('rc-bal').value ? '&balance=' + encodeURIComponent(el<HTMLInputElement>('rc-bal').value) : ''); }
 async function recFinish() {
-  const R = S.rec, todo = R.rows.filter(x => R.checked.has(x.jid) && !x.rec);
+  const R = S.rec, todo: { gid: string, jid: string }[] = R.rows.filter(x => R.checked.has(x.jid) && !x.rec);
   if (R.diff && !await confirmBox('The difference isn’t zero', 'You can still mark the ticked transactions as reconciled, but the account won’t match the statement yet.', 'Mark anyway')) return;
   await withAuth(async () => {
     let n = 0;

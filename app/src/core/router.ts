@@ -1,14 +1,14 @@
-import { html, htmlList } from './html';
+import { type Html, html, htmlList } from './html';
 import { AuthError, CACHE, INFLIGHT, PAGES, PDB } from './api';
 import { showLogin } from './auth';
-import { App, S, el, setToday, today } from './base';
+import { App, S, type State, el, setToday, today } from './base';
 import { VT_OK, drawNav, toast, vt, vtName } from './dom';
 import { lists } from './lists';
 
 /* ================= Router ================= */
 function skeleton() {
-  const bar = (w, h) => html`<div class="sk" style="width:${w};height:${h}px"></div>`;
-  const card = n => html`<section class="panel">${bar('40%', 14)}<div style="height:18px"></div>${htmlList(Array.from({ length: n }, () => html`${bar('100%', 12)}<div style="height:16px"></div>`))}</section>`;
+  const bar = (w: string, h: number) => html`<div class="sk" style="width:${w};height:${h}px"></div>`;
+  const card = (n: number) => html`<section class="panel">${bar('40%', 14)}<div style="height:18px"></div>${htmlList(Array.from({ length: n }, () => html`${bar('100%', 12)}<div style="height:16px"></div>`))}</section>`;
   return html`<div class="head"><div>${bar('200px', 26)}</div></div><div class="cards">${card(5)}${card(3)}${card(4)}</div>`;
 }
 export function parseHash() {
@@ -17,17 +17,21 @@ export function parseHash() {
   const parts = p.split('/');
   return { name: parts[0] || '', id: parts[1] ? decodeURIComponent(parts[1]) : '', q: Object.fromEntries(new URLSearchParams(q)) };
 }
-export function hashWith(changes) {
-  const r = parseHash(), q = { ...r.q, ...changes };
+export function hashWith(changes: Record<string, string | null | undefined>) {
+  const r = parseHash(), q: Record<string, string | null | undefined> = { ...r.q, ...changes };
   Object.keys(q).forEach(k => (q[k] === '' || q[k] == null) && delete q[k]);
-  const qs = new URLSearchParams(q).toString();
+  const qs = new URLSearchParams(q as Record<string, string>).toString();
   return '#/' + r.name + (r.id ? '/' + encodeURIComponent(r.id) : '') + (qs ? '?' + qs : '');
 }
-export const VIEWS: any = {};
+// Each page module registers its view here by route name. A view draws the page by calling paint with its markup.
+export type RouteInfo = ReturnType<typeof parseHash>;
+export type Paint = ((markup: Html | string) => void) & { live?: boolean };
+export type View = (r: RouteInfo, paint: Paint) => Promise<unknown> | void;
+export const VIEWS: Record<string, View> = {};
 
 /* ---------- Page cache: tabs you've opened come back exactly as you left them ---------- */
 const CACHEABLE = new Set(['', 'transactions', 'budgets', 'accounts', 'account', 'categories', 'bills', 'piggy', 'forecast', 'reports', 'recurring', 'loans', 'recap']);
-function stashPage(feed) {
+function stashPage(feed: State['feed']) {
   const v = el('view');
   if (!S.pageLive || !S.pageKey || !S.pageCacheable || !v.firstChild) return;
   const scroll = scrollY, frag = document.createDocumentFragment();
@@ -44,7 +48,7 @@ function syncToday() {
   if (S.y === today.getFullYear() && S.m === today.getMonth()) { S.y = now.getFullYear(); S.m = now.getMonth(); }
   setToday(now); S.freshAfter = Date.now(); PAGES.clear();
 }
-export async function route(opts: any = {}) {
+export async function route(opts: { nav?: boolean, quiet?: boolean, instant?: boolean } = {}) {
   syncToday();
   const r = parseHash(), tok = ++S.tok, v = el('view');
   S.swr = !!opts.nav;
@@ -86,7 +90,7 @@ export async function route(opts: any = {}) {
   }
   S.feed = null; S.kIdx = -1;
   if (!opts.quiet) S.skelT = setTimeout(() => { if (tok === S.tok) { stashPage(prevFeed); v.innerHTML = String(skeleton()); } }, 140);
-  const paint = markup => {
+  const paint: Paint = markup => {
     if (tok !== S.tok) return;
     clearTimeout(S.skelT);
     if (S.vtRun && S.vtRun.kind !== 'page') { S.vtRun.finished.catch(() => {}).then(() => paint(markup)); return; }   // let a drawer animation finish first
@@ -95,7 +99,7 @@ export async function route(opts: any = {}) {
     const swap = () => {
       const keep = fresh ? 0 : scrollY;
       if (fresh) stashPage(prevFeed);
-      v.innerHTML = markup;
+      v.innerHTML = String(markup);
       S.pageKey = key; S.pageHtml = markup; S.pageCacheable = cacheable && !v.querySelector(':scope > .error'); S.pageLive = true;
       if (from) vtName(v.querySelector('.head h1'), 'ptitle');
       if (!fresh || !VT_OK || opts.quiet || instant) { v.classList.remove('enter'); if (fresh && !opts.quiet && !instant) { void v.offsetWidth; v.classList.add('enter'); } }
@@ -120,7 +124,7 @@ export async function route(opts: any = {}) {
 }
 // The page on screen was drawn from out-of-date data: fetch what it needs again and redraw only if it changed.
 async function revalidate() {
-  const r = parseHash(), key = S.pageKey, tok = S.tok; let markup = null;
+  const r = parseHash(), key = S.pageKey, tok = S.tok; let markup: Html | string | null = null;
   S.swrOff = (S.swrOff || 0) + 1;
   try { await (VIEWS[r.name] || VIEWS[''])(r, h => { markup = h; }); }
   catch (e) { if (e instanceof AuthError) showLogin(e.message); return; }
@@ -130,14 +134,14 @@ async function revalidate() {
 }
 /* Fetch everything again. visible: show it right away (pull to refresh).
    Otherwise quietly re-fetch the current page and only redraw if something actually changed. */
-export async function refreshAll(opts: any = {}) {
+export async function refreshAll(opts: { visible?: boolean } = {}) {
   if (S.refreshing) return S.refreshing;
   S.refreshing = (async () => {
     S.freshAfter = Date.now(); S.lastRefresh = Date.now(); S.listsAt = 0; PAGES.clear();
     try {
       if (opts.visible) { await route({ quiet: true }); return; }
       const r = parseHash(), key = S.pageKey, tok = S.tok;
-      let markup = null;
+      let markup: Html | string | null = null;
       try { await (VIEWS[r.name] || VIEWS[''])(r, h => { markup = h; }); }
       catch (e) { if (e instanceof AuthError) showLogin(e.message); return; }
       const busyHere = el('drawer').classList.contains('open') || (S.sel && S.sel.size) || !el('pickpop').hidden;
@@ -151,10 +155,10 @@ export async function refreshAll(opts: any = {}) {
 }
 // Recalculate: throw away every number this app has kept (responses in memory, saved pages, the copy on this
 // device, the offline cache, the account/category lists, the Categorize history) and redraw from Firefly III.
-async function recalcAll(btn?) {
+async function recalcAll(btn?: HTMLButtonElement) {
   if (S.recalcing) return;
   S.recalcing = true;
-  const label = btn && btn.textContent; if (btn) { btn.disabled = true; btn.textContent = 'Recalculating…'; }
+  const label = btn ? btn.textContent : null; if (btn) { btn.disabled = true; btn.textContent = 'Recalculating…'; }
   try {
     CACHE.clear(); INFLIGHT.clear(); PAGES.clear(); PDB.clear();
     S.lists = null; S.listsAt = 0; S.inboxHist = null; S.linkTypes = null; S.dirtyAt = 0; S.freshAfter = Date.now(); S.lastRefresh = Date.now();

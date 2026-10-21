@@ -1,8 +1,8 @@
 import { clearCache, getAll } from './api';
-import { S, money, num } from './base';
+import { type ApiData, S, money, num } from './base';
 
 /* ================= Reference lists (cached) ================= */
-export function normAccount(a) {
+export function normAccount(a: ApiData) {
   const t = a.attributes || {};
   return {
     id: String(a.id), name: t.name, type: String(t.type || ''), role: t.account_role || '', active: t.active !== false,
@@ -16,19 +16,22 @@ export type Account = ReturnType<typeof normAccount>;
 // A loan's planned monthly payment lives in its Firefly notes as one line, e.g.
 // "Monthly payment: $500.00 on day 30 from Chase Checking", so every device sees it.
 const PLAN_RE = /^[ \t]*Monthly payment:[ \t]*\$?([\d,.]+)(?:[ \t]+on day[ \t]+(\d{1,2}))?(?:[ \t]+from[ \t]+(.+?))?[ \t]*$/im;
-export function parsePlan(notes) { const m = PLAN_RE.exec(notes || ''); return m ? { amount: num(m[1].replace(/,/g, '')), day: m[2] ? +m[2] : null, from: m[3] ? m[3].trim() : '' } : null; }
-export function stripPlan(notes) { return String(notes || '').replace(PLAN_RE, '').replace(/\n{3,}/g, '\n\n').trim(); }
-export function withPlan(notes, p) {
+export type Plan = { amount: number, day: number | null, from: string };
+export function parsePlan(notes: string | null | undefined): Plan | null { const m = PLAN_RE.exec(notes || ''); return m ? { amount: num(m[1].replace(/,/g, '')), day: m[2] ? +m[2] : null, from: m[3] ? m[3].trim() : '' } : null; }
+export function stripPlan(notes: string | null | undefined) { return String(notes || '').replace(PLAN_RE, '').replace(/\n{3,}/g, '\n\n').trim(); }
+// A plan as a form gives it: only the amount is required
+export type PlanInput = { amount: number, day?: number | null, from?: string };
+export function withPlan(notes: string | null | undefined, p: PlanInput | null) {
   const base = stripPlan(notes);
   if (!p || !(p.amount > 0)) return base;
   const line = 'Monthly payment: $' + p.amount.toFixed(2) + (p.day ? ' on day ' + p.day : '') + (p.from ? ' from ' + p.from : '');
   return (base ? base + '\n\n' : '') + line;
 }
-export const ordinal = n => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th');
-export const planText = p => p && p.amount > 0 ? money(p.amount) + '/month' + (p.day ? ' on the ' + ordinal(p.day) : '') + (p.from ? ' from ' + p.from : '') : '';
-export const isAsset = a => a.type === 'asset';
-export const isCard = a => a.type === 'asset' && a.role === 'ccAsset';
-export const isLiab = a => a.type.startsWith('liab') || ['loan', 'debt', 'mortgage'].includes(a.type);
+export const ordinal = (n: number) => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th');
+export const planText = (p: PlanInput | null) => p && p.amount > 0 ? money(p.amount) + '/month' + (p.day ? ' on the ' + ordinal(p.day) : '') + (p.from ? ' from ' + p.from : '') : '';
+export const isAsset = (a: Pick<Account, 'type'>) => a.type === 'asset';
+export const isCard = (a: Pick<Account, 'type' | 'role'>) => a.type === 'asset' && a.role === 'ccAsset';
+export const isLiab = (a: Pick<Account, 'type'>) => a.type.startsWith('liab') || ['loan', 'debt', 'mortgage'].includes(a.type);
 export type Category = { id: string, name: string, notes: string };
 export type Budget = { id: string, name: string, active: boolean, notes: string };
 export type Bill = { id: string, name: string, active: boolean };

@@ -30,7 +30,7 @@ function currentTheme() { return document.documentElement.getAttribute('data-the
 function drawThemes() {
   el('themes').innerHTML = String(htmlList(THEMES.map(([k, label, sw]) => html`<button type="button" title="${label}" aria-label="${label} theme" class="${k === currentTheme() ? 'on' : ''}" style="background:${sw};background-origin:border-box" data-onclick="App.setTheme('${k}')"></button>`)));
 }
-export function setTheme(k) {
+export function setTheme(k: string) {
   if (k === currentTheme()) return;
   const apply = () => {
     if (k === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', k);
@@ -64,7 +64,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && el('drawer
   S.remember = S.signedIn = rememberedSignIn();
   // Signed in before: show the data saved on this device right away, then refresh it in the background.
   if (S.remember) {
-    try { (await PDB.loadAll() as any[]).forEach(([k, e]) => { if (e && e.t > Date.now() - 14 * 864e5 && !CACHE.has(k)) CACHE.set(k, e); }); } catch (e) { /* no saved data */ }
+    try { (await PDB.loadAll()).forEach(([k, e]) => { if (e && e.t > Date.now() - 14 * 864e5 && !CACHE.has(k)) CACHE.set(k, e); }); } catch (e) { /* no saved data */ }
     if (CACHE.size) { S.bootStale = true; S.lastRefresh = Date.now(); showApp(); return; }
   }
   try { await api('/about'); S.signedIn = true; showApp(); }
@@ -75,29 +75,29 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && el('drawer
 const methods = {
   reload: route,
   newTx: async () => { await lists(); newTx(); },
-  newTxFor: async id => { await lists(); newTx({ account: id }); },
-  txType: t => { collectTx(); S.form.type = t; if (t === 'transfer' && !S.form.dst) S.form.src = S.form.main; renderTxForm(); },
+  newTxFor: async (id: string) => { await lists(); newTx({ account: id }); },
+  txType: (t: string) => { collectTx(); S.form.type = t; if (t === 'transfer' && !S.form.dst) S.form.src = S.form.main; renderTxForm(); },
   addSplit: () => { collectTx(); S.form.splits.push(blankSplit()); renderTxForm(); setTimeout(() => { const b = el('drawerBody'); b.scrollTop = b.scrollHeight; }, 60); },
-  removeSplit: i => { collectTx(); S.form.splits.splice(i, 1); renderTxForm(); },
-  search: q => { location.hash = hashWith({ search: q.trim(), page: '' }); },
+  removeSplit: (i: number) => { collectTx(); S.form.splits.splice(i, 1); renderTxForm(); },
+  search: (q: string) => { location.hash = hashWith({ search: q.trim(), page: '' }); },
   allTime: () => { S.all = true; route({ nav: true }); },
   // An account's range buttons; "Month" also leaves All time in the month selector
-  pickRange: h => { if (h.includes('range=month')) S.all = false; if (location.hash === h) route(); else location.hash = h; },
+  pickRange: (h: string) => { if (h.includes('range=month')) S.all = false; if (location.hash === h) route(); else location.hash = h; },
   thisMonth: () => { if (S.all) { S.all = false; return route({ nav: true }); } S.vtDir = (S.y - today.getFullYear()) * 12 + S.m - today.getMonth() > 0 ? 'prev' : 'next'; S.y = today.getFullYear(); S.m = today.getMonth(); route(); },
-  shiftMonth: d => { S.vtDir = d > 0 ? 'next' : 'prev'; S.m += d; const x = new Date(S.y, S.m, 1); S.y = x.getFullYear(); S.m = x.getMonth(); route({ nav: true }); },
+  shiftMonth: (d: number) => { S.vtDir = d > 0 ? 'next' : 'prev'; S.m += d; const x = new Date(S.y, S.m, 1); S.y = x.getFullYear(); S.m = x.getMonth(); route({ nav: true }); },
   setTheme,
   signOut: () => { signOut(); showLogin(); },
   // Small steps that markup handlers used to write inline (see events.js)
-  go: h => { location.hash = h; },
-  submit: id => el<HTMLFormElement>(id).requestSubmit(),
+  go: (h: string) => { location.hash = h; },
+  submit: (id: string) => el<HTMLFormElement>(id).requestSubmit(),
   print: () => window.print(),
-  removeRow: b => b.closest('.editor-row').remove(),
-  palBackdrop: (e, box) => { if (e.target === box) App.closePalette(); },
-  enterClick: (e, n) => { if (e.key === 'Enter') n.click(); },
-  nlKey: (e, input) => { if (e.key === 'Enter') { e.preventDefault(); App.nlParse(input.value, true); } },
-  linkKey: e => { if (e.key === 'Enter') { e.preventDefault(); App.findLink(); } },
-  rulesSearch: f => { const q = f.q.value.trim(); location.hash = '#/rules' + (q ? '?q=' + encodeURIComponent(q) : ''); },
-  reportsRange: f => { location.hash = '#/reports?start=' + f.s.value + '&end=' + f.e.value; },
+  removeRow: (b: HTMLElement) => b.closest('.editor-row')!.remove(),
+  palBackdrop: (e: Event, box: HTMLElement) => { if (e.target === box) App.closePalette(); },
+  enterClick: (e: KeyboardEvent, n: HTMLElement) => { if (e.key === 'Enter') n.click(); },
+  nlKey: (e: KeyboardEvent, input: HTMLInputElement) => { if (e.key === 'Enter') { e.preventDefault(); App.nlParse(input.value, true); } },
+  linkKey: (e: KeyboardEvent) => { if (e.key === 'Enter') { e.preventDefault(); App.findLink(); } },
+  rulesSearch: (f: HTMLFormElement & { q: HTMLInputElement }) => { const q = f.q.value.trim(); location.hash = '#/rules' + (q ? '?q=' + encodeURIComponent(q) : ''); },
+  reportsRange: (f: HTMLFormElement & { s: HTMLInputElement, e: HTMLInputElement }) => { location.hash = '#/reports?start=' + f.s.value + '&end=' + f.e.value; },
   nativeSettings: () => window.webkit.messageHandlers.native.postMessage('settings'),
 };
 Object.assign(App, methods);

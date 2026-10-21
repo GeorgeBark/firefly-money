@@ -8,7 +8,7 @@ iOS doesn't let apps read your bank's notifications, so this only covers **Apple
 
 - iOS 17 or newer.
 - Your iPhone must be able to reach Money **at the moment you pay**. On your home Wi-Fi that's the usual address, but in a shop it isn't, so use a VPN that's always on (Tailscale, WireGuard) or a reverse proxy with HTTPS (see the README). If Money can't be reached, the payment still goes through. It just isn't logged.
-- In Firefly, an asset or liability account for each card, named like the card is in Wallet (for example `Apple Card` or `Chase Sapphire`). Money matches the name, a name inside the other ("Chase Sapphire" matches "Chase Sapphire Preferred"), or the card's last four digits at the end of the account number.
+- In Firefly, an asset or liability account for each card. Money finds it from the card's name in Wallet: the same name, one name inside the other ("Chase Sapphire" matches "Chase Sapphire Preferred"), the card's last four digits at the end of the account number, or the words the names share, leaving out words like *card*, *credit* or *visa* ("Freedom Unlimited" matches "Chase Freedom"). When the names are too different, pick the account in **Settings → Apple Pay → Cards** (see below).
 
 ## 1. Copy the address and key
 
@@ -30,6 +30,12 @@ In Money, open **Settings → Apple Pay** and copy the **Address** (ends in `/ap
 
 To always use one account whatever the card, add a fourth field `account` with that account's name in Firefly.
 
+## 3. Check the cards
+
+A card Money can't place is refused with `Money doesn’t know which account the card "…" is`, and it then shows up under **Settings → Apple Pay → Cards** marked *Needs an account*. Pick its account there, and the next payment goes through. To set a card up before you pay with it, type its name exactly as Wallet shows it and pick the account. The choices are saved in Firefly, so every device sees them.
+
+A test payment from a throwaway shortcut with `amount` `0.01`, `merchant` `Money test` and your card's name is a quick way to check, without spending anything.
+
 ## What gets logged
 
 - A withdrawal from the card's account to the merchant (Firefly creates the payee if it's new), dated now, tagged **Apple Pay**.
@@ -44,6 +50,7 @@ Apple runs the automation when you tap, before the bank approves the payment, so
 | Money says | Fix |
 | --- | --- |
 | `Wrong key` | Copy the key again from Settings, and check the header is `Bearer <key>` with one space. |
-| `No account matches the card "…"` | Rename the Firefly account to match the card's name in Wallet, or add an `account` field to the Shortcut. The message lists your accounts. |
+| `Money doesn’t know which account the card "…" is` | Pick its account in Settings → Apple Pay → Cards, then pay again. |
+| `No account is called "…"` | The Shortcut's `account` field doesn't match a Firefly account name. The message lists your accounts. |
 | `No amount` | The `amount` field isn't set to **Shortcut Input → Amount**. |
 | Nothing at all / a timeout | Your iPhone can't reach Money from where you are (see *What you need*). |

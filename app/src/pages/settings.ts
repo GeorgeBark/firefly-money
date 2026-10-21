@@ -5,7 +5,7 @@ import { App, S, el, fmtDate, isoDate, num, todayIso } from '../core/base';
 import { confirmBox, head, opt, toast } from '../core/dom';
 import { LS, saveBlob } from '../core/helpers';
 import { logosOn } from '../core/logo';
-import { invalidate, lists } from '../core/lists';
+import { type Account, invalidate, isAsset, isLiab, lists } from '../core/lists';
 import { VIEWS, route } from '../core/router';
 
 /* ================= Settings ================= */
@@ -16,6 +16,7 @@ VIEWS.settings = async (r, paint) => {
   const [about, rates, hooks, ingest] = await Promise.all([
     api('/about').catch(() => ({})), getAll('/exchange-rates').catch(() => null), getAll('/webhooks').catch(() => null), ingestKey(),
   ]);
+  const cards = ingest ? await loadCards() : null;
   const enabled = L.currencies.filter(c => c.enabled), disabled = L.currencies.filter(c => !c.enabled);
   const yr = new Date().getFullYear();
   const cur = html`<section class="panel"><h2>Currencies</h2><p class="lead">Your main currency is <strong>${S.currency}</strong>. Enabled currencies can be used for foreign amounts and accounts.</p><div class="list">${htmlList(enabled.map(c => html`<div class="row"><span class="name">${c.code} · ${c.name}${c.code === S.currency ? html` <span class="chip good">Main</span>` : ''}</span><span style="display:flex;gap:8px">${c.code !== S.currency ? html`<button class="link" data-onclick="App.currency('${c.code}','primary')">Make main</button><button class="link" data-onclick="App.currency('${c.code}','disable')">Disable</button>` : ''}</span></div>`))}</div><form style="display:flex;gap:8px;margin-top:14px" data-onsubmit="event.preventDefault();App.currency(this.c.value,'enable')"><select name="c" style="flex:1">${htmlList(disabled.map(c => opt(c.code, c.code + ' · ' + c.name, '')))}</select><button class="btn">Enable</button></form></section>`;
@@ -32,7 +33,7 @@ VIEWS.settings = async (r, paint) => {
   const syncOff = !!LS.get('syncOff', false), syncAt = LS.get('syncAt', 0);
   const syncHtml = html`<section class="panel"><h2>Sync between devices</h2><p class="lead">Your Overview layout, dismissed insights, forecast, loan plan and subscription choices are saved in Firefly III, so they follow you to every device. Theme, hidden amounts and density stay with each device.</p><label class="check"><input type="checkbox"${syncOff ? '' : ' checked'} data-onchange="App.toggleSync(this.checked)"> Sync this device’s settings</label><p class="sub-s">${syncOff ? 'Off: this device keeps its own settings.' : S.syncError ? html`<span class="up">Couldn’t sync: ${S.syncError}</span>` : syncAt ? 'Last synced ' + fmtDate(isoDate(new Date(syncAt))) + ' at ' + new Date(syncAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) + '.' : 'Nothing synced yet.'}</p>${syncOff ? '' : html`<button class="btn small" type="button" data-onclick="App.syncNow()">Sync now</button>`}</section>`;
   const logoHtml = html`<section class="panel"><h2>Logos</h2><p class="lead">Show payees’ and banks’ logos instead of their initials. Your Money server fetches each logo from DuckDuckGo’s icon service by the payee’s website (guessed from its name; change it in the account’s settings) and keeps it, so your browser never contacts another site.</p><label class="check"><input type="checkbox"${logosOn() ? ' checked' : ''} data-onchange="App.toggleLogos(this.checked)"> Show logos</label></section>`;
-  paint(html`${head('Settings', '', '')}<div class="cards">${recalcHtml}${syncHtml}${logoHtml}${applePayHtml(ingest)}${cur}${rateHtml}${exp}${hookHtml}${aboutHtml}</div>`);
+  paint(html`${head('Settings', '', '')}<div class="cards">${recalcHtml}${syncHtml}${logoHtml}${applePayHtml(ingest, cards, L.own.filter(a => isAsset(a) || isLiab(a)))}${cur}${rateHtml}${exp}${hookHtml}${aboutHtml}</div>`);
 };
 // The build stamped into the Docker image by GitHub, e.g. "c78fd51 · 2026-09-30". Empty for a local build or plain files.
 function moneyVersion() {
@@ -106,10 +107,56 @@ async function ingestKey(): Promise<string | null> {
     return r.ok ? (await r.json()).key || null : null;
   } catch (e) { return null; }
 }
-function applePayHtml(key: string | null) {
+// Which account each Wallet card goes to, when its name doesn't say (app/ingest.js reads the same preference).
+// unmatched: cards the server couldn't place, so you can pick their account here.
+type Cards = { exists: boolean, cards: Record<string, string>, unmatched: string[] };
+const CARD_PREF = 'money_cards';
+let cardState: Cards = { exists: false, cards: {}, unmatched: [] }, cardNames: string[] = [];
+async function loadCards(): Promise<Cards> {
+  try {
+    const r = await api('/preferences/' + CARD_PREF, { fresh: true }), d = r && r.data && r.data.attributes ? r.data.attributes.data : null;
+    const v = typeof d === 'string' ? JSON.parse(d) : d;
+    return { exists: true, cards: (v && v.cards) || {}, unmatched: (v && v.unmatched) || [] };
+  } catch (e) { return { exists: false, cards: {}, unmatched: [] }; }
+}
+async function saveCards() {
+  const data = JSON.stringify({ cards: cardState.cards, unmatched: cardState.unmatched });
+  await withAuth(async () => {
+    if (cardState.exists) await api('/preferences/' + CARD_PREF, { method: 'PUT', body: { data }, keepCache: true });
+    else { await api('/preferences', { method: 'POST', body: { name: CARD_PREF, data }, keepCache: true }); cardState.exists = true; }
+    toast('Saved');
+  });
+}
+const sameCard = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+async function setCardAccount(i: number, id: string) {
+  const name = cardNames[i]; if (name === undefined) return;
+  if (id) cardState.cards[name] = id; else delete cardState.cards[name];
+  cardState.unmatched = cardState.unmatched.filter(x => !sameCard(x, name));
+  await saveCards(); route();
+}
+async function removeCard(i: number) {
+  const name = cardNames[i]; if (name === undefined) return;
+  delete cardState.cards[name]; cardState.unmatched = cardState.unmatched.filter(x => !sameCard(x, name));
+  await saveCards(); route();
+}
+async function addCard(f: HTMLFormElement) {
+  const name = (f.elements.namedItem('n') as HTMLInputElement).value.trim(), id = (f.elements.namedItem('a') as HTMLSelectElement).value;
+  if (!name || !id) return toast('Type the card’s name as Wallet shows it, and pick its account.');
+  Object.keys(cardState.cards).forEach(k => { if (sameCard(k, name)) delete cardState.cards[k]; });
+  cardState.cards[name] = id; cardState.unmatched = cardState.unmatched.filter(x => !sameCard(x, name));
+  await saveCards(); route();
+}
+function cardsHtml(cards: Cards | null, accounts: Account[]) {
+  if (!cards) return '';
+  cardState = cards;
+  cardNames = Object.keys(cards.cards).concat(cards.unmatched.filter(u => !Object.keys(cards.cards).some(k => sameCard(k, u))));
+  const options = (sel: string, none: string) => html`${opt('', none, sel)}${htmlList(accounts.map(a => opt(a.id, a.name, sel)))}`;
+  return html`<h3 style="margin:18px 0 4px">Cards</h3><p class="sub-s" style="margin:0 0 8px">Money finds the account by the card’s name in Wallet. When the names differ, pick the account here. Cards Money couldn’t place show up here after their first payment.</p>${cardNames.length ? html`<div class="list">${htmlList(cardNames.map((n, i) => { const id = cards.cards[n] || ''; return html`<div class="row" style="flex-wrap:wrap;gap:8px"><span class="name" style="min-width:0">${n}${id ? '' : html` <span class="chip warn">Needs an account</span>`}</span><span style="display:flex;gap:8px;align-items:center;min-width:0;flex:1 1 200px"><select aria-label="Account for this card" data-onchange="App.setCardAccount(${i}, this.value)" style="flex:1;min-width:0">${options(id, 'Pick an account')}</select><button class="link" type="button" data-onclick="App.removeCard(${i})">Remove</button></span></div>`; }))}</div>` : ''}<form style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap" data-onsubmit="event.preventDefault();App.addCard(this)"><input name="n" type="text" placeholder="Card name in Wallet" aria-label="Card name in Wallet" style="flex:1;min-width:140px"><select name="a" aria-label="Account" style="flex:1;min-width:140px">${options('', 'Pick an account')}</select><button class="btn small">Add</button></form>`;
+}
+function applePayHtml(key: string | null, cards: Cards | null, accounts: Account[]) {
   if (!key) return '';
   const url = location.origin + '/api/money-ingest';
-  return html`<section class="panel"><h2>Apple Pay</h2><p class="lead">Log Apple Pay purchases the moment you pay. An iPhone Shortcut sends the amount, merchant and card here, and Money adds the expense to the account named like the card, tagged “Apple Pay”, with the category from the last time. Your iPhone must be able to reach this address when you pay, so outside your home network it needs a VPN (like Tailscale) or a reverse proxy.</p><div class="list"><div class="row"><span class="name" style="flex:none">Address</span><span style="display:flex;gap:8px;align-items:center;min-width:0"><code style="overflow-wrap:anywhere;font-size:13px">${url}</code><button class="link" type="button" data-onclick="App.copyText('${url}', 'Address copied')">Copy</button></span></div><div class="row"><span class="name" style="flex:none">Key</span><span style="display:flex;gap:8px;align-items:center;min-width:0"><input id="applePayKey" type="password" readonly value="${key}" aria-label="Apple Pay key" autocomplete="off" spellcheck="false" style="flex:1;min-width:0;font-family:ui-monospace,monospace;font-size:13px" data-onclick="App.selectKey()"><button class="link" type="button" data-onclick="App.showKey(this)">Show</button><button class="link" type="button" data-onclick="App.copyText('${key}', 'Key copied')">Copy</button></span></div></div><p class="sub-s" style="margin-top:14px">Treat the key like a password: anyone with it can add expenses. Changing the dashboard password or Firefly token gives a new key. <a class="link" href="https://github.com/Muffy0906/firefly-money/blob/main/docs/apple-pay.md" target="_blank" rel="noopener">Set up the Shortcut ↗</a></p></section>`;
+  return html`<section class="panel"><h2>Apple Pay</h2><p class="lead">Log Apple Pay purchases the moment you pay. An iPhone Shortcut sends the amount, merchant and card here, and Money adds the expense to the account named like the card, tagged “Apple Pay”, with the category from the last time. Your iPhone must be able to reach this address when you pay, so outside your home network it needs a VPN (like Tailscale) or a reverse proxy.</p><div class="list"><div class="row"><span class="name" style="flex:none">Address</span><span style="display:flex;gap:8px;align-items:center;min-width:0"><code style="overflow-wrap:anywhere;font-size:13px">${url}</code><button class="link" type="button" data-onclick="App.copyText('${url}', 'Address copied')">Copy</button></span></div><div class="row"><span class="name" style="flex:none">Key</span><span style="display:flex;gap:8px;align-items:center;min-width:0"><input id="applePayKey" type="password" readonly value="${key}" aria-label="Apple Pay key" autocomplete="off" spellcheck="false" style="flex:1;min-width:0;font-family:ui-monospace,monospace;font-size:13px" data-onclick="App.selectKey()"><button class="link" type="button" data-onclick="App.showKey(this)">Show</button><button class="link" type="button" data-onclick="App.copyText('${key}', 'Key copied')">Copy</button></span></div></div>${cardsHtml(cards, accounts)}<p class="sub-s" style="margin-top:14px">Treat the key like a password: anyone with it can add expenses. Changing the dashboard password or Firefly token gives a new key. <a class="link" href="https://github.com/Muffy0906/firefly-money/blob/main/docs/apple-pay.md" target="_blank" rel="noopener">Set up the Shortcut ↗</a></p></section>`;
 }
 // The Clipboard API only works over HTTPS (or localhost), and most installs are plain HTTP on a home network,
 // so fall back to the older copy command, and if that's blocked too, show the key selected for copying by hand.
@@ -146,6 +193,9 @@ const methods = {
   copyText,
   selectKey,
   showKey,
+  setCardAccount,
+  removeCard,
+  addCard,
   addRate,
   deleteRate,
   exportData,

@@ -29,7 +29,7 @@ async function bulk(kind) {
   if (kind === 'budget') { val = el('bk-bud').value; if (val === '') return toast('Choose a budget first.'); }
   if (kind === 'tag') { val = el('bk-tag').value.trim(); if (!val) return toast('Type a tag first.'); }
   if (kind === 'delete') return App.softDeleteTx(groups.map(g => g.id));
-  let done = 0, skipped = 0, failed = 0, authErr = null;
+  let done = 0, skipped = 0, failed = 0, authErr = null as AuthError | null;
   renderBulk('Working… 0 of ' + groups.length);
   await eachLimited(groups, 4, async g => {
     if (authErr) return;

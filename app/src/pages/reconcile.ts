@@ -19,7 +19,7 @@ VIEWS.reconcile = async (r, paint) => {
     getAll('/accounts/' + r.id + '/transactions', { start, end }),
   ]);
   const owed = isCard(a) || isLiab(a);
-  const rows = [];
+  const rows: { gid: string, jid: string, date: string, desc: string, amt: number, rec: boolean }[] = [];
   txs.map(normGroup).forEach(g => g.splits.forEach(s => {
     if (s.source_id !== a.id && s.destination_id !== a.id) return;
     rows.push({ gid: g.id, jid: s.jid, date: s.date, desc: s.description, amt: s.source_id === a.id ? -s.amount : s.amount, rec: s.reconciled });

@@ -9,19 +9,21 @@ export {};
    Grammar:  statement (';' statement)*
    statement: event.preventDefault() | event.stopPropagation() | App.name(arg, …)
    arg:       'string' | number | true | false | null | event | this | this.prop.prop… */
+type Arg = { v: string | number | boolean | null } | { ev: true } | { path: string[] };
+type Statement = { ev: 'preventDefault' | 'stopPropagation' } | { fn: string, args: Arg[] };
 (function () {
   const TYPES = ['click', 'change', 'input', 'keydown', 'submit', 'mousedown', 'mouseenter', 'mousemove'];
   const ATTRS = TYPES.map(t => 'data-on' + t), SEL = ATTRS.map(a => '[' + a + ']').join(',');
-  const parsed = new Map(), bound = new WeakMap();
+  const parsed = new Map<string, Statement[]>(), bound = new WeakMap<Element, Set<string>>();
 
-  function parse(src) {
+  function parse(src: string): Statement[] {
     let i = 0;
-    const fail = () => { throw new Error('Unsupported handler: ' + src); };
+    const fail: () => never = () => { throw new Error('Unsupported handler: ' + src); };
     const ws = () => { while (i < src.length && /\s/.test(src[i])) i++; };
     const ident = () => { ws(); const m = /^[A-Za-z_$][\w$]*/.exec(src.slice(i)); if (!m) fail(); i += m[0].length; return m[0]; };
-    const eat = c => { ws(); if (src[i] !== c) fail(); i++; };
+    const eat = (c: string) => { ws(); if (src[i] !== c) fail(); i++; };
     const peek = () => { ws(); return src[i]; };
-    function arg() {
+    function arg(): Arg {
       const c = peek();
       if (c === "'" || c === '"') {
         let s = ''; i++;
@@ -35,14 +37,14 @@ export {};
       if (w === 'null') return { v: null };
       if (w === 'event') return { ev: true };
       if (w !== 'this') fail();
-      const path = [];
+      const path: string[] = [];
       while (peek() === '.') { i++; path.push(ident()); }
       return { path };
     }
-    const out = [];
+    const out: Statement[] = [];
     while (true) {
       const obj = ident(); eat('.'); const name = ident(); eat('(');
-      const args = [];
+      const args: Arg[] = [];
       if (peek() !== ')') { args.push(arg()); while (peek() === ',') { i++; args.push(arg()); } }
       eat(')');
       if (obj === 'event' && (name === 'preventDefault' || name === 'stopPropagation') && !args.length) out.push({ ev: name });
@@ -54,29 +56,30 @@ export {};
     return out;
   }
 
-  function run(src, node, e) {
+  function run(src: string, node: Element, e: Event) {
     let prog = parsed.get(src);
     if (!prog) { prog = parse(src); parsed.set(src, prog); }
     for (const s of prog) {
-      if (s.ev) { e[s.ev](); continue; }
+      if ('ev' in s) { e[s.ev](); continue; }
       const f = window.App && Object.prototype.hasOwnProperty.call(window.App, s.fn) && window.App[s.fn];
       if (typeof f !== 'function') throw new Error('No App.' + s.fn + ' for handler: ' + src);
-      f.apply(window.App, s.args.map(a => a.ev ? e : a.path ? a.path.reduce((o, k) => o[k], node) : a.v));
+      f.apply(window.App, s.args.map(a => 'ev' in a ? e : 'path' in a ? a.path.reduce<any>((o, k) => o[k], node) : a.v));
     }
   }
 
-  function bind(node) {
+  function bind(node: Element) {
     let set = bound.get(node);
     for (const t of TYPES) {
       if (!node.hasAttribute('data-on' + t) || (set && set.has(t))) continue;
       if (!set) bound.set(node, set = new Set());
       set.add(t);
       // read the attribute when the event fires, so removing or changing it later takes effect
-      node.addEventListener(t, function (e) { const src = this.getAttribute('data-on' + t); if (src) run(src, this, e); });
+      node.addEventListener(t, function (this: Element, e) { const src = this.getAttribute('data-on' + t); if (src) run(src, this, e); });
     }
   }
-  function scan(root) {
-    if (root.nodeType !== 1) return;
+  function scan(node: Node) {
+    if (node.nodeType !== 1) return;
+    const root = node as Element;
     if (root.matches(SEL)) bind(root);
     root.querySelectorAll(SEL).forEach(bind);
   }
@@ -85,7 +88,7 @@ export {};
   scan(document.documentElement);
   new MutationObserver(list => {
     for (const m of list) {
-      if (m.type === 'attributes') bind(m.target);
+      if (m.type === 'attributes') bind(m.target as Element);
       else m.addedNodes.forEach(scan);
     }
   }).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ATTRS });

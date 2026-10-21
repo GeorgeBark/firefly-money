@@ -60,7 +60,7 @@ VIEWS.rules = async (r, paint) => {
 };
 async function toggleRule(id, on) {
   const at = S.rules[id];
-  await withAuth(async () => { const row = document.querySelector<HTMLElement>('input[data-onchange*="toggleRule(\'' + id + '\'"]'); if (row) row.closest('tr').style.opacity = on ? '' : '.55';
+  await withAuth(async () => { const row = document.querySelector<HTMLElement>('input[data-onchange*="toggleRule(\'' + id + '\'"]'); if (row) row.closest('tr')!.style.opacity = on ? '' : '.55';
     await api('/rules/' + id, { method: 'PUT', body: { title: at.title, rule_group_id: String(at.rule_group_id), active: on } }); at.active = on; toast(on ? 'Rule turned on' : 'Rule turned off'); });
 }
 function condRow(kind, t, i) {
@@ -83,7 +83,7 @@ function ruleAdd(kind) {
 }
 async function saveRule() {
   const read = sel => [...document.querySelectorAll<HTMLElement>(sel)].map((row, i) => {
-    const o: any = { type: row.querySelector<HTMLInputElement>('[data-f=type]').value, value: row.querySelector<HTMLInputElement>('[data-f=value]').value.trim(), active: true, stop_processing: false };
+    const o: any = { type: row.querySelector<HTMLInputElement>('[data-f=type]')!.value, value: row.querySelector<HTMLInputElement>('[data-f=value]')!.value.trim(), active: true, stop_processing: false };
     const p = row.querySelector<HTMLInputElement>('[data-f=prohibited]'); if (p) o.prohibited = p.checked;
     return o;
   });

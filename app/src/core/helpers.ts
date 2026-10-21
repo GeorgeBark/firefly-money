@@ -27,7 +27,7 @@ export function bizDay(y, m, day) {            // that day of the month (clamped
   while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() - 1);
   return isoDate(d);
 }
-export function monthsFrom(from, to) { const out = []; let d = new Date(from + 'T12:00:00'); d.setDate(1); const end = new Date(to + 'T12:00:00'); while (d <= end) { out.push([d.getFullYear(), d.getMonth()]); d.setMonth(d.getMonth() + 1); } return out; }
+export function monthsFrom(from, to) { const out: [number, number][] = []; let d = new Date(from + 'T12:00:00'); d.setDate(1); const end = new Date(to + 'T12:00:00'); while (d <= end) { out.push([d.getFullYear(), d.getMonth()]); d.setMonth(d.getMonth() + 1); } return out; }
 export const buzz = ms => { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) { /* not supported */ } };
 
 Object.assign(App, {

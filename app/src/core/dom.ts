@@ -48,7 +48,7 @@ export function confirmBox(title, text, okLabel = 'Delete') {
 }
 
 /* ---------- View Transitions (animated morphs between states) ---------- */
-export const VT_OK = !!document.startViewTransition && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+export const VT_OK = !!document.startViewTransition && !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 // Run a DOM update inside a view transition. kind sets a class on <html> so CSS can pick the animation.
 export function vt(kind, update, setup?) {
   if (!VT_OK || document.hidden) { update(); return null; }

@@ -1,5 +1,5 @@
 import { html, htmlList } from '../core/html';
-import { AuthError, api, getAll } from '../core/api';
+import { AuthError, api, getAll, type ApiError } from '../core/api';
 import { withAuth } from '../core/auth';
 import { App, S, el, fmtDate, isoDate, num, todayIso } from '../core/base';
 import { confirmBox, head, opt, toast } from '../core/dom';
@@ -45,7 +45,7 @@ async function currency(code, action) {
     try { await api('/currencies/' + code + '/' + action, { method: 'POST' }); }
     catch (e) {
       if (action === 'primary') await api('/currencies/' + code + '/default', { method: 'POST' });
-      else if (action === 'disable' && e.status === 409) return disableInUse(code);
+      else if (action === 'disable' && (e as ApiError).status === 409) return disableInUse(code);
       else throw e;
     }
     invalidate(); toast({ enable: 'Enabled ', disable: 'Disabled ', primary: 'Main currency is now ' }[action] + code); route();
@@ -66,7 +66,7 @@ async function disableInUse(code) {
     await api('/currencies/' + code + '/disable', { method: 'POST' });
     toast('Removed ' + done + ' rate' + (done === 1 ? '' : 's') + ' and disabled ' + code);
   } catch (e) {
-    if (e.status !== 409) throw e;
+    if ((e as ApiError).status !== 409) throw e;
     await confirmBox(code + ' is still in use', 'The exchange rates are gone, but something else still uses ' + code + ' — an account, bill, budget, piggy bank or transaction. Change those first.', 'OK');
   }
   invalidate(); route();

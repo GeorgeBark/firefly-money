@@ -3,13 +3,14 @@ import { AuthError, api } from '../core/api';
 import { showLogin } from '../core/auth';
 import { App, S, el } from '../core/base';
 import { toast } from '../core/dom';
-import { txRows } from '../core/feed';
+import { type TxMeta, txRows } from '../core/feed';
 import { buzz } from '../core/helpers';
 import { invalidate } from '../core/lists';
 import { bindSwipe } from './phone';
 
 /* ---------- Inline category / budget picker ---------- */
-let pickCtx = null;
+type PickItem = { v: string, l: string, create?: boolean };
+let pickCtx: { tr: HTMLElement, meta: TxMeta, k: string, items: PickItem[], cur: string, idx: number, q: string } | null = null;
 export function pick(node) {
   const tr = node.closest('tr[data-gid]'), meta = tr && S.txMeta[tr.dataset.gid], L = S.lists;
   if (!meta || !L) return;
@@ -29,38 +30,39 @@ export function pick(node) {
   box.style.top = (r.bottom + 6 + h > innerHeight ? Math.max(12, r.top - h - 6) : r.bottom + 6) + 'px';
   el('pkq').focus();
 }
-function pickList() {
-  const c = pickCtx, q = c.q.trim().toLowerCase();
+function pickList(): PickItem[] {
+  const c = pickCtx!, q = c.q.trim().toLowerCase();
   let list = c.items.filter(x => !q || x.l.toLowerCase().includes(q));
   list.sort((a, b) => (b.l.toLowerCase().startsWith(q) ? 1 : 0) - (a.l.toLowerCase().startsWith(q) ? 1 : 0));
   if (c.k === 'category' && q && !c.items.some(x => x.l.toLowerCase() === q)) list = [...list, { v: c.q.trim(), l: 'Create “' + c.q.trim() + '”', create: true }];
   return list;
 }
-function pickFilter(q) { pickCtx.q = q; pickCtx.idx = q ? 0 : Math.max(0, pickList().findIndex(x => String(x.v) === String(pickCtx.cur || ''))); drawPick(); }
+function pickFilter(q) { const c = pickCtx!; c.q = q; c.idx = q ? 0 : Math.max(0, pickList().findIndex(x => String(x.v) === String(c.cur || ''))); drawPick(); }
 function drawPick() {
-  const c = pickCtx, list = pickList();
+  const c = pickCtx!, list = pickList();
   el('pkList').innerHTML = htmlList(list.map((x, i) => html`<div class="pal-item${i === c.idx ? ' on' : ''}" data-onmouseenter="App.pickHover(${i})" data-onmousedown="event.preventDefault();App.pickChoose(${i})"><span>${x.l}</span>${String(x.v) === String(c.cur) && !x.create ? html`<span class="k">✓</span>` : ''}</div>`)) || html`<div class="empty" style="padding:10px 14px">Nothing matches.</div>`;
   const on = el('pkList').querySelector('.on'); if (on) on.scrollIntoView({ block: 'nearest' });
 }
 function pickHover(i) { if (pickCtx && i !== pickCtx.idx) { pickCtx.idx = i; drawPick(); } }
 function pickKey(e) {
-  const n = pickList().length;
+  const n = pickList().length, c = pickCtx!;
   if (['ArrowDown', 'ArrowUp', 'Enter', 'Escape'].includes(e.key)) e.stopPropagation();
-  if (e.key === 'ArrowDown') { e.preventDefault(); pickCtx.idx = (pickCtx.idx + 1) % n; drawPick(); }
-  else if (e.key === 'ArrowUp') { e.preventDefault(); pickCtx.idx = (pickCtx.idx - 1 + n) % n; drawPick(); }
-  else if (e.key === 'Enter') { e.preventDefault(); pickChoose(pickCtx.idx); }
+  if (e.key === 'ArrowDown') { e.preventDefault(); c.idx = (c.idx + 1) % n; drawPick(); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); c.idx = (c.idx - 1 + n) % n; drawPick(); }
+  else if (e.key === 'Enter') { e.preventDefault(); pickChoose(c.idx); }
   else if (e.key === 'Escape') { e.preventDefault(); closePick(); }
 }
+
 function closePick() { const a = document.activeElement as HTMLElement; if (a && a.id === 'pkq') a.blur(); el('pickpop').hidden = true; const c = pickCtx; pickCtx = null; return c; }
 document.addEventListener('mousedown', e => { if (!el('pickpop').hidden && !(e.target as HTMLElement).closest('#pickpop')) closePick(); });
 document.addEventListener('scroll', e => { if (!el('pickpop').hidden && !((e.target as HTMLElement).closest && (e.target as HTMLElement).closest('#pickpop'))) closePick(); }, true);
 function rowFor(g, opts) {
   const t = document.createElement('template'); t.innerHTML = String(txRows([g], opts));
-  return t.content.querySelector('tr[data-gid]');
+  return t.content.querySelector<HTMLElement>('tr[data-gid]')!;
 }
 function swapRow(tr, g, opts) {
   const nr = rowFor(g, opts), cb = tr.querySelector('input[data-sel]');
-  if (cb && cb.checked) nr.querySelector<HTMLInputElement>('input[data-sel]').checked = true;
+  if (cb && cb.checked) nr.querySelector<HTMLInputElement>('input[data-sel]')!.checked = true;
   if (tr.classList.contains('kfocus')) nr.classList.add('kfocus');
   tr.replaceWith(nr); bindSwipe(); return nr;
 }
@@ -78,13 +80,13 @@ async function pickChoose(i) {
     if (k === 'category') t.category_name = item.v; else t.budget_id = item.v || '0';
     await api('/transactions/' + g.id, { method: 'PUT', body: { apply_rules: false, fire_webhooks: true, transactions: [t] } });
     invalidate(); if (item.create) S.listsAt = 0;
-    if (row && row.isConnected) { row.classList.remove('saving'); row.classList.add('saved'); setTimeout(() => row.classList.remove('saved'), 900); }
+    if (row && row.isConnected) { row.classList.remove('saving'); row.classList.add('saved'); setTimeout(() => row!.classList.remove('saved'), 900); }
     toast((k === 'category' ? 'Category' : 'Budget') + (item.v ? ' set to ' + (item.create ? item.v : item.l) : ' removed'));
   } catch (e) {
     Object.assign(sp, before);
     row = document.querySelector<HTMLElement>('#view tr[data-gid="' + g.id + '"]'); if (row) swapRow(row, g, meta.opts);
     if (e instanceof AuthError) return showLogin(e.message);
-    toast('Couldn’t save: ' + e.message);
+    toast('Couldn’t save: ' + (e as Error).message);
   }
 }
 

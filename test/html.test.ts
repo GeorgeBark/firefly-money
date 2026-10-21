@@ -18,7 +18,7 @@ describe('html', () => {
   });
   it('works where a string is expected', () => {
     const d = document.createElement('div'); d.innerHTML = String(html`<span>${'x'}</span>`);
-    expect(d.firstElementChild.textContent).toBe('x');
+    expect(d.firstElementChild!.textContent).toBe('x');
     expect(`${html`<a>`}`).toBe('<a>');
   });
   it('reports escaped markup and + joins while checking', () => {

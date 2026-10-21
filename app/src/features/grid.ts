@@ -7,8 +7,9 @@
 export const GRID = 24, ROW = 8;
 // Settle tiles so none overlap. `first` keeps its spot; the rest keep their order (top to bottom, left to right) and
 // move down just far enough. A floating tile (not placed by you yet) first rises as high as it can.
-export function gridSettle(ts, first?) {
-  const order = [...ts].sort((a, b) => +(b.k === first) - +(a.k === first) || a.y - b.y || a.x - b.x), placed = [];
+export type Tile = { k: string, x: number, y: number, w: number, h: number, float?: boolean };
+export function gridSettle<T extends Tile>(ts: T[], first?: string): T[] {
+  const order = [...ts].sort((a, b) => +(b.k === first) - +(a.k === first) || a.y - b.y || a.x - b.x), placed: T[] = [];
   for (const t of order) {
     if (t.float && t.k !== first) t.y = 0;
     for (let hit = true; hit;) {
@@ -21,7 +22,7 @@ export function gridSettle(ts, first?) {
 }
 // Where a dragged tile lands: when its top edge is in the lower half of a tile it overlaps, it goes just below that
 // tile instead of pushing it out of the way, so a tile has to be dragged past another's middle to swap with it.
-export function gridDrop(ts, k) {
+export function gridDrop<T extends Tile>(ts: T[], k: string): T[] {
   const t = ts.find(x => x.k === k);
   if (t) for (let moved = true; moved;) {
     moved = false;

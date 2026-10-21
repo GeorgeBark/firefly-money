@@ -16,6 +16,16 @@ In Money, open **Settings → Apple Pay** and copy the **Address** (ends in `/ap
 
 ## 2. Make the automation
 
+### The quick way: add the ready-made shortcut
+
+1. On your iPhone, open [**Log to Money**](https://www.icloud.com/shortcuts/bc0c5b14f90342f6a5429cfc78fc8d31) and tap **Add Shortcut**. It asks for the **Address** and **Key** from step 1: paste them in.
+2. Open **Shortcuts → Automation**, tap **+**, and pick **Transaction**. Choose the cards, leave **When I Tap** on, pick **Run Immediately**, and tap **Next**.
+3. Pick **Run Shortcut**, choose **Log to Money**, and set its input to **Shortcut Input**.
+
+That's it. Skip to step 3 below. To add the location, a category menu or a fixed account, edit **Log to Money** as described under *Optional extras*.
+
+### Or build it yourself
+
 1. Open **Shortcuts → Automation**, tap **+**, and pick **Transaction**.
 2. Choose the cards to watch (or all of them), leave **When I Tap** on, and pick **Run Immediately** so it doesn't ask each time. Tap **Next**, then **New Blank Automation**.
 3. Add the action **Get Contents of URL** and set it up:

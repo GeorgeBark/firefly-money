@@ -11,10 +11,10 @@ import { blankSplit, collectTx, newTx, renderTxForm } from '../features/txform';
 function showApp() { S.lastRefresh = S.lastRefresh || Date.now(); el('login').hidden = true; el('app').hidden = false; el('fab').hidden = false; route(); if (App.syncPrefs) App.syncPrefs(); }
 el('loginForm').onsubmit = async ev => {
   ev.preventDefault();
-  const btn = (ev.target as HTMLElement).querySelector<HTMLButtonElement>('button[type=submit]');
+  const btn = (ev.target as HTMLElement).querySelector<HTMLButtonElement>('button[type=submit]')!;
   btn.disabled = true;
   try { await signIn(el('loginPw').value, el('loginRemember').checked); el('loginPw').value = ''; showApp(); }
-  catch (e) { el('loginErr').hidden = false; el('loginErr').textContent = e.message; }
+  catch (e) { el('loginErr').hidden = false; el('loginErr').textContent = (e as Error).message; }
   finally { btn.disabled = false; }
 };
 export const THEMES = [

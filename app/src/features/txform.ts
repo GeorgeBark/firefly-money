@@ -50,7 +50,7 @@ export async function editTx(id) {
     renderTxForm();
   } catch (e) {
     if (e instanceof AuthError) return showLogin(e.message);
-    openDrawer('Transaction', html`<div class="form-err">${e.message}</div>`);
+    openDrawer('Transaction', html`<div class="form-err">${(e as Error).message}</div>`);
   }
 }
 export function accountOptions(sel, allowEmpty) {
@@ -87,8 +87,8 @@ export function collectTx() {
   if (el('f-src')) f.src = v('f-src');
   if (el('f-dst')) f.dst = v('f-dst');
   document.querySelectorAll<HTMLElement>('#txForm .split').forEach(card => {
-    const s = f.splits[+card.dataset.i];
-    card.querySelectorAll<HTMLInputElement>('[data-k]').forEach(inp => { s[inp.dataset.k] = inp.value; });
+    const s = f.splits[Number(card.dataset.i)];
+    card.querySelectorAll<HTMLInputElement>('[data-k]').forEach(inp => { s[inp.dataset.k!] = inp.value; });
   });
 }
 function resolveCounter(name, kind) {
@@ -157,7 +157,7 @@ async function saveTx(formEl) {
   } catch (e) {
     if (e instanceof AuthError) return showLogin(e.message);
     if (row) row.classList.remove('saving');
-    S.drawerHero = null; S.form = f; renderTxForm(); formError(e.message);
+    S.drawerHero = null; S.form = f; renderTxForm(); formError((e as Error).message);
   }
 }
 async function deleteTx() {

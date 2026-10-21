@@ -40,9 +40,9 @@ export function showLogin(msg?) {
   const e = el('loginErr'); e.hidden = !msg; e.textContent = msg || '';
   el('loginPw').value = ''; el('loginPw').focus();
 }
-export async function withAuth(fn) { try { return await fn(); } catch (e) { if (e instanceof AuthError) return showLogin(e.message); toast(e.message); } }
+export async function withAuth(fn) { try { return await fn(); } catch (e) { if (e instanceof AuthError) return showLogin(e.message); toast((e as Error).message); } }
 export async function busy(btn, fn) {
   if (btn) { btn.disabled = true; btn.dataset.l = btn.textContent; btn.textContent = 'Saving…'; }
-  try { await fn(); } catch (e) { if (e instanceof AuthError) return showLogin(e.message); formError(e.message); }
+  try { await fn(); } catch (e) { if (e instanceof AuthError) return showLogin(e.message); formError((e as Error).message); }
   finally { if (btn && btn.isConnected) { btn.disabled = false; btn.textContent = btn.dataset.l; } }
 }

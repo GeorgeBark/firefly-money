@@ -9,8 +9,8 @@ async function balanceSparks(accounts) {
   const start = addDays(todayIso(), -30), end = todayIso(), out = {};
   const gs = (await getAll('/transactions', { start, end, type: 'all' })).map(normGroup);     // one request for every account
   accounts.forEach(a => {
-    const byDay: any = {}; gs.forEach(g => { const v = signed(g, a.id); if (v) { const d = String(g.date).slice(0, 10); byDay[d] = (byDay[d] || 0) + v; } });
-    let bal = a.balance; const vals = [];
+    const byDay: Record<string, number> = {}; gs.forEach(g => { const v = signed(g, a.id); if (v) { const d = String(g.date).slice(0, 10); byDay[d] = (byDay[d] || 0) + v; } });
+    let bal = a.balance; const vals: number[] = [];
     for (let i = 0; i <= 30; i++) { const d = addDays(end, -i); vals.push(bal); bal -= byDay[d] || 0; }
     out[a.id] = vals.reverse();
   });
@@ -62,9 +62,9 @@ function sankeyPanel(sources, income, cats, cur) {
   return html`<section class="panel chart sankey" data-sk="${JSON.stringify(d)}"><h2>Money flow</h2><p class="lead">Where ${cur.all ? 'all your' : cur.label + '’s'} income went · hover a band for details</p>${sankeySvg(d, innerWidth < 900 ? innerWidth - 72 : 900)}</section>`;
 }
 // Shorten a label with … until it fits in px at the chart's label font
-let skCtx = null;
+let skCtx: CanvasRenderingContext2D | null = null;
 function fitText(t, px) {
-  if (!skCtx) { skCtx = document.createElement('canvas').getContext('2d'); skCtx.font = '500 12.5px ' + getComputedStyle(document.body).fontFamily; }
+  if (!skCtx) { skCtx = document.createElement('canvas').getContext('2d')!; skCtx.font = '500 12.5px ' + getComputedStyle(document.body).fontFamily; }
   if (skCtx.measureText(t).width <= px) return t;
   let n = t.length;
   while (n > 1 && skCtx.measureText(t.slice(0, n).trimEnd() + '…').width > px) n--;

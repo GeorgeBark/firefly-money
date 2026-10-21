@@ -11,7 +11,7 @@ import { newTx } from './txform';
 
 /* Polish: prefetch on hover, after-paint effects, chart tooltips, quick add and keyboard shortcuts,
    payee memory, undo for deletes, instant rules filter. */
-export const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+export const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /* ---------- Prefetch a page's data when hovering its link ---------- */
 const prefetched: any = {};
@@ -31,7 +31,7 @@ function afterPaint(r, o: any = {}) {
 function countUp() {
   if (reduceMotion) return;
   document.querySelectorAll<HTMLElement>('#view [data-count]').forEach(node => {
-    const target = parseFloat(node.dataset.count); if (!isFinite(target) || Math.abs(target) < 1) return;
+    const target = parseFloat(node.dataset.count!); if (!isFinite(target) || Math.abs(target) < 1) return;
     const t0 = performance.now(), dur = 520;
     const step = now => {
       const p = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - p, 3);
@@ -46,7 +46,7 @@ function bindChart() {
     svg.addEventListener('mousemove', e => {
       const hit = (e.target as HTMLElement).closest && (e.target as HTMLElement).closest<HTMLElement>('[data-i]'); const tip = el('tip');
       if (!hit) { tip.hidden = true; return; }
-      const d = (S.chartData || [])[+hit.dataset.i]; if (!d) return;
+      const d = (S.chartData || [])[Number(hit.dataset.i)]; if (!d) return;
       tip.innerHTML = html`<strong>${d.label}</strong><br>Earned ${money0(d.income)}<br>Spent ${money0(d.spend)}<br>Kept ${money0(d.income - d.spend)}`;
       tip.hidden = false;
       // Pin the tip centred above the hovered month rather than at the cursor, so it never covers a neighbour's bars
@@ -56,7 +56,7 @@ function bindChart() {
     });
     svg.addEventListener('mouseleave', () => { el('tip').hidden = true; });
     svg.addEventListener('click', e => {
-      const hit = (e.target as HTMLElement).closest && (e.target as HTMLElement).closest<HTMLElement>('[data-i]'); const d = hit && (S.chartData || [])[+hit.dataset.i];
+      const hit = (e.target as HTMLElement).closest && (e.target as HTMLElement).closest<HTMLElement>('[data-i]'); const d = hit && (S.chartData || [])[Number(hit.dataset.i)];
       if (!d || !d.go) return;
       el('tip').hidden = true;
       const [kind, a, b] = d.go.split(':');
@@ -102,7 +102,7 @@ export async function payeeFill(i, name) {
     const set = (k, v) => { const inp = card.querySelector<HTMLInputElement>('[data-k="' + k + '"]'); if (inp && !inp.value && v) { inp.value = v; inp.classList.add('filled'); f.splits[i][k] = v; } };
     set('category', s.category);
     if (f.type === 'withdrawal') set('budget', s.budget_id);
-    if (!card.querySelector<HTMLInputElement>('[data-k="description"]').value) set('description', s.description);
+    if (!card.querySelector<HTMLInputElement>('[data-k="description"]')!.value) set('description', s.description);
   } catch (e) { /* suggestions are optional */ }
 }
 
@@ -140,8 +140,8 @@ function liveRuleFilter(q) {
   q = q.trim().toLowerCase();
   document.querySelectorAll<HTMLDetailsElement>('.rulegroup').forEach(g => {
     let shown = 0;
-    g.querySelectorAll<HTMLElement>('td[data-text]').forEach(td => { const ok = !q || td.dataset.text.includes(q); td.parentElement.hidden = !ok; if (ok) shown++; });
-    g.hidden = q && !shown && !g.querySelector('summary').textContent.toLowerCase().includes(q);
+    g.querySelectorAll<HTMLElement>('td[data-text]').forEach(td => { const ok = !q || td.dataset.text!.includes(q); td.parentElement!.hidden = !ok; if (ok) shown++; });
+    g.hidden = q && !shown && !g.querySelector('summary')!.textContent.toLowerCase().includes(q);
     if (q && shown) g.open = true;
   });
 }

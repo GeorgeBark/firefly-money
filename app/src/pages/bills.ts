@@ -73,7 +73,7 @@ async function billRaise(id) {
   try {
     await api('/bills/' + id, { method: 'PUT', body: { amount_max: String(r.last), ...(fixed ? { amount_min: String(r.last) } : {}) } });
     invalidate(); toast(at.name + ' updated to ' + money(r.last)); route();
-  } catch (e) { toast(e.message); }
+  } catch (e) { toast((e as Error).message); }
 }
 // A rule that links the payee's future charges (and, run once now, the past year's) to the new bill
 async function billRule(name, payee) {

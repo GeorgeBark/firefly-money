@@ -20,6 +20,15 @@ const utc = (y: number, m: number, d: number) => Date.UTC(y, m, d);
 
 export class NotFound extends Error {}
 
+type MockAccount = { id: string, type: 'accounts', attributes: { name: string, type: string, current_balance: string, account_role: string | null, [k: string]: unknown } };
+type MockSplit = {
+  transaction_journal_id: string, type: string, date: string, amount: string, description: string,
+  source_id: string, source_name: string, source_type: string, destination_id: string, destination_name: string, destination_type: string,
+  category_name: string | null, category_id: string | null, budget_id: string | null, budget_name: string | null, bill_id: string | null, tags: string[], notes: string,
+  foreign_amount: string | null, foreign_currency_code: string | null, reconciled: boolean,
+};
+type MockGroup = { id: string, type: 'transactions', attributes: { group_title: string | null, transactions: MockSplit[] } };
+
 export function createMockApi(now = new Date()) {
   const random = seeded(7);
   const uniform = (a: number, b: number) => a + (b - a) * random();
@@ -27,9 +36,9 @@ export function createMockApi(now = new Date()) {
   const TODAY = utc(now.getFullYear(), now.getMonth(), now.getDate());
   const [ty, tm, td] = ymd(TODAY);
 
-  const ACC = [];
-  const acc = (id, name, type, bal = 0, role = null, kw = {}) => {
-    const a = { id: String(id), type: 'accounts', attributes: { name, type, current_balance: String(bal), account_role: role,
+  const ACC: MockAccount[] = [];
+  const acc = (id, name, type, bal = 0, role: string | null = null, kw = {}) => {
+    const a: MockAccount = { id: String(id), type: 'accounts', attributes: { name, type, current_balance: String(bal), account_role: role,
       active: true, currency_code: 'USD', include_net_worth: true, notes: '', opening_balance: '0', ...kw } };
     ACC.push(a); return a;
   };
@@ -56,13 +65,13 @@ export function createMockApi(now = new Date()) {
     .map(([name, t, c, date], i) => ({ id: String(i + 1), attributes: { name, target_amount: String(t), current_amount: String(c), left_to_save: String(t - c),
       target_date: date, active: true, accounts: [{ account_id: '2', name: 'High-Yield Savings', current_amount: String(c) }] } }));
 
-  let TX = [];
-  const addTx = (d: number, type, amt: number, description, src, dst, cat = null, bud = null) => {
+  let TX: MockGroup[] = [];
+  const addTx = (d: number, type, amt: number, description, src, dst, cat: string | null = null, bud: string | null = null) => {
     const gid = String(TX.length + 1), s = ACC_BY[src].attributes, t = ACC_BY[dst].attributes;
     TX.push({ id: gid, type: 'transactions', attributes: { group_title: null, transactions: [{
       transaction_journal_id: gid, type, date: iso(d) + 'T12:00:00-05:00', amount: amt.toFixed(2), description,
       source_id: src, source_name: s.name, source_type: s.type, destination_id: dst, destination_name: t.name, destination_type: t.type,
-      category_name: cat, category_id: CAT_ID[cat] ?? null, budget_id: BUDGETS[bud] ?? null, budget_name: bud, bill_id: null, tags: [], notes: '',
+      category_name: cat, category_id: CAT_ID[cat ?? ''] ?? null, budget_id: BUDGETS[bud ?? ''] ?? null, budget_name: bud, bill_id: null, tags: [], notes: '',
       foreign_amount: null, foreign_currency_code: null, reconciled: false }] } });
   };
 

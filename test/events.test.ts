@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { App } from '../app/src/core/base';
 import '../app/src/core/events';
 
-const parse = (src: string) => window.parseHandler(src);
+const parse = (src: string) => window.parseHandler!(src);
 
 describe('handler parser', () => {
   it('reads calls to App methods and their arguments', () => {
@@ -32,7 +32,7 @@ describe('handler binding', () => {
     App.testHandler = seen;
     document.body.innerHTML = '<input id="x" value="hello" data-onchange="App.testHandler(this.value, \'tag\', this)">';
     await Promise.resolve();      // the MutationObserver binds new markup
-    const input = document.getElementById('x');
+    const input = document.getElementById('x')!;
     input.dispatchEvent(new Event('change'));
     expect(seen).toHaveBeenCalledWith('hello', 'tag', input);
   });

@@ -5,12 +5,13 @@ import { isAsset, isCard, isLiab, lists } from '../core/lists';
 import { THEMES, setTheme } from '../core/login';
 
 /* ---------- Command palette ---------- */
-let palItems = [], palShown = [], palIdx = 0;
+type PalItem = { label: string, kind: string, go?: string, run?: () => void, low?: boolean };
+let palItems: PalItem[] = [], palShown: PalItem[] = [], palIdx = 0;
 export async function openPalette() {
   closeDrawer();
   el('palette').hidden = false; el('palQ').value = ''; el('palQ').focus();
   const L = await lists().catch(() => null);
-  const items: any[] = NAV.map(([r, label, ic]) => ({ label, kind: 'Page', go: '#/' + r }));
+  const items: PalItem[] = NAV.map(([r, label, ic]) => ({ label, kind: 'Page', go: '#/' + r }));
   items.push({ label: 'New transaction', kind: 'Action', run: () => App.quickAdd() }, { label: 'New rule', kind: 'Action', run: () => { location.hash = '#/rules'; setTimeout(() => App.ruleForm(), 400); } },
     { label: 'New recurring transaction', kind: 'Action', run: () => { location.hash = '#/recurring'; setTimeout(() => App.recurForm(), 400); } },
     { label: 'Reconcile an account', kind: 'Action', go: '#/accounts' },

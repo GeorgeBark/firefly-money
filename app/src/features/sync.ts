@@ -1,4 +1,4 @@
-import { PAGES, api } from '../core/api';
+import { PAGES, api, type ApiError } from '../core/api';
 import { App, S } from '../core/base';
 import { LS } from '../core/helpers';
 import { route } from '../core/router';
@@ -27,19 +27,19 @@ async function pushPrefs() {
   try {
     // keepCache: saving a setting doesn't change any numbers, so the saved responses stay good
     try { await api('/preferences/' + PREF, { method: 'PUT', body: { data }, keepCache: true }); }
-    catch (e) { if (e.status === 401) throw e; await api('/preferences', { method: 'POST', body: { name: PREF, data }, keepCache: true }); }
+    catch (e) { if ((e as ApiError).status === 401) throw e; await api('/preferences', { method: 'POST', body: { name: PREF, data }, keepCache: true }); }
     LS.set('syncAt', t); LS.set('syncDirty', 0); S.syncError = '';
-  } catch (e) { S.syncError = e.message || 'Firefly didn’t accept the settings.'; }
+  } catch (e) { S.syncError = (e as Error).message || 'Firefly didn’t accept the settings.'; }
 }
 // Fetch the saved settings: newer than this device's → use them; this device has unsaved changes → send those
 async function syncPrefs() {
   if (!syncOn()) return;
   pulledAt = Date.now();
-  let remote = null;
+  let remote: { t: number, keys?: Record<string, unknown> } | null = null;
   try {
     const r = await api('/preferences/' + PREF, { fresh: true }), d = r && r.data && r.data.attributes ? r.data.attributes.data : null;
     remote = typeof d === 'string' ? JSON.parse(d) : d;
-  } catch (e) { if (e.status !== 404) { S.syncError = e.message; return; } }
+  } catch (e) { if ((e as ApiError).status !== 404) { S.syncError = (e as Error).message; return; } }
   S.syncError = '';
   const dirty = LS.get('syncDirty', 0), at = LS.get('syncAt', 0);
   if (remote && remote.keys && +remote.t > Math.max(at, dirty)) return applyPrefs(remote);

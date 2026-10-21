@@ -11,7 +11,7 @@ function req({ method = 'GET', body = '', cookie = '', https = false } = {}) {
 }
 const signIn = (password, remember = false, https = false) => { const r = req({ method: 'POST', body: JSON.stringify({ password, remember }), https }); session.endpoint(r); return r; };
 const env = (globalThis as any).process.env;      // what nginx passes on with its env directive
-const value = r => /money_session=([^;]*)/.exec(r.headersOut['Set-Cookie'])[1];
+const value = r => /money_session=([^;]*)/.exec(r.headersOut['Set-Cookie'])![1];
 
 beforeEach(() => { env.DASH_PASSWORD = 'correct horse'; env.FIREFLY_TOKEN = 'tok'; });
 afterEach(() => vi.useRealTimers());
@@ -52,7 +52,7 @@ describe('session.js', () => {
     vi.useFakeTimers(); vi.setSystemTime(Date.now() + 16 * 86400e3);
     const fresh = session.renew(req({ cookie: t }));
     expect(fresh).toContain('; Max-Age=2592000');
-    expect(session.check(req({ cookie: /money_session=([^;]*)/.exec(fresh)[1] }))).toBe('1');
+    expect(session.check(req({ cookie: /money_session=([^;]*)/.exec(fresh)![1] }))).toBe('1');
   });
   it('signs out', () => {
     const r = req({ method: 'DELETE' });

@@ -37,7 +37,7 @@ async function insightCards({ cur, future, budgets, limits, cards, trend }) {
   const byLabel = isCur ? 'by the ' + ordinal(N) : 'in ' + cur.short;
   const vsWord = useLast ? (isCur ? 'last month' : prevM.short) : 'usual';
   const vsText = amt => useLast ? money0(amt) + ' ' + lastBy : 'about ' + money0(amt) + ' ' + byLabel + ' in a typical month';
-  const out = [];
+  const out: { id: string, tone: string, ic: string, title: string, detail: string, href: string, score: number }[] = [];
   const add = (id, tone, ic, title, detail, href, score) => out.push({ id: cur.y + '-' + (cur.m + 1) + ':' + id, tone, ic, title, detail, href, score });
   const avgOf = name => used.reduce((s, h) => s + (name == null ? h.total : ((h.cats.get(name) || {}).amt || 0)), 0) / used.length;
   const usualNote = (amt, base) => useLast && used.length > 1 && Math.abs(amt - base) >= 1 ? ' · usually about ' + money0(amt) : '';
@@ -53,7 +53,7 @@ async function insightCards({ cur, future, budgets, limits, cards, trend }) {
   // 2. Categories that moved the most
   const ref = useLast ? [last] : used;
   const names = new Set([...me.cats.keys(), ...ref.flatMap(h => [...h.cats.keys()])]);
-  const moves = [];
+  const moves: { name: string, id: string, amt: number, a: number, d: number, p: number, score: number }[] = [];
   names.forEach(name => {
     const c = me.cats.get(name), amt = c ? c.amt : 0, a = useLast ? ((last.cats.get(name) || {}).amt || 0) : avgOf(name);
     const id = (c || used.map(h => h.cats.get(name)).find(Boolean) || {}).id, d = amt - a;

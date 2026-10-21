@@ -464,7 +464,8 @@ function bindGrid(d) {
 }
 
 
-Object.assign(App, {
+// The methods markup handlers call (see events.ts), added to App and to its type
+const methods = {
   dashboard,
   dashButton,
   dashEdit,
@@ -480,4 +481,7 @@ Object.assign(App, {
   dashShift,
   dashNudge,
   dashTidy,
-});
+};
+Object.assign(App, methods);
+type Methods = typeof methods;
+declare module '../core/base' { interface AppApi extends Methods {} }

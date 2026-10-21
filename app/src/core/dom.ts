@@ -124,6 +124,10 @@ export function head(title, sub, actions?) {
 }
 export const opt = (v, label, sel) => html`<option value="${v}"${String(v) === String(sel) ? ' selected' : ''}>${label}</option>`;
 
-Object.assign(App, {
+// The methods markup handlers call (see events.ts), added to App and to its type
+const methods = {
   closeDrawer,
-});
+};
+Object.assign(App, methods);
+type Methods = typeof methods;
+declare module './base' { interface AppApi extends Methods {} }

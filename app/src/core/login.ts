@@ -70,7 +70,8 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && el('drawer
   catch (e) { if (e instanceof AuthError) showLogin(S.key ? 'Please sign in again.' : ''); else showApp(); }
 })();
 
-Object.assign(App, {
+// The methods markup handlers call (see events.ts), added to App and to its type
+const methods = {
   reload: route,
   newTx: async () => { await lists(); newTx(); },
   newTxFor: async id => { await lists(); newTx({ account: id }); },
@@ -97,4 +98,7 @@ Object.assign(App, {
   rulesSearch: f => { const q = f.q.value.trim(); location.hash = '#/rules' + (q ? '?q=' + encodeURIComponent(q) : ''); },
   reportsRange: f => { location.hash = '#/reports?start=' + f.s.value + '&end=' + f.e.value; },
   nativeSettings: () => window.webkit.messageHandlers.native.postMessage('settings'),
-});
+};
+Object.assign(App, methods);
+type Methods = typeof methods;
+declare module './base' { interface AppApi extends Methods {} }

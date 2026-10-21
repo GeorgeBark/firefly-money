@@ -72,7 +72,8 @@ async function deleteLink(id) {
   await withAuth(async () => { await api('/transaction-links/' + id, { method: 'DELETE' }); toast('Link removed'); refreshExtras(); });
 }
 
-Object.assign(App, {
+// The methods markup handlers call (see events.ts), added to App and to its type
+const methods = {
   loadTxExtras,
   uploadAtt,
   downloadAtt,
@@ -80,4 +81,7 @@ Object.assign(App, {
   findLink,
   makeLink,
   deleteLink,
-});
+};
+Object.assign(App, methods);
+type Methods = typeof methods;
+declare module '../core/base' { interface AppApi extends Methods {} }

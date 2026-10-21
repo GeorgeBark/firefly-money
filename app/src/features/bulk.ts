@@ -54,8 +54,12 @@ async function bulk(kind) {
   route();
 }
 
-Object.assign(App, {
+// The methods markup handlers call (see events.ts), added to App and to its type
+const methods = {
   selChanged,
   selAll,
   bulk,
-});
+};
+Object.assign(App, methods);
+type Methods = typeof methods;
+declare module '../core/base' { interface AppApi extends Methods {} }

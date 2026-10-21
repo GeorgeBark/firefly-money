@@ -110,9 +110,13 @@ document.addEventListener('keydown', e => {
   else if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'BUTTON' && (e.target as HTMLElement).tagName !== 'TEXTAREA') { e.preventDefault(); inboxSave(); }
 });
 
-Object.assign(App, {
+// The methods markup handlers call (see events.ts), added to App and to its type
+const methods = {
   inboxPick,
   inboxSkip,
   inboxBack,
   inboxSave,
-});
+};
+Object.assign(App, methods);
+type Methods = typeof methods;
+declare module '../core/base' { interface AppApi extends Methods {} }

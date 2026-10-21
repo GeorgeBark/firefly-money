@@ -145,11 +145,15 @@ function liveRuleFilter(q) {
   });
 }
 
-Object.assign(App, {
+// The methods markup handlers call (see events.ts), added to App and to its type
+const methods = {
   prefetch,
   afterPaint,
   quickAdd,
   payeeFill,
   softDeleteTx,
   liveRuleFilter,
-});
+};
+Object.assign(App, methods);
+type Methods = typeof methods;
+declare module '../core/base' { interface AppApi extends Methods {} }

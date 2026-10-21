@@ -174,8 +174,12 @@ async function deleteAccount(id) {
   catch (e) { formError((e as Error).message); }
 }
 
-Object.assign(App, {
+// The methods markup handlers call (see events.ts), added to App and to its type
+const methods = {
   accountForm,
   saveAccount,
   deleteAccount,
-});
+};
+Object.assign(App, methods);
+type Methods = typeof methods;
+declare module '../core/base' { interface AppApi extends Methods {} }

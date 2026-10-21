@@ -60,10 +60,14 @@ async function deleteThing(path, id, noun) {
   catch (e) { formError((e as Error).message); }
 }
 
-Object.assign(App, {
+// The methods markup handlers call (see events.ts), added to App and to its type
+const methods = {
   categoryForm,
   saveCategory,
   addTag,
   deleteTag,
   deleteThing,
-});
+};
+Object.assign(App, methods);
+type Methods = typeof methods;
+declare module '../core/base' { interface AppApi extends Methods {} }

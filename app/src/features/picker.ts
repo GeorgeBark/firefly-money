@@ -90,10 +90,14 @@ async function pickChoose(i) {
   }
 }
 
-Object.assign(App, {
+// The methods markup handlers call (see events.ts), added to App and to its type
+const methods = {
   pick,
   pickFilter,
   pickKey,
   pickHover,
   pickChoose,
-});
+};
+Object.assign(App, methods);
+type Methods = typeof methods;
+declare module '../core/base' { interface AppApi extends Methods {} }

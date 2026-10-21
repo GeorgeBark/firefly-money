@@ -165,9 +165,13 @@ async function safeCard() {
   } catch (e) { return ''; }
 }
 
-Object.assign(App, {
+// The methods markup handlers call (see events.ts), added to App and to its type
+const methods = {
   fcToggle,
   fcSet,
   fcBuffer,
   safeCard,
-});
+};
+Object.assign(App, methods);
+type Methods = typeof methods;
+declare module '../core/base' { interface AppApi extends Methods {} }

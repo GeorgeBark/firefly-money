@@ -68,7 +68,7 @@ function condRow(kind, t, i) {
   return html`<div class="editor-row" data-${kind}="${i}"><select data-f="type" data-onchange="App.ruleRowType(this)">${has ? '' : opt(t.type, t.type, t.type)}${htmlList(list.map(x => opt(x[0], x[1], t.type)))}</select><input type="text" data-f="value" value="${t.value || ''}"${noVal.has(t.type) ? html` disabled placeholder="No value needed"` : html` placeholder="Value"`}><span style="display:flex;gap:6px;align-items:center">${kind === 't' ? html`<label class="check" style="margin:0;font-size:12px" title="Match when this is NOT true"><input type="checkbox" data-f="prohibited"${t.prohibited ? ' checked' : ''}>Not</label>` : ''}<button type="button" class="x" data-onclick="App.removeRow(this)" aria-label="Remove">×</button></span></div>`;
 }
 function ruleRowType(sel) { const inp = sel.parentElement.querySelector('[data-f=value]'); const nv = noVal.has(sel.value); inp.disabled = nv; inp.placeholder = nv ? 'No value needed' : 'Value'; if (nv) inp.value = ''; }
-function ruleForm(id, groupId) {
+function ruleForm(id?, groupId?) {
   const at = id ? S.rules![id] : { title: '', rule_group_id: groupId || (S.ruleGroups![0] || {}).id, trigger: 'store-journal', strict: true, active: true, stop_processing: false,
     triggers: [{ type: 'description_contains', value: '' }], actions: [{ type: 'set_category', value: '' }] };
   S.form = { id };
@@ -148,7 +148,8 @@ async function applyRules() {
   });
 }
 
-Object.assign(App, {
+// The methods markup handlers call (see events.ts), added to App and to its type
+const methods = {
   toggleRule,
   ruleForm,
   ruleAdd,
@@ -161,4 +162,7 @@ Object.assign(App, {
   runRules,
   previewRules,
   applyRules,
-});
+};
+Object.assign(App, methods);
+type Methods = typeof methods;
+declare module '../core/base' { interface AppApi extends Methods {} }

@@ -100,7 +100,8 @@ async function deleteHook(id) {
 
 function toggleLogos(on) { LS.set('logos', !!on); toast(on ? 'Logos on' : 'Logos off'); }
 
-Object.assign(App, {
+// The methods markup handlers call (see events.ts), added to App and to its type
+const methods = {
   currency,
   toggleLogos,
   addRate,
@@ -109,4 +110,7 @@ Object.assign(App, {
   addHook,
   toggleHook,
   deleteHook,
-});
+};
+Object.assign(App, methods);
+type Methods = typeof methods;
+declare module '../core/base' { interface AppApi extends Methods {} }

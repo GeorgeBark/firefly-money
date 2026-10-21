@@ -62,11 +62,15 @@ async function recAdjust() {
   newTx({ type: d > 0 ? 'deposit' : 'withdrawal', account: R.a.id, amount: String(Math.abs(d)), description: 'Reconciliation adjustment', date: R.end });
 }
 
-Object.assign(App, {
+// The methods markup handlers call (see events.ts), added to App and to its type
+const methods = {
   recCalc,
   recTick,
   recAll,
   recDates,
   recFinish,
   recAdjust,
-});
+};
+Object.assign(App, methods);
+type Methods = typeof methods;
+declare module '../core/base' { interface AppApi extends Methods {} }

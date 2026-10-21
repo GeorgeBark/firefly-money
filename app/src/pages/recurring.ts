@@ -23,7 +23,7 @@ VIEWS.recurring = async (r, paint) => {
   paint(html`${head('Recurring', 'Transactions Firefly creates for you automatically on a schedule', html`<button class="btn primary" data-onclick="App.recurForm()">+ New recurring</button>`)}<section class="panel flush">${rows ? html`<table class="tbl"><thead><tr><th>Name</th><th class="hide-s">From → To</th><th class="hide-s">Next</th><th class="r">Amount</th></tr></thead><tbody>${rows}</tbody></table>`
       : html`<div class="center-empty">Nothing recurring yet. Add rent, a salary or a subscription and Firefly will create it for you each time.</div>`}</section><p class="sub-s" style="margin-top:14px">Firefly creates these transactions on its daily cron job, so make sure the cron is set up in your Firefly install.</p>`);
 };
-function recurForm(id, forceType) {
+function recurForm(id?, forceType?) {
   const L = S.lists!, at = id ? S.recCache![id] : null, rep = at ? (at.repetitions || [])[0] || {} : {};
   const type = forceType || (at ? at.type : 'withdrawal');
   const t = at && at.type === type ? (at.transactions || [])[0] || {} : at ? { amount: ((at.transactions || [])[0] || {}).amount, description: ((at.transactions || [])[0] || {}).description } : {};
@@ -93,10 +93,14 @@ async function deleteRecur(id) {
   await withAuth(async () => { await api('/recurrences/' + id, { method: 'DELETE' }); closeDrawer(); toast('Recurring transaction deleted'); route(); });
 }
 
-Object.assign(App, {
+// The methods markup handlers call (see events.ts), added to App and to its type
+const methods = {
   recurForm,
   recurType,
   recurEnds,
   saveRecur,
   deleteRecur,
-});
+};
+Object.assign(App, methods);
+type Methods = typeof methods;
+declare module '../core/base' { interface AppApi extends Methods {} }

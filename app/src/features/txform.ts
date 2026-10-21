@@ -1,7 +1,7 @@
 import { html, htmlList } from '../core/html';
 import { AuthError, api } from '../core/api';
 import { showLogin } from '../core/auth';
-import { App, S, el, fmtDate, money, num, sameName, todayIso, type Field } from '../core/base';
+import { App, S, el, fmtDate, money, num, sameName, todayIso, type AppApi, type Field } from '../core/base';
 import { closeDrawer, formError, icon, openDrawer, opt, toast, vt, vtName } from '../core/dom';
 import { avatarHtml, normGroup, payeeOf, signed } from '../core/feed';
 import { invalidate, isAsset, isCard, isLiab, lists } from '../core/lists';
@@ -77,7 +77,7 @@ export function renderTxForm() {
   const scroll = wasOpen ? el('drawerBody').scrollTop : 0;
   openDrawer(f.id ? 'Edit transaction' : 'New transaction', body, foot);
   if (wasOpen) el('drawerBody').scrollTop = scroll;
-  if (f.id && window.App.loadTxExtras) App.loadTxExtras(f.id, f.splits.map(s => s.jid).filter(Boolean));
+  if (f.id && (window.App as Partial<AppApi>).loadTxExtras) App.loadTxExtras(f.id, f.splits.map(s => s.jid).filter(Boolean));
 }
 export function collectTx() {
   const f = S.form; if (!f || !el('txForm')) return;
@@ -166,8 +166,12 @@ async function deleteTx() {
   App.softDeleteTx([f.id]);
 }
 
-Object.assign(App, {
+// The methods markup handlers call (see events.ts), added to App and to its type
+const methods = {
   editTx,
   saveTx,
   deleteTx,
-});
+};
+Object.assign(App, methods);
+type Methods = typeof methods;
+declare module '../core/base' { interface AppApi extends Methods {} }

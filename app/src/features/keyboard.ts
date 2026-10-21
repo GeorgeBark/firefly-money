@@ -44,7 +44,11 @@ function afterPaint2(r) {
   S.kIdx = -1;
 }
 
-Object.assign(App, {
+// The methods markup handlers call (see events.ts), added to App and to its type
+const methods = {
   afterPaint2,
   shortcutsSheet,
-});
+};
+Object.assign(App, methods);
+type Methods = typeof methods;
+declare module '../core/base' { interface AppApi extends Methods {} }

@@ -7,7 +7,9 @@ export const PAGE_SIZE = 50;
 
 /* ================= State & helpers ================= */
 // The methods that markup handlers (data-onclick and friends, see events.ts) call; each module adds its own.
-export const App: any = (window as any).App = {};
+// Each module adds its methods to the AppApi type next to where it adds them to App.
+export interface AppApi {}
+export const App = window.App = {} as AppApi;
 export let today = new Date();
 export const setToday = (d: Date) => { today = d; };
 // Firefly's JSON as the API returns it. Not typed yet: each use reads the fields it needs.

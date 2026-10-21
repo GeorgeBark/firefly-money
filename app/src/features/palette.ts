@@ -62,11 +62,15 @@ function palRun(i) {
 }
 function closePalette() { el('palette').hidden = true; }
 
-Object.assign(App, {
+// The methods markup handlers call (see events.ts), added to App and to its type
+const methods = {
   openPalette,
   closePalette,
   palFilter,
   palKey,
   palRun,
   palHover,
-});
+};
+Object.assign(App, methods);
+type Methods = typeof methods;
+declare module '../core/base' { interface AppApi extends Methods {} }

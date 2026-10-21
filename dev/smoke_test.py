@@ -135,6 +135,12 @@ async def check(pw, width, height, mobile):
         await page.wait_for_selector('#dashCols')
         if await page.locator('#view .hero').count() or await page.evaluate("el('dash').dataset.cols") != '2':
             errors.append('hiding the net worth summary did not stick')
+        # Payees list what was spent at each one in the month picked at the top
+        await goto(page, 'accounts?tab=expense'); await page.wait_for_selector('#view .tbl td.amt')
+        if '$' not in await page.locator('#view .tbl tbody tr td.amt').first.inner_text() or not await page.locator('#view .month').count():
+            errors.append('the Payees tab does not show a total for the month')
+        await goto(page, ''); await page.wait_for_selector('#dash [data-w="payees"] .cat', timeout=15000)
+        await page.evaluate('App.dashEdit(true)'); await page.wait_for_selector('#dashCols')
         # A tile's own settings: fewer recent transactions
         await page.locator('#dash [data-w="recent"] .obtn').click(); await page.wait_for_selector('#dash [data-w="recent"] .wopts:not([hidden]) select')
         await page.locator('#dash [data-w="recent"] .wopts select').select_option('5'); await page.wait_for_function(PAINTED, timeout=15000)

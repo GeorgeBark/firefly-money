@@ -139,6 +139,11 @@ async def check(pw, width, height, mobile):
         await goto(page, 'accounts?tab=expense'); await page.wait_for_selector('#view .tbl td.amt')
         if '$' not in await page.locator('#view .tbl tbody tr td.amt').first.inner_text() or not await page.locator('#view .month').count():
             errors.append('the Payees tab does not show a total for the month')
+        # Logos: the ones the server has show, the rest fall back to initials (the broken img is removed)
+        await page.wait_for_timeout(800)
+        logos = await page.evaluate("[...document.querySelectorAll('#view img.logo')].map(i => i.complete && i.naturalWidth > 0 && i.classList.contains('ok'))")
+        # (the static demo build has no logo server, so there every logo falls back)
+        if not all(logos) or (not logos and '/demo/' not in BASE): errors.append(f'payee logos did not load or fall back cleanly: {logos}')
         await goto(page, ''); await page.wait_for_selector('#dash [data-w="payees"] .cat', timeout=15000)
         await page.evaluate('App.dashEdit(true)'); await page.wait_for_selector('#dashCols')
         # A tile's own settings: fewer recent transactions

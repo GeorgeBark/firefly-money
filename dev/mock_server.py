@@ -211,6 +211,10 @@ class H(BaseHTTPRequestHandler):
                 if not f.startswith(root + os.sep) or not os.path.isfile(f): self.send_response(404); self.end_headers(); return
                 ctype = {'.css': 'text/css', '.js': 'application/javascript', '.map': 'application/json'}.get(os.path.splitext(f)[1], 'application/octet-stream')
                 body = open(f, 'rb').read(); self.send_response(200); self.send_header('Content-Type', ctype); self.end_headers(); self.wfile.write(body)
+            elif u.path in ('/logo/streamflix.com', '/logo/tunesplus.com'):   # stands in for nginx's logo proxy; other payees have none
+                c = '#e50914' if 'stream' in u.path else '#1db954'
+                body = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="%s"/><path d="M11 8v16l13-8z" fill="#fff"/></svg>' % c).encode()
+                self.send_response(200); self.send_header('Content-Type', 'image/svg+xml'); self.end_headers(); self.wfile.write(body)
             else: self.send_response(404); self.end_headers()
             return
         if LATENCY: time.sleep(LATENCY)        # simulate a real Firefly server (set LATENCY=0.15)

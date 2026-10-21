@@ -48,7 +48,11 @@ function bindChart() {
       if (!hit) { tip.hidden = true; return; }
       const d = (S.chartData || [])[+hit.dataset.i]; if (!d) return;
       tip.innerHTML = html`<strong>${d.label}</strong><br>Earned ${money0(d.income)}<br>Spent ${money0(d.spend)}<br>Kept ${money0(d.income - d.spend)}`;
-      tip.hidden = false; tip.style.left = Math.min(innerWidth - 170, e.clientX + 14) + 'px'; tip.style.top = (e.clientY + 14) + 'px';
+      tip.hidden = false;
+      // Pin the tip centred above the hovered month rather than at the cursor, so it never covers a neighbour's bars
+      const col = (hit.closest('.col')?.querySelector('.band') || hit).getBoundingClientRect(), w = tip.offsetWidth, hgt = tip.offsetHeight;
+      tip.style.left = Math.max(8, Math.min(innerWidth - w - 8, col.left + col.width / 2 - w / 2)) + 'px';
+      tip.style.top = (col.top - hgt - 8 >= 8 ? col.top - hgt - 8 : col.bottom + 8) + 'px';
     });
     svg.addEventListener('mouseleave', () => { el('tip').hidden = true; });
     svg.addEventListener('click', e => {

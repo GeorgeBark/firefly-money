@@ -3,6 +3,7 @@
 !app/default.conf.template
 !app/nginx.conf
 !app/session.js
+!app/ingest.js
 !app/assets
 !app/assets/**
 app/assets/js

@@ -1,0 +1,91 @@
+// @vitest-environment node
+import { beforeEach, describe, expect, it } from 'vitest';
+import ingest from '../app/ingest.js';
+
+const env = (globalThis as any).process.env;
+beforeEach(() => { env.DASH_PASSWORD = 'correct horse'; env.FIREFLY_TOKEN = 'tok'; });
+
+const ACCOUNTS = {
+  asset: [{ id: '1', attributes: { name: 'Checking', account_number: '000123456789' } }, { id: '2', attributes: { name: 'Savings' } }],
+  liabilities: [{ id: '3', attributes: { name: 'Apple Card' } }, { id: '4', attributes: { name: 'Chase Sapphire', account_number: '4111 1111 1111 9876' } }],
+};
+// A stand-in for nginx's request object, with a pretend Firefly behind r.subrequest
+function req({ method = 'POST', body = {} as any, auth = '', session = '', firefly = {} as any } = {}) {
+  const calls: { uri: string, method: string, args: string, body: any }[] = [];
+  const r: any = { method, requestText: typeof body === 'string' ? body : JSON.stringify(body), headersIn: { Authorization: auth, 'X-Money': session ? '1' : undefined }, headersOut: {},
+    variables: { money_session: session }, status: 0, text: '', calls };
+  r.return = (s, t = '') => { r.status = s; r.text = t; };
+  r.subrequest = async (uri, o) => {
+    calls.push({ uri, method: o.method, args: o.args, body: o.body ? JSON.parse(o.body) : null });
+    const path = uri.replace('/__firefly/api/v1', ''), reply = (status, data) => ({ status, responseText: JSON.stringify(data) });
+    if (path === '/accounts') return reply(200, { data: ACCOUNTS[/type=(\w+)/.exec(o.args)![1]] });
+    if (path === '/search/accounts') return reply(200, { data: firefly.payee ? [{ id: '9', attributes: { name: firefly.payee } }] : [] });
+    if (path === '/accounts/9/transactions') return reply(200, { data: [{ attributes: { transactions: [{ destination_id: '9', category_name: 'Coffee', budget_id: '5' }] } }] });
+    if (path === '/transactions') return firefly.duplicate ? reply(422, { message: 'Duplicate of transaction #4.', errors: {} }) : reply(200, { data: {} });
+    return reply(404, {});
+  };
+  return r;
+}
+async function keyFor() { const r = req({ method: 'GET', session: '1' }); await ingest.endpoint(r); return JSON.parse(r.text).key; }
+const posted = r => r.calls.find(c => c.uri.endsWith('/transactions') && c.method === 'POST').body.transactions[0];
+
+describe('ingest.js', () => {
+  it('reads amounts the way Wallet and people write them', () => {
+    expect(ingest.parseAmount('$12.40')).toBe('12.40');
+    expect(ingest.parseAmount('$1,234.56')).toBe('1234.56');
+    expect(ingest.parseAmount('1.234,56 €')).toBe('1234.56');
+    expect(ingest.parseAmount('4,5')).toBe('4.50');
+    expect(ingest.parseAmount('1,234')).toBe('1234.00');
+    expect(ingest.parseAmount('-$3.00')).toBe('-3.00');
+    expect(ingest.parseAmount(7)).toBe('7.00');
+    expect(ingest.parseAmount('')).toBeNull();
+    expect(ingest.parseAmount('$0.00')).toBeNull();
+  });
+  it('finds the account a card name means, and only when one fits', () => {
+    const accs = [{ id: '1', name: 'Checking', number: '000123456789' }, { id: '3', name: 'Apple Card', number: '' }, { id: '4', name: 'Chase Sapphire', number: '4111111111119876' }, { id: '5', name: 'Chase Freedom', number: '' }];
+    expect(ingest.matchAccount(accs, 'Apple Card')!.id).toBe('3');
+    expect(ingest.matchAccount(accs, 'apple card')!.id).toBe('3');
+    expect(ingest.matchAccount(accs, 'Chase Sapphire Preferred')!.id).toBe('4');
+    expect(ingest.matchAccount(accs, 'Visa ••9876')!.id).toBe('4');
+    expect(ingest.matchAccount(accs, 'Debit 6789')!.id).toBe('1');
+    expect(ingest.matchAccount(accs, 'Chase')).toBeNull();      // two Chase accounts: don't guess
+    expect(ingest.matchAccount(accs, 'Amex Gold')).toBeNull();
+  });
+  it('gives the key only to a signed-in app', async () => {
+    const out = req({ method: 'GET' }); await ingest.endpoint(out);
+    expect(out.status).toBe(401);
+    expect(await keyFor()).toMatch(/^[\w-]{43}$/);
+  });
+  it('refuses a wrong or missing key, and every key without a DASH_PASSWORD', async () => {
+    for (const auth of ['', 'Bearer nope']) { const r = req({ auth, body: { amount: '$1', merchant: 'X', card: 'Apple Card' } }); await ingest.endpoint(r); expect(r.status).toBe(401); expect(r.calls).toEqual([]); }
+    const key = await keyFor(); env.DASH_PASSWORD = '';
+    const r = req({ auth: 'Bearer ' + key, body: { amount: '$1', merchant: 'X', card: 'Apple Card' } }); await ingest.endpoint(r);
+    expect(r.status).toBe(401);
+  });
+  it('logs a payment to the card’s account with the payee’s usual category', async () => {
+    const r = req({ auth: 'Bearer ' + await keyFor(), body: { amount: '$4.75', merchant: 'Blue Bottle', card: 'Apple Card' }, firefly: { payee: 'Blue Bottle' } });
+    await ingest.endpoint(r);
+    expect(r.status).toBe(200);
+    expect(r.text).toBe('Logged 4.75 at Blue Bottle (Apple Card).\n');
+    expect(posted(r)).toMatchObject({ type: 'withdrawal', amount: '4.75', description: 'Blue Bottle', source_id: '3', destination_name: 'Blue Bottle', tags: ['Apple Pay'], category_name: 'Coffee', budget_id: '5' });
+    expect(r.calls.find(c => c.uri.endsWith('/transactions') && c.method === 'POST').body).toMatchObject({ error_if_duplicate_hash: true, apply_rules: true });
+  });
+  it('uses the account the Shortcut names, and logs refunds as income', async () => {
+    const r = req({ auth: 'Bearer ' + await keyFor(), body: { amount: '-$20', merchant: 'Target', card: 'Whatever', account: 'checking' } });
+    await ingest.endpoint(r);
+    expect(r.status).toBe(200);
+    expect(posted(r)).toMatchObject({ type: 'deposit', amount: '20.00', source_name: 'Target', destination_id: '1' });
+  });
+  it('explains what went wrong', async () => {
+    const key = 'Bearer ' + await keyFor();
+    const none = req({ auth: key, body: { amount: '$4', merchant: 'Shop', card: 'Amex Gold' } }); await ingest.endpoint(none);
+    expect(none.status).toBe(422);
+    expect(none.text).toContain('Checking, Savings, Apple Card, Chase Sapphire');
+    const noAmount = req({ auth: key, body: { amount: 'free', merchant: 'Shop', card: 'Apple Card' } }); await ingest.endpoint(noAmount);
+    expect(noAmount.status).toBe(400);
+    const notJson = req({ auth: key, body: 'amount=4' }); await ingest.endpoint(notJson);
+    expect(notJson.status).toBe(400);
+    const dup = req({ auth: key, body: { amount: '$4', merchant: 'Shop', card: 'Apple Card' }, firefly: { duplicate: true } }); await ingest.endpoint(dup);
+    expect([dup.status, dup.text]).toEqual([200, 'Already logged.\n']);
+  });
+});

@@ -20,7 +20,7 @@ export type Feed = { next: number, pages: number, opts: { accountId?: string, se
 // The app's state: what's on screen, what's open, and data kept between pages
 export interface State {
   y: number, m: number, all?: boolean,                 // the month in view, or all time
-  signedIn: boolean, remember?: boolean,                 // signed in (the session cookie itself is HttpOnly), and whether it's kept on this device
+  signedIn: boolean, remember?: boolean,                 // signed in (the session cookie itself is HttpOnly), and whether data is kept on this device
   currency: string,
   lists: Lists | null, listsAt?: number,
   freshAfter: number, dirtyAt: number,                   // cached responses older than freshAfter are fetched again; older than dirtyAt are out of date (api.ts)

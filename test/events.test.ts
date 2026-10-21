@@ -29,7 +29,7 @@ describe('handler parser', () => {
 describe('handler binding', () => {
   it('calls the App method when the event fires, with this and its properties', async () => {
     const seen = vi.fn();
-    App.testHandler = seen;
+    Object.assign(App, { testHandler: seen });
     document.body.innerHTML = '<input id="x" value="hello" data-onchange="App.testHandler(this.value, \'tag\', this)">';
     await Promise.resolve();      // the MutationObserver binds new markup
     const input = document.getElementById('x')!;

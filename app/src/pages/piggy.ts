@@ -1,7 +1,7 @@
 import { html, htmlList } from '../core/html';
 import { api, getAll } from '../core/api';
 import { busy } from '../core/auth';
-import { App, S, el, fmtDate, money, money0, num, todayIso } from '../core/base';
+import { App, S, el, fmtDate, money, money0, num, todayIso, type Field } from '../core/base';
 import { closeDrawer, formError, head, openDrawer, opt, toast } from '../core/dom';
 import { isAsset, isCard, lists } from '../core/lists';
 import { VIEWS, route } from '../core/router';
@@ -40,7 +40,7 @@ VIEWS.piggy = async (r, paint) => {
     html`<section class="panel"><div class="center-empty">No piggy banks yet.<br>Use one to set money aside in an account for a goal — a trip, tuition, an emergency fund.</div></section>`}`);
 };
 function piggyForm(id) {
-  const L = S.lists, p = id ? S.piggyCache[id] : null;
+  const L = S.lists!, p = id ? S.piggyCache![id] : null;
   S.form = { id };
   const accId = p && p.accounts[0] ? p.accounts[0].id : ((L.own.find(a => a.role === 'savingAsset') || L.own.find(a => isAsset(a) && !isCard(a)) || {}).id || '');
   openDrawer(id ? 'Edit piggy bank' : 'New piggy bank',
@@ -48,17 +48,17 @@ function piggyForm(id) {
     html`${id ? html`<button class="btn danger" data-onclick="App.deleteThing('piggy-banks','${id}','piggy bank')">Delete</button>` : ''}<span class="grow"></span><button class="btn" data-onclick="App.closeDrawer()">Cancel</button><button class="btn primary" id="pgSave" data-onclick="App.submit('pgForm')">${id ? 'Save' : 'Create piggy bank'}</button>`);
   if (id) getAll('/piggy-banks/' + id + '/events').then(ev => {
     const box = el('pgHistory'); if (!box) return;
-    box.innerHTML = html`<h3 style="font-size:14px;margin:8px 0 10px">History</h3>${ev.length ? html`<div class="list">${htmlList(ev.map(e => {
+    box.innerHTML = String(html`<h3 style="font-size:14px;margin:8px 0 10px">History</h3>${ev.length ? html`<div class="list">${htmlList(ev.map(e => {
       const a = num(e.attributes.amount);
       return html`<div class="row"><span class="name">${fmtDate(e.attributes.created_at || e.attributes.date)}${e.attributes.transaction_journal_id ? html` <span class="sub-s">· from a transaction</span>` : ''}</span><span class="num ${a < 0 ? 'neg' : 'pos'}">${a > 0 ? '+' : ''}${money(a)}</span></div>`;
-    }))}</div>` : html`<p class="empty">No changes yet.</p>`}`;
+    }))}</div>` : html`<p class="empty">No changes yet.</p>`}`);
   }).catch(() => { const box = el('pgHistory'); if (box) box.innerHTML = ''; });
 }
 async function savePiggy() {
-  const id = S.form.id, v = x => el(x) ? el(x).value.trim() : '';
+  const id = S.form.id, v = x => el<Field>(x) ? el<Field>(x).value.trim() : '';
   if (!v('p-name')) return formError('Give it a name.');
   if (!(num(v('p-target')) > 0)) return formError('Set a goal amount above zero.');
-  const body: any = { name: v('p-name'), target_amount: String(num(v('p-target'))), notes: el('p-notes').value, object_group_title: v('p-group') };
+  const body: any = { name: v('p-name'), target_amount: String(num(v('p-target'))), notes: el<HTMLTextAreaElement>('p-notes').value, object_group_title: v('p-group') };
   if (v('p-date')) body.target_date = v('p-date');
   if (!id) {
     body.start_date = todayIso(); body.transaction_currency_code = S.currency;
@@ -70,16 +70,16 @@ async function savePiggy() {
   });
 }
 function piggyMoney(id, dir) {
-  const p = S.piggyCache[id];
+  const p = S.piggyCache![id];
   S.form = { id, dir };
   openDrawer((dir > 0 ? 'Add money to ' : 'Take money out of ') + p.name,
-    html`<form id="pmForm" data-onsubmit="event.preventDefault();App.savePiggyMoney()"><p class="sub-s" style="margin-top:0">Currently ${money(p.current)} of ${money(p.target)}. This only moves money in Firefly’s bookkeeping — no transaction is created.</p>${p.accounts.length > 1 ? html`<label>Account<select id="pm-acc">${htmlList(p.accounts.map(a => opt(a.id, (a.name || (S.lists.byId[a.id] || {}).name) + ' (' + money(a.amount) + ')', '')))}</select></label>` : ''}<label>Amount<input type="number" min="0.01" step="0.01" id="pm-amt" required></label><button type="submit" hidden></button></form>`,
+    html`<form id="pmForm" data-onsubmit="event.preventDefault();App.savePiggyMoney()"><p class="sub-s" style="margin-top:0">Currently ${money(p.current)} of ${money(p.target)}. This only moves money in Firefly’s bookkeeping — no transaction is created.</p>${p.accounts.length > 1 ? html`<label>Account<select id="pm-acc">${htmlList(p.accounts.map(a => opt(a.id, (a.name || (S.lists!.byId[a.id] || {}).name) + ' (' + money(a.amount) + ')', '')))}</select></label>` : ''}<label>Amount<input type="number" min="0.01" step="0.01" id="pm-amt" required></label><button type="submit" hidden></button></form>`,
     html`<span class="grow"></span><button class="btn" data-onclick="App.closeDrawer()">Cancel</button><button class="btn primary" id="pmSave" data-onclick="App.submit('pmForm')">${dir > 0 ? 'Add' : 'Take out'}</button>`);
 }
 async function savePiggyMoney() {
-  const { id, dir } = S.form, p = S.piggyCache[id], amt = num(el('pm-amt').value);
+  const { id, dir } = S.form, p = S.piggyCache![id], amt = num(el<HTMLInputElement>('pm-amt').value);
   if (!(amt > 0)) return formError('Enter an amount above zero.');
-  const accId = el('pm-acc') ? el('pm-acc').value : (p.accounts[0] || {}).id;
+  const accId = el<HTMLSelectElement>('pm-acc') ? el<HTMLSelectElement>('pm-acc').value : (p.accounts[0] || {}).id;
   if (!accId) return formError('This piggy bank has no account linked. Edit it in Firefly III.');
   const accounts = p.accounts.map(a => ({ account_id: a.id, current_amount: String(a.id === accId ? Math.max(0, a.amount + dir * amt) : a.amount) }));
   if (dir < 0 && (p.accounts.find(a => a.id === accId) || {}).amount < amt) return formError('There isn’t that much saved in it.');
@@ -89,9 +89,13 @@ async function savePiggyMoney() {
   });
 }
 
-Object.assign(App, {
+// The methods markup handlers call (see events.ts), added to App and to its type
+const methods = {
   piggyForm,
   savePiggy,
   piggyMoney,
   savePiggyMoney,
-});
+};
+Object.assign(App, methods);
+type Methods = typeof methods;
+declare module '../core/base' { interface AppApi extends Methods {} }

@@ -52,14 +52,24 @@ PIGGIES = [{'id': str(i + 1), 'attributes': {'name': n, 'target_amount': str(t),
             'accounts': [{'account_id': '2', 'name': 'High-Yield Savings', 'current_amount': str(c)}]}}
            for i, (n, t, c, td) in enumerate([('Emergency fund', 10000, 6200, None), ('Summer trip', 2400, 950, (TODAY + timedelta(days=200)).isoformat())])]
 
+# Bills: three that the payees above charge every month, and a yearly one with no charges yet (due in 18 days)
+BILLS = [  # id, name, lowest, highest, repeats, first due date, group, payee
+    ('1', 'StreamFlix', 15.49, 15.49, 'monthly', date(2026, 1, 11), 'Subscriptions', 'StreamFlix'),
+    ('2', 'Tunes Plus', 11.99, 11.99, 'monthly', date(2026, 1, 12), 'Subscriptions', 'Tunes Plus'),
+    ('3', 'City Power & Light', 80, 115, 'monthly', date(2026, 1, 13), 'Home', 'City Power & Light'),
+    ('4', 'Car insurance', 540, 540, 'yearly', TODAY + timedelta(days=18) - timedelta(days=365), 'Car', None),
+]
+BILL_OF = {b[7]: b for b in BILLS if b[7]}
+
 TX = []
 def add_tx(d, typ, amt, desc, src, dst, cat=None, bud=None):
     gid = str(len(TX) + 1)
     s = ACC_BY[src]['attributes']; t = ACC_BY[dst]['attributes']
-    TX.append({'id': gid, 'type': 'transactions', 'attributes': {'group_title': None, 'transactions': [{
+    bill = BILL_OF.get(t['name']) if typ == 'withdrawal' else None
+    TX.append({'id': gid, 'type': 'transactions', 'attributes': {'group_title': None, 'created_at': d.isoformat() + 'T18:00:00-05:00', 'transactions': [{
         'transaction_journal_id': gid, 'type': typ, 'date': d.isoformat() + 'T12:00:00-05:00', 'amount': '%.2f' % amt, 'description': desc,
         'source_id': src, 'source_name': s['name'], 'source_type': s['type'], 'destination_id': dst, 'destination_name': t['name'], 'destination_type': t['type'],
-        'category_name': cat, 'category_id': CAT_ID.get(cat), 'budget_id': BUDGETS.get(bud), 'budget_name': bud, 'bill_id': None, 'tags': [], 'notes': '',
+        'category_name': cat, 'category_id': CAT_ID.get(cat), 'budget_id': BUDGETS.get(bud), 'budget_name': bud, 'bill_id': bill and bill[0], 'bill_name': bill and bill[1], 'tags': [], 'notes': '',
         'foreign_amount': None, 'foreign_currency_code': None, 'reconciled': False}]}})
 ACC_BY = {a['id']: a for a in ACC}
 
@@ -122,6 +132,26 @@ def balance_on(a, day):
         if j['source_id'] == a['id']: moved -= float(j['amount'])
     return {**a, 'attributes': {**t, 'current_balance': '%.2f' % (float(t['current_balance']) - moved)}}
 
+# The days a bill is due from start to end (ISO dates)
+def bill_due(b, start, end):
+    first, out, y, m = b[5], [], b[5].year, b[5].month
+    while True:
+        last = (date(y + m // 12, m % 12 + 1, 1) - timedelta(days=1)).day
+        d = date(y, m, min(first.day, last)).isoformat()
+        if d > end: return out
+        if d >= start: out.append(d)
+        m += 1 if b[4] == 'monthly' else 12
+        y, m = y + (m - 1) // 12, (m - 1) % 12 + 1
+# A bill as Firefly answers it, for a date range: the days it's due in that range, and the charges that paid it
+def bill_json(b, q):
+    bid, name, lo, hi, freq, first, grp, payee = b
+    ranged = bool(q.get('start') and q.get('end'))
+    paid = [{'transaction_group_id': g['id'], 'transaction_journal_id': g['id'], 'date': jd(g)['date']} for g in TX if ranged and jd(g)['bill_id'] == bid and in_range(g, q)]
+    nxt = bill_due(b, TODAY.isoformat(), (TODAY + timedelta(days=400)).isoformat())
+    return {'id': bid, 'attributes': {'name': name, 'amount_min': '%.2f' % lo, 'amount_max': '%.2f' % hi, 'date': first.isoformat(), 'repeat_freq': freq, 'skip': 0,
+            'active': True, 'object_group_title': grp, 'currency_code': 'USD', 'notes': '', 'next_expected_match': nxt[0] if nxt else None,
+            'pay_dates': bill_due(b, q['start'], q['end']) if ranged else [], 'paid_dates': paid}}
+
 PREFS = {}       # Firefly user preferences (Money keeps its synced settings in one), kept until the server stops
 class NotFound(Exception): pass
 
@@ -151,7 +181,10 @@ def handle(path, q, method, body=None):
         return page(out, q)
     if path == '/budget-limits': return page([{'id': '1', 'attributes': {'budget_id': '1', 'amount': '900'}}, {'id': '2', 'attributes': {'budget_id': '2', 'amount': '200'}}], q)
     if path == '/piggy-banks': return page(PIGGIES, q)
-    if path in ('/bills', '/tags', '/recurrences', '/rule-groups', '/rules', '/link-types', '/webhooks', '/available-budgets'): return page([], q)
+    if path == '/bills': return page([bill_json(b, q) for b in BILLS], q)
+    m = re.match(r'/bills/(\d+)/transactions$', path)
+    if m: return page([g for g in TX if jd(g)['bill_id'] == m.group(1) and in_range(g, q)], q)
+    if path in ('/tags', '/recurrences', '/rule-groups', '/rules', '/link-types', '/webhooks', '/available-budgets'): return page([], q)
     if path == '/currencies': return page([{'id': '1', 'attributes': {'code': 'USD', 'name': 'US Dollar', 'symbol': '$', 'enabled': True, 'primary': True}}], q)
     if path == '/summary/basic': return {'net-worth-in-USD': {'monetary_value': '5418.00'}}
     if path == '/insight/expense/category': return expense_by_cat(q)

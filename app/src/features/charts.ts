@@ -123,10 +123,14 @@ export function fitSankey() {
   });
 }
 
-Object.assign(App, {
+// The methods markup handlers call (see events.ts), added to App and to its type
+const methods = {
   balanceSparks,
   sparkline,
   heatmapPanel,
   sankeyPanel,
   fitSankey,
-});
+};
+Object.assign(App, methods);
+type Methods = typeof methods;
+declare module '../core/base' { interface AppApi extends Methods {} }

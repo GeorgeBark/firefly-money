@@ -63,7 +63,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && el('drawer
   await migrateSavedPassword();
   S.remember = S.signedIn = rememberedSignIn();
   // Signed in before: show the data saved on this device right away, then refresh it in the background.
-  if (S.key && S.remember) {
+  if (S.remember) {
     try { (await PDB.loadAll()).forEach(([k, e]) => { if (e && e.t > Date.now() - 14 * 864e5 && !CACHE.has(k)) CACHE.set(k, e); }); } catch (e) { /* no saved data */ }
     if (CACHE.size) { S.bootStale = true; S.lastRefresh = Date.now(); showApp(); return; }
   }

@@ -8,9 +8,9 @@ import { closeDrawer, formError, toast } from './dom';
 
 const SESSION = '/api/money-session', FLAG = 'moneySignedIn';
 export function rememberedSignIn() { try { return localStorage.getItem(FLAG) === '1'; } catch (e) { return false; } }
-function setRemembered(on) { S.remember = on; try { if (on) localStorage.setItem(FLAG, '1'); else localStorage.removeItem(FLAG); } catch (e) { /* storage blocked */ } }
+function setRemembered(on: boolean) { S.remember = on; try { if (on) localStorage.setItem(FLAG, '1'); else localStorage.removeItem(FLAG); } catch (e) { /* storage blocked */ } }
 let signingOut: Promise<unknown> = Promise.resolve();
-export async function signIn(password, remember) {
+export async function signIn(password: string, remember: boolean) {
   await signingOut;      // or the sign-out's cookie could land after this sign-in's
   const r = await fetch(SESSION, { method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'application/json', 'X-Money': '1' }, body: JSON.stringify({ password, remember: !!remember }) });
   if (r.status === 401) throw new AuthError('That password isn’t right.');
@@ -29,8 +29,6 @@ export async function migrateSavedPassword() {
   try { await signIn(k, kept); } catch (e) { if (!(e instanceof AuthError)) return; }
   try { localStorage.removeItem('moneyKey'); sessionStorage.removeItem('moneyKey'); } catch (e) { /* ignore */ }
 }
-export function saveKey(k: string, remember: boolean) { S.remember = !!remember; try { (remember ? localStorage : sessionStorage).setItem('moneyKey', k); } catch (e) { /* storage blocked */ } }
-export function clearKey() { try { localStorage.removeItem('moneyKey'); sessionStorage.removeItem('moneyKey'); } catch (e) { /* ignore */ } }
 // Everything this device saved (in memory, IndexedDB and the offline cache) goes when the sign-in screen shows.
 function forgetDeviceData() {
   CACHE.clear(); PAGES.clear(); PDB.clear(); S.signedIn = false; setRemembered(false);

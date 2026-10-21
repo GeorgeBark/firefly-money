@@ -2,7 +2,12 @@ import { clearCache, getAll } from './api';
 import { type ApiData, S, money, num } from './base';
 
 /* ================= Reference lists (cached) ================= */
-export function normAccount(a: ApiData) {
+export type Account = {
+  id: string, name: string, type: string, role: string, active: boolean, balance: number, debt: number, opening: number,
+  liabType: string, interest: string, interestPeriod: string, paymentDate: string, number: string, notes: string, currency: string,
+  netWorth: boolean, openingDate: string, plan: Plan | null,
+};
+export function normAccount(a: ApiData): Account {
   const t = a.attributes || {};
   return {
     id: String(a.id), name: t.name, type: String(t.type || ''), role: t.account_role || '', active: t.active !== false,
@@ -12,7 +17,6 @@ export function normAccount(a: ApiData) {
     netWorth: t.include_net_worth !== false, openingDate: t.opening_balance_date || '', plan: parsePlan(t.notes),
   };
 }
-export type Account = ReturnType<typeof normAccount>;
 // A loan's planned monthly payment lives in its Firefly notes as one line, e.g.
 // "Monthly payment: $500.00 on day 30 from Chase Checking", so every device sees it.
 const PLAN_RE = /^[ \t]*Monthly payment:[ \t]*\$?([\d,.]+)(?:[ \t]+on day[ \t]+(\d{1,2}))?(?:[ \t]+from[ \t]+(.+?))?[ \t]*$/im;

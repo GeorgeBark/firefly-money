@@ -4,9 +4,10 @@ import { isoDate } from '../core/base';
 
 const WDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 const MONS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
-export function nlDate(ws, i): any {
+// The date the words at ws[i] spell, and how many words that took
+export function nlDate(ws: string[], i: number): [string, number] | null {
   const w = ws[i].toLowerCase().replace(/[,.]$/, ''), t = new Date(); t.setHours(12, 0, 0, 0);
-  const iso = d => isoDate(d);
+  const iso = (d: Date) => isoDate(d);
   if (w === 'today') return [iso(t), 1];
   if (w === 'yesterday') { t.setDate(t.getDate() - 1); return [iso(t), 1]; }
   if (w === 'tomorrow') { t.setDate(t.getDate() + 1); return [iso(t), 1]; }

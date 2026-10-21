@@ -1,6 +1,6 @@
 import { S, el, money } from '../core/base';
 import { closeDrawer } from '../core/dom';
-import { signed, txRows } from '../core/feed';
+import { type Group, type TxRowsOpts, signed, txRows } from '../core/feed';
 import { buzz } from '../core/helpers';
 import { refreshAll } from '../core/router';
 import { selAll } from './bulk';
@@ -68,10 +68,10 @@ export function bindFeed() {
   }, { rootMargin: '700px 0px' });
   io.observe(m);
 }
-function dayNet(tbody) {
-  return [...tbody.querySelectorAll('tr[data-gid]')].reduce((s, tr) => { const m = S.txMeta[tr.dataset.gid]; return s + (m ? signed(m.g, m.accountId) : 0); }, 0);
+function dayNet(tbody: Element) {
+  return [...tbody.querySelectorAll<HTMLElement>('tr[data-gid]')].reduce((s, tr) => { const m = S.txMeta[tr.dataset.gid!]; return s + (m ? signed(m.g, m.accountId) : 0); }, 0);
 }
-function appendRows(gs, opts) {
+function appendRows(gs: Group[], opts: TxRowsOpts) {
   const table = document.querySelector<HTMLElement>('#view table.feed'); if (!table || !gs.length) return;
   const t = document.createElement('template'); t.innerHTML = String(txRows(gs, opts));
   const bodies = [...t.content.querySelectorAll('tbody.day')], last = table.querySelector('tbody.day:last-of-type');

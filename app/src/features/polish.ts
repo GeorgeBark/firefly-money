@@ -4,7 +4,7 @@ import { App, S, arr, el, money0, sameName } from '../core/base';
 import { toast } from '../core/dom';
 import { normGroup, tidyDays } from '../core/feed';
 import { lists } from '../core/lists';
-import { VIEWS, parseHash, route } from '../core/router';
+import { type RouteInfo, VIEWS, parseHash, route } from '../core/router';
 import { openPalette } from './palette';
 import { bindSwipe } from './phone';
 import { newTx } from './txform';
@@ -15,14 +15,14 @@ export const reduceMotion = window.matchMedia && window.matchMedia('(prefers-red
 
 /* ---------- Prefetch a page's data when hovering its link ---------- */
 const prefetched: any = {};
-function prefetch(name) {
+function prefetch(name: string) {
   if (!VIEWS[name] || name === (parseHash().name) || Date.now() - (prefetched[name] || 0) < 30000) return;
   prefetched[name] = Date.now();
   Promise.resolve().then(() => VIEWS[name]({ name, id: '', q: {} }, () => {})).catch(() => {});
 }
 
 /* ---------- After every page paint ---------- */
-function afterPaint(r, o: any = {}) {
+function afterPaint(r: RouteInfo, o: { quiet?: boolean } = {}) {
   if (!o.quiet) countUp();
   bindChart();
   bindSwipe();
@@ -33,7 +33,7 @@ function countUp() {
   document.querySelectorAll<HTMLElement>('#view [data-count]').forEach(node => {
     const target = parseFloat(node.dataset.count!); if (!isFinite(target) || Math.abs(target) < 1) return;
     const t0 = performance.now(), dur = 520;
-    const step = now => {
+    const step = (now: number) => {
       const p = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - p, 3);
       node.textContent = money0(target * e);
       if (p < 1 && node.isConnected) requestAnimationFrame(step);
@@ -79,7 +79,7 @@ document.addEventListener('scroll', () => { const tip = el('tip'); if (tip.datas
 
 /* ---------- Quick add + keyboard shortcuts ---------- */
 export async function quickAdd() { await lists(); const r = parseHash(); newTx(r.name === 'account' && r.id ? { account: r.id } : {}); }
-export const typing = e => { const t = e.target; return t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)); };
+export const typing = (e: Event) => { const t = e.target as HTMLElement | null; return t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)); };
 document.addEventListener('keydown', e => {
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); if (!el('app').hidden) openPalette(); return; }
   if (el('app').hidden || typing(e) || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -89,7 +89,7 @@ document.addEventListener('keydown', e => {
 });
 
 /* ---------- Payee memory: fill category/budget from the last time ---------- */
-export async function payeeFill(i, name) {
+export async function payeeFill(i: number, name: string) {
   const f = S.form; if (!f || !name || !name.trim()) return;
   const L = S.lists!, pool = f.type === 'withdrawal' ? L.expense : L.revenue;
   const acc = pool.find(a => sameName(a.name, name)); if (!acc) return;
@@ -99,7 +99,7 @@ export async function payeeFill(i, name) {
     const s = mine.find(x => x.category) || mine[0];       // most recent one that was categorized
     if (!s || !S.form || S.form !== f) return;
     const card = document.querySelector<HTMLElement>('#txForm .split[data-i="' + i + '"]'); if (!card) return;
-    const set = (k, v) => { const inp = card.querySelector<HTMLInputElement>('[data-k="' + k + '"]'); if (inp && !inp.value && v) { inp.value = v; inp.classList.add('filled'); f.splits[i][k] = v; } };
+    const set = (k: string, v: string) => { const inp = card.querySelector<HTMLInputElement>('[data-k="' + k + '"]'); if (inp && !inp.value && v) { inp.value = v; inp.classList.add('filled'); f.splits[i][k] = v; } };
     set('category', s.category);
     if (f.type === 'withdrawal') set('budget', s.budget_id);
     if (!card.querySelector<HTMLInputElement>('[data-k="description"]')!.value) set('description', s.description);
@@ -135,12 +135,12 @@ function softDeleteTx(ids: string[]) {
 window.addEventListener('beforeunload', () => { if (S.undoCommit) S.undoCommit(); });
 
 /* ---------- Rules: instant filter while typing ---------- */
-function liveRuleFilter(q) {
+function liveRuleFilter(q: string) {
   q = q.trim().toLowerCase();
   document.querySelectorAll<HTMLDetailsElement>('.rulegroup').forEach(g => {
     let shown = 0;
     g.querySelectorAll<HTMLElement>('td[data-text]').forEach(td => { const ok = !q || td.dataset.text!.includes(q); td.parentElement!.hidden = !ok; if (ok) shown++; });
-    g.hidden = q && !shown && !g.querySelector('summary')!.textContent.toLowerCase().includes(q);
+    g.hidden = Boolean(q && !shown && !g.querySelector('summary')!.textContent.toLowerCase().includes(q));
     if (q && shown) g.open = true;
   });
 }

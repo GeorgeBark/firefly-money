@@ -1,5 +1,6 @@
 import { html, htmlList } from '../core/html';
 import { App, S, el } from '../core/base';
+import type { RouteInfo } from '../core/router';
 import { openDrawer } from '../core/dom';
 import { selChanged } from './bulk';
 import { fitSankey } from './charts';
@@ -12,7 +13,7 @@ import { editTx } from './txform';
 
 /* ---------- Keyboard: j/k to move, Enter to open, c/b to recategorize, x to select, p for privacy, ? for help ---------- */
 function kRows() { return [...document.querySelectorAll<HTMLElement>('#view tr[data-gid]')]; }
-function kMark(i) {
+function kMark(i: number) {
   const rows = kRows(); if (!rows.length) return;
   S.kIdx = Math.max(0, Math.min(rows.length - 1, i));
   rows.forEach((r, j) => r.classList.toggle('kfocus', j === S.kIdx));
@@ -27,7 +28,7 @@ document.addEventListener('keydown', e => {
   if (k === 'j' || k === 'ArrowDown' && (S.kIdx ?? -1) >= 0) { e.preventDefault(); return kMark((S.kIdx ?? -1) + 1); }
   if (k === 'k' || k === 'ArrowUp' && (S.kIdx ?? -1) >= 0) { e.preventDefault(); return kMark(Math.max(0, (S.kIdx ?? 0) - 1)); }
   const i = S.kIdx ?? -1, tr = i >= 0 && kRows()[i]; if (!tr) return;
-  if (k === 'Enter' || k === 'o') { e.preventDefault(); editTx(tr.dataset.gid); }
+  if (k === 'Enter' || k === 'o') { e.preventDefault(); editTx(tr.dataset.gid!); }
   else if (k === 'c' || k === 'b') { const n = [...tr.querySelectorAll<HTMLElement>('[data-k="' + (k === 'c' ? 'category' : 'budget') + '"]')].find(x => x.offsetParent !== null); if (n) { e.preventDefault(); pick(n); } }
   else if (k === 'x') { const cb = tr.querySelector<HTMLInputElement>('input[data-sel]'); if (cb) { cb.checked = !cb.checked; selChanged(); } }
   else if (k === 'Escape') { S.kIdx = -1; kRows().forEach(r => r.classList.remove('kfocus')); }
@@ -39,7 +40,7 @@ function shortcutsSheet() {
 }
 
 /* ---------- After each page paint ---------- */
-function afterPaint2(r) {
+function afterPaint2(r: RouteInfo) {
   bindFeed(); bindDash(); drawToggles(); fitSankey();
   S.kIdx = -1;
 }

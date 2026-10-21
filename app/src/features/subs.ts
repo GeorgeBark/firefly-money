@@ -68,7 +68,8 @@ export function findRecurring(charges: Charge[], today: string, opts: { toleranc
       min: round2(Math.min(...amounts)), max: round2(Math.max(...amounts)), last: last.date.slice(0, 10), next: nextDate(last.date, f.freq, f.skip), rose });
   });
   // Biggest yearly cost first
-  const perYear = r => r.amount * { weekly: 52, monthly: 12, quarterly: 4, 'half-year': 2, yearly: 1 }[r.freq] / (r.skip + 1);
+  const PER_YEAR: Record<string, number> = { weekly: 52, monthly: 12, quarterly: 4, 'half-year': 2, yearly: 1 };
+  const perYear = (r: Recurring) => r.amount * PER_YEAR[r.freq] / (r.skip + 1);
   return out.sort((a, b) => perYear(b) - perYear(a));
 }
 

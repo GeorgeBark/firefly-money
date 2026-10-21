@@ -47,7 +47,7 @@ async function addTag(input) {
   catch (e) { if (e instanceof AuthError) return showLogin(e.message); toast((e as Error).message); }
 }
 async function deleteTag(id) {
-  const t = (S.lists.tags.find(x => x.id === id) || {}).name || 'this tag';
+  const t = (S.lists!.tags.find(x => x.id === id) || {}).name || 'this tag';
   if (!await confirmBox('Delete tag “' + t + '”?', 'The tag is removed from all transactions. The transactions themselves stay.')) return;
   try { await api('/tags/' + id, { method: 'DELETE' }); invalidate(); toast('Tag deleted'); route(); }
   catch (e) { toast((e as Error).message); }

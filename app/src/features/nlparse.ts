@@ -11,7 +11,7 @@ import { collectTx, renderTxForm } from './txform';
 const FILLER = new Set(['on', 'with', 'via', 'using', 'at', 'for', 'to', 'from', 'paid', 'spent', 'bought', 'got', 'and', 'the', 'a', 'my', 'in']);
 const GENERIC = new Set(['card', 'checking', 'savings', 'saving', 'account', 'bank', 'credit', 'debit', 'loan', 'gold', 'the']);
 function nlAccount(tok) {
-  const L = S.lists, w = tok.toLowerCase(); if (w.length < 3) return null;
+  const L = S.lists!, w = tok.toLowerCase(); if (w.length < 3) return null;
   const pool = L.own.filter(a => isAsset(a) || isLiab(a));
   const full = pool.filter(a => a.name.toLowerCase() === w); if (full.length) return full[0];
   const hits = pool.filter(a => a.name.toLowerCase().split(/[\s\-–]+/).some(x => x.startsWith(w) && (!GENERIC.has(w) || x === w)));
@@ -21,7 +21,7 @@ function nlParse(text, submit) {
   const f = S.form; if (!f || f.id) return;
   collectTx();
   if (!f.nlBase) { const s0 = f.splits[0]; f.nlBase = { type: f.type, date: f.date, main: f.main, src: f.src, dst: f.dst, split: { amount: s0.amount, description: s0.description, counter: s0.counter, category: s0.category } }; }
-  const base = f.nlBase, L = S.lists, ws = text.trim().split(/\s+/).filter(Boolean), used = new Set(), out: any = {};
+  const base = f.nlBase, L = S.lists!, ws = text.trim().split(/\s+/).filter(Boolean), used = new Set(), out: any = {};
   // dates first (so "sep 12" isn't read as an amount of 12)
   for (let i = 0; i < ws.length; i++) { if (used.has(i) || out.date) continue; const r = nlDate(ws, i); if (r) { out.date = r[0]; for (let j = 0; j < r[1]; j++) used.add(i + j); if (/^last$/i.test(ws[i - 1] || '')) used.add(i - 1); } }
   ws.forEach((w, i) => { if (!used.has(i) && out.amount == null && /^\$?\d+(?:[.,]\d{1,2})?\$?$/.test(w)) { out.amount = w.replace(/\$/g, '').replace(',', '.'); used.add(i); } });

@@ -58,12 +58,12 @@ async function findLink() {
   const q = el<HTMLInputElement>('lnkQ').value.trim(); if (!q) return;
   await withAuth(async () => {
     const res = await api('/search/transactions', { params: { query: q, search: q, limit: 8, page: 1 } });
-    const gs = arr(res).map(normGroup).filter(g => g.id !== S.extrasCtx.gid);
+    const gs = arr(res).map(normGroup).filter(g => g.id !== S.extrasCtx!.gid);
     el('lnkResults').innerHTML = String(gs.length ? html`<div class="list">${htmlList(gs.map(g => html`<div class="row"><span class="name">${g.title || g.splits[0].description} <span class="sub-s">${fmtDay(g.date)} · ${money(g.total)}</span></span><button class="btn small" type="button" data-onclick="App.makeLink('${g.splits[0].jid}')">Link</button></div>`))}</div>` : html`<p class="empty">No matches.</p>`);
   });
 }
 async function makeLink(otherJid) {
-  const [typeId, dir] = el<HTMLSelectElement>('lnkType').value.split(':'), me = S.extrasCtx.jids[0];
+  const [typeId, dir] = el<HTMLSelectElement>('lnkType').value.split(':'), me = S.extrasCtx!.jids[0];
   const body = dir === 'out' ? { link_type_id: typeId, outward_id: me, inward_id: otherJid } : { link_type_id: typeId, outward_id: otherJid, inward_id: me };
   await withAuth(async () => { await api('/transaction-links', { method: 'POST', body }); toast('Linked'); refreshExtras(); });
 }

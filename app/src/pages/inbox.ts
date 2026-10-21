@@ -47,7 +47,7 @@ VIEWS.inbox = async (r, paint) => {
   renderInbox();
 };
 function renderInbox() {
-  const I = S.inbox, L = S.lists, g = I.items[I.i];
+  const I = S.inbox, L = S.lists!, g = I.items[I.i];
   if (!g) {
     I.paint(html`${head('Categorize', '', '')}<section class="panel"><div class="center-empty" style="padding:70px 20px"><div style="font-size:40px">✓</div><h2 style="font-size:18px;margin:10px 0 4px">All caught up</h2>${I.done ? 'You categorized ' + I.done + ' transaction' + (I.done === 1 ? '' : 's') + '.' : 'Every transaction has a category.'}</div></section>`);
     return;
@@ -71,7 +71,7 @@ async function ensureInboxGroup() {
   return String(res.data.id);
 }
 async function inboxSave() {
-  const I = S.inbox, { g, s, similar, payeeName, generic } = I.cur, L = S.lists;
+  const I = S.inbox, { g, s, similar, payeeName, generic } = I.cur, L = S.lists!;
   const cat = el<HTMLInputElement>('ib-cat').value.trim(); if (!cat) return toast('Pick a category first.');
   const bud = el<HTMLSelectElement>('ib-bud') ? el<HTMLSelectElement>('ib-bud').value : '';
   const alsoSimilar = el<HTMLInputElement>('ib-similar') && el<HTMLInputElement>('ib-similar').checked, makeRule = el<HTMLInputElement>('ib-rule') && el<HTMLInputElement>('ib-rule').checked;

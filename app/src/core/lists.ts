@@ -39,7 +39,7 @@ export type Lists = {
   categories: Category[], budgets: Budget[], bills: Bill[], tags: Tag[], currencies: Currency[], foreign: Currency[],
 };
 export async function lists(force?: boolean): Promise<Lists> {
-  if (S.lists && !force && Date.now() - S.listsAt < 300000) return S.lists;
+  if (S.lists && !force && Date.now() - S.listsAt! < 300000) return S.lists;
   const [accounts, categories, budgets, bills, tags, currencies] = await Promise.all([
     getAll('/accounts', { type: 'all' }), getAll('/categories'), getAll('/budgets'), getAll('/bills'), getAll('/tags'), getAll('/currencies').catch(() => []),
   ]);

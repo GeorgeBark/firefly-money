@@ -79,13 +79,13 @@ export function openDrawer(title, bodyHtml, footHtml?) {
   if (h && !(title === 'Loading…' || title === 'Transaction' || (S.form && S.form.id === h.id))) h = S.drawerHero = null;
   const keep = h && wasOpen && d.querySelector('.dhero[data-id="' + h.id + '"]');
   if (keep) {       // same transaction: keep the header node (it may be mid-animation) and swap the rest
-    if (title !== 'Loading…') keep.querySelector('.eyebrow').textContent = title;
+    if (title !== 'Loading…') keep.querySelector('.eyebrow')!.textContent = title;
     d.querySelectorAll(':scope > .body, :scope > footer').forEach(n => n.remove());
     d.insertAdjacentHTML('beforeend', String(html`<div class="body" id="drawerBody">${bodyHtml}</div>${footHtml ? html`<footer>${footHtml}</footer>` : ''}`));
     return;
   }
   d.innerHTML = String(html`<div class="grab" aria-hidden="true"></div><header>${h ? drawerHeroHtml({ ...h, kicker: title === 'Loading…' ? h.kicker : title }) : html`<h2>${title}</h2>`}<button class="round" type="button" data-onclick="App.closeDrawer()" aria-label="Close">×</button></header><div class="body" id="drawerBody">${bodyHtml}</div>${footHtml ? html`<footer>${footHtml}</footer>` : ''}`);
-  if (!wasOpen) S.drawerReturn = document.activeElement;
+  if (!wasOpen) S.drawerReturn = document.activeElement as HTMLElement | null;
   d.setAttribute('aria-label', title === 'Loading…' && h ? h.name : title);
   d.classList.add('open'); d.setAttribute('aria-hidden', 'false'); el('scrim').classList.add('open');
   if (!wasOpen) setTimeout(() => { const f = d.querySelector<HTMLElement>('input:not([type=hidden]):not([type=checkbox]):not([type=date]), select'); if (f && innerWidth > 900) f.focus(); }, 280);

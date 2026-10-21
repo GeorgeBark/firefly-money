@@ -24,9 +24,9 @@ document.addEventListener('keydown', e => {
   const k = e.key;
   if (k === 'p' || k === 'P') { e.preventDefault(); return togglePrivacy(); }
   if (k === '?') { e.preventDefault(); return shortcutsSheet(); }
-  if (k === 'j' || k === 'ArrowDown' && S.kIdx >= 0) { e.preventDefault(); return kMark((S.kIdx ?? -1) + 1); }
-  if (k === 'k' || k === 'ArrowUp' && S.kIdx >= 0) { e.preventDefault(); return kMark(Math.max(0, (S.kIdx ?? 0) - 1)); }
-  const tr = S.kIdx >= 0 && kRows()[S.kIdx]; if (!tr) return;
+  if (k === 'j' || k === 'ArrowDown' && (S.kIdx ?? -1) >= 0) { e.preventDefault(); return kMark((S.kIdx ?? -1) + 1); }
+  if (k === 'k' || k === 'ArrowUp' && (S.kIdx ?? -1) >= 0) { e.preventDefault(); return kMark(Math.max(0, (S.kIdx ?? 0) - 1)); }
+  const i = S.kIdx ?? -1, tr = i >= 0 && kRows()[i]; if (!tr) return;
   if (k === 'Enter' || k === 'o') { e.preventDefault(); editTx(tr.dataset.gid); }
   else if (k === 'c' || k === 'b') { const n = [...tr.querySelectorAll<HTMLElement>('[data-k="' + (k === 'c' ? 'category' : 'budget') + '"]')].find(x => x.offsetParent !== null); if (n) { e.preventDefault(); pick(n); } }
   else if (k === 'x') { const cb = tr.querySelector<HTMLInputElement>('input[data-sel]'); if (cb) { cb.checked = !cb.checked; selChanged(); } }

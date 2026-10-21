@@ -40,7 +40,7 @@ VIEWS.piggy = async (r, paint) => {
     html`<section class="panel"><div class="center-empty">No piggy banks yet.<br>Use one to set money aside in an account for a goal — a trip, tuition, an emergency fund.</div></section>`}`);
 };
 function piggyForm(id) {
-  const L = S.lists, p = id ? S.piggyCache[id] : null;
+  const L = S.lists!, p = id ? S.piggyCache![id] : null;
   S.form = { id };
   const accId = p && p.accounts[0] ? p.accounts[0].id : ((L.own.find(a => a.role === 'savingAsset') || L.own.find(a => isAsset(a) && !isCard(a)) || {}).id || '');
   openDrawer(id ? 'Edit piggy bank' : 'New piggy bank',
@@ -70,14 +70,14 @@ async function savePiggy() {
   });
 }
 function piggyMoney(id, dir) {
-  const p = S.piggyCache[id];
+  const p = S.piggyCache![id];
   S.form = { id, dir };
   openDrawer((dir > 0 ? 'Add money to ' : 'Take money out of ') + p.name,
-    html`<form id="pmForm" data-onsubmit="event.preventDefault();App.savePiggyMoney()"><p class="sub-s" style="margin-top:0">Currently ${money(p.current)} of ${money(p.target)}. This only moves money in Firefly’s bookkeeping — no transaction is created.</p>${p.accounts.length > 1 ? html`<label>Account<select id="pm-acc">${htmlList(p.accounts.map(a => opt(a.id, (a.name || (S.lists.byId[a.id] || {}).name) + ' (' + money(a.amount) + ')', '')))}</select></label>` : ''}<label>Amount<input type="number" min="0.01" step="0.01" id="pm-amt" required></label><button type="submit" hidden></button></form>`,
+    html`<form id="pmForm" data-onsubmit="event.preventDefault();App.savePiggyMoney()"><p class="sub-s" style="margin-top:0">Currently ${money(p.current)} of ${money(p.target)}. This only moves money in Firefly’s bookkeeping — no transaction is created.</p>${p.accounts.length > 1 ? html`<label>Account<select id="pm-acc">${htmlList(p.accounts.map(a => opt(a.id, (a.name || (S.lists!.byId[a.id] || {}).name) + ' (' + money(a.amount) + ')', '')))}</select></label>` : ''}<label>Amount<input type="number" min="0.01" step="0.01" id="pm-amt" required></label><button type="submit" hidden></button></form>`,
     html`<span class="grow"></span><button class="btn" data-onclick="App.closeDrawer()">Cancel</button><button class="btn primary" id="pmSave" data-onclick="App.submit('pmForm')">${dir > 0 ? 'Add' : 'Take out'}</button>`);
 }
 async function savePiggyMoney() {
-  const { id, dir } = S.form, p = S.piggyCache[id], amt = num(el<HTMLInputElement>('pm-amt').value);
+  const { id, dir } = S.form, p = S.piggyCache![id], amt = num(el<HTMLInputElement>('pm-amt').value);
   if (!(amt > 0)) return formError('Enter an amount above zero.');
   const accId = el<HTMLSelectElement>('pm-acc') ? el<HTMLSelectElement>('pm-acc').value : (p.accounts[0] || {}).id;
   if (!accId) return formError('This piggy bank has no account linked. Edit it in Firefly III.');

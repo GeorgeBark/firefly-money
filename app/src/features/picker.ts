@@ -12,7 +12,7 @@ import { bindSwipe } from './phone';
 type PickItem = { v: string, l: string, create?: boolean };
 let pickCtx: { tr: HTMLElement, meta: TxMeta, k: string, items: PickItem[], cur: string, idx: number, q: string } | null = null;
 export function pick(node) {
-  const tr = node.closest('tr[data-gid]'), meta = tr && S.txMeta[tr.dataset.gid], L = S.lists;
+  const tr = node.closest('tr[data-gid]'), meta = tr && S.txMeta[tr.dataset.gid], L = S.lists!;
   if (!meta || !L) return;
   const k = node.dataset.k, sp = meta.g.splits[0];
   const items = k === 'category'

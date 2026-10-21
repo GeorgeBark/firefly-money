@@ -10,7 +10,7 @@ import { route } from '../core/router';
 /* ================= Transaction form ================= */
 export function blankSplit() { return { jid: '', description: '', amount: '', counter: '', category: '', budget: '', bill: '', tags: '', notes: '', fa: '', fc: '', orig: {} }; }
 export function newTx(preset: any = {}) {
-  const L = S.lists; S.drawerHero = null;
+  const L = S.lists!; S.drawerHero = null;
   const firstAsset = (L.own.find(a => isAsset(a) && !isCard(a)) || L.own[0] || {}).id || '';
   S.form = { id: '', type: preset.type || 'withdrawal', date: preset.date || todayIso(), title: '', main: preset.account || firstAsset, src: preset.account || firstAsset, dst: '', rules: true, splits: [blankSplit()] };
   if (preset.description) S.form.splits[0].description = preset.description;
@@ -54,12 +54,12 @@ export async function editTx(id) {
   }
 }
 export function accountOptions(sel, allowEmpty) {
-  const L = S.lists;
+  const L = S.lists!;
   const group = (label, list) => list.length ? html`<optgroup label="${label}">${htmlList(list.map(a => opt(a.id, a.name, sel)))}</optgroup>` : '';
   return html`${allowEmpty ? opt('', 'Choose…', sel) : ''}${group('Bank accounts', L.own.filter(a => isAsset(a) && !isCard(a)))}${group('Credit cards', L.own.filter(isCard))}${group('Loans & debts', L.own.filter(isLiab))}`;
 }
 export function renderTxForm() {
-  const f = S.form, L = S.lists, multi = f.splits.length > 1;
+  const f = S.form, L = S.lists!, multi = f.splits.length > 1;
   const typeBtn = (t, label) => html`<button type="button" class="${f.type === t ? 'on' : ''}" data-onclick="App.txType('${t}')">${label}</button>`;
   const counterList = f.type === 'withdrawal' ? [...L.expense, ...L.own.filter(isLiab)] : [...L.revenue, ...L.own.filter(isLiab)];
   let accountsHtml;
@@ -92,7 +92,7 @@ export function collectTx() {
   });
 }
 function resolveCounter(name, kind) {
-  const L = S.lists, pool = kind === 'withdrawal' ? [...L.expense, ...L.own.filter(isLiab)] : [...L.revenue, ...L.own.filter(isLiab)];
+  const L = S.lists!, pool = kind === 'withdrawal' ? [...L.expense, ...L.own.filter(isLiab)] : [...L.revenue, ...L.own.filter(isLiab)];
   const hit = pool.find(a => sameName(a.name, name));
   return hit ? { id: hit.id } : { name: name.trim() };
 }

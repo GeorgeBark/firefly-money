@@ -24,7 +24,7 @@ VIEWS.recurring = async (r, paint) => {
       : html`<div class="center-empty">Nothing recurring yet. Add rent, a salary or a subscription and Firefly will create it for you each time.</div>`}</section><p class="sub-s" style="margin-top:14px">Firefly creates these transactions on its daily cron job, so make sure the cron is set up in your Firefly install.</p>`);
 };
 function recurForm(id, forceType) {
-  const L = S.lists, at = id ? S.recCache[id] : null, rep = at ? (at.repetitions || [])[0] || {} : {};
+  const L = S.lists!, at = id ? S.recCache![id] : null, rep = at ? (at.repetitions || [])[0] || {} : {};
   const type = forceType || (at ? at.type : 'withdrawal');
   const t = at && at.type === type ? (at.transactions || [])[0] || {} : at ? { amount: ((at.transactions || [])[0] || {}).amount, description: ((at.transactions || [])[0] || {}).description } : {};
   S.form = { id, type, origType: type };
@@ -46,7 +46,7 @@ function recurType(t) {
 }
 function recurEnds() { const m = el<HTMLSelectElement>('rc-endmode').value; el('rc-until-l').hidden = m !== 'date'; el('rc-count-l').hidden = m !== 'count'; }
 async function accountIdFor(name, kind) {
-  const L = S.lists, pool = kind === 'withdrawal' ? [...L.expense, ...L.own.filter(isLiab)] : [...L.revenue, ...L.own.filter(isLiab)];
+  const L = S.lists!, pool = kind === 'withdrawal' ? [...L.expense, ...L.own.filter(isLiab)] : [...L.revenue, ...L.own.filter(isLiab)];
   const hit = pool.find(a => sameName(a.name, name));
   if (hit) return hit.id;
   const res = await api('/accounts', { method: 'POST', body: { name: name.trim(), type: kind === 'withdrawal' ? 'expense' : 'revenue' } });
@@ -54,7 +54,7 @@ async function accountIdFor(name, kind) {
 }
 async function categoryIdFor(name) {
   if (!name) return '';
-  const hit = S.lists.categories.find(c => sameName(c.name, name));
+  const hit = S.lists!.categories.find(c => sameName(c.name, name));
   if (hit) return hit.id;
   const res = await api('/categories', { method: 'POST', body: { name: name.trim() } });
   return String(res.data.id);

@@ -59,7 +59,7 @@ VIEWS.rules = async (r, paint) => {
       html`<button class="btn" data-onclick="App.groupForm()">+ New group</button><button class="btn primary" data-onclick="App.ruleForm()">+ New rule</button>`)}<div class="toolbar"><form class="search" data-onsubmit="event.preventDefault();App.rulesSearch(this)">${icon('search')}<input type="search" name="q" placeholder="Search rules by name, text or category" value="${r.q.q || ''}" data-oninput="App.liveRuleFilter(this.value)"></form>${q ? html`<a class="link" href="#/rules">Clear</a>` : ''}</div>${ruleHtml || html`<section class="panel"><div class="center-empty">${q ? 'No rules match.' : 'No rules yet.'}</div></section>`}`);
 };
 async function toggleRule(id, on) {
-  const at = S.rules[id];
+  const at = S.rules![id];
   await withAuth(async () => { const row = document.querySelector<HTMLElement>('input[data-onchange*="toggleRule(\'' + id + '\'"]'); if (row) row.closest('tr')!.style.opacity = on ? '' : '.55';
     await api('/rules/' + id, { method: 'PUT', body: { title: at.title, rule_group_id: String(at.rule_group_id), active: on } }); at.active = on; toast(on ? 'Rule turned on' : 'Rule turned off'); });
 }
@@ -69,11 +69,11 @@ function condRow(kind, t, i) {
 }
 function ruleRowType(sel) { const inp = sel.parentElement.querySelector('[data-f=value]'); const nv = noVal.has(sel.value); inp.disabled = nv; inp.placeholder = nv ? 'No value needed' : 'Value'; if (nv) inp.value = ''; }
 function ruleForm(id, groupId) {
-  const at = id ? S.rules[id] : { title: '', rule_group_id: groupId || (S.ruleGroups[0] || {}).id, trigger: 'store-journal', strict: true, active: true, stop_processing: false,
+  const at = id ? S.rules![id] : { title: '', rule_group_id: groupId || (S.ruleGroups![0] || {}).id, trigger: 'store-journal', strict: true, active: true, stop_processing: false,
     triggers: [{ type: 'description_contains', value: '' }], actions: [{ type: 'set_category', value: '' }] };
   S.form = { id };
   openDrawer(id ? 'Edit rule' : 'New rule',
-    html`<form id="ruleForm" data-onsubmit="event.preventDefault();App.saveRule()"><label>Name<input type="text" id="r-title" value="${at.title}" required></label><div class="grid2"><label>Group<select id="r-group">${htmlList(S.ruleGroups.map(g => opt(g.id, g.attributes.title, String(at.rule_group_id))))}</select></label><label>Runs<select id="r-when">${opt('store-journal', 'When a transaction is added', at.trigger)}${opt('update-journal', 'When a transaction is changed', at.trigger)}</select></label></div><label>Match<select id="r-strict">${opt('1', 'All of these conditions', at.strict ? '1' : '0')}${opt('0', 'Any of these conditions', at.strict ? '1' : '0')}</select></label><div id="r-trig">${htmlList(at.triggers.filter(t => t.type !== 'user_action' || at.triggers.length === 1).map((t, i) => condRow('t', t, i)))}</div><button type="button" class="btn small" data-onclick="App.ruleAdd('t')" style="margin-bottom:18px">+ Condition</button><div class="eyebrow">Then</div><div id="r-act">${htmlList(at.actions.map((t, i) => condRow('a', t, i)))}</div><button type="button" class="btn small" data-onclick="App.ruleAdd('a')" style="margin-bottom:18px">+ Action</button><label class="check"><input type="checkbox" id="r-stop"${at.stop_processing ? ' checked' : ''}> Stop running the rest of this group when this rule matches</label><label class="check"><input type="checkbox" id="r-active"${at.active ? ' checked' : ''}> Active</label><button type="submit" hidden></button></form>`,
+    html`<form id="ruleForm" data-onsubmit="event.preventDefault();App.saveRule()"><label>Name<input type="text" id="r-title" value="${at.title}" required></label><div class="grid2"><label>Group<select id="r-group">${htmlList(S.ruleGroups!.map(g => opt(g.id, g.attributes.title, String(at.rule_group_id))))}</select></label><label>Runs<select id="r-when">${opt('store-journal', 'When a transaction is added', at.trigger)}${opt('update-journal', 'When a transaction is changed', at.trigger)}</select></label></div><label>Match<select id="r-strict">${opt('1', 'All of these conditions', at.strict ? '1' : '0')}${opt('0', 'Any of these conditions', at.strict ? '1' : '0')}</select></label><div id="r-trig">${htmlList(at.triggers.filter(t => t.type !== 'user_action' || at.triggers.length === 1).map((t, i) => condRow('t', t, i)))}</div><button type="button" class="btn small" data-onclick="App.ruleAdd('t')" style="margin-bottom:18px">+ Condition</button><div class="eyebrow">Then</div><div id="r-act">${htmlList(at.actions.map((t, i) => condRow('a', t, i)))}</div><button type="button" class="btn small" data-onclick="App.ruleAdd('a')" style="margin-bottom:18px">+ Action</button><label class="check"><input type="checkbox" id="r-stop"${at.stop_processing ? ' checked' : ''}> Stop running the rest of this group when this rule matches</label><label class="check"><input type="checkbox" id="r-active"${at.active ? ' checked' : ''}> Active</label><button type="submit" hidden></button></form>`,
     html`${id ? html`<button class="btn danger" data-onclick="App.deleteRule('${id}')">Delete</button>` : ''}<span class="grow"></span><button class="btn" data-onclick="App.closeDrawer()">Cancel</button><button class="btn primary" id="ruleSave" data-onclick="App.submit('ruleForm')">${id ? 'Save rule' : 'Create rule'}</button>`);
 }
 function ruleAdd(kind) {
@@ -106,7 +106,7 @@ async function deleteRule(id) {
   await withAuth(async () => { await api('/rules/' + id, { method: 'DELETE' }); closeDrawer(); toast('Rule deleted'); route(); });
 }
 function groupForm(id) {
-  const g = id ? S.ruleGroups.find(x => String(x.id) === id).attributes : { title: '', description: '', active: true };
+  const g = id ? S.ruleGroups!.find(x => String(x.id) === id).attributes : { title: '', description: '', active: true };
   S.form = { id };
   openDrawer(id ? 'Edit rule group' : 'New rule group',
     html`<form id="grpForm" data-onsubmit="event.preventDefault();App.saveGroup()"><label>Name<input type="text" id="g-title" value="${g.title}" required></label><label>Description<input type="text" id="g-desc" value="${g.description || ''}"></label><label class="check"><input type="checkbox" id="g-active"${g.active !== false ? ' checked' : ''}> Active</label><button type="submit" hidden></button></form>`,
@@ -118,12 +118,12 @@ async function saveGroup() {
   await busy(el('grpSave'), async () => { await api(id ? '/rule-groups/' + id : '/rule-groups', { method: id ? 'PUT' : 'POST', body }); closeDrawer(); toast('Group saved'); route(); });
 }
 async function deleteGroup(id) {
-  const n = Object.values<any>(S.rules).filter(r => String(r.rule_group_id) === id).length;
+  const n = Object.values<any>(S.rules!).filter(r => String(r.rule_group_id) === id).length;
   if (!await confirmBox('Delete this group?', n ? 'Its ' + n + ' rule' + (n === 1 ? '' : 's') + ' will be deleted too.' : 'The group is empty.')) return;
   await withAuth(async () => { await api('/rule-groups/' + id, { method: 'DELETE' }); closeDrawer(); toast('Group deleted'); route(); });
 }
 function runRules(kind, id) {
-  const name = kind === 'rule' ? S.rules[id].title : S.ruleGroups.find(x => String(x.id) === id).attributes.title;
+  const name = kind === 'rule' ? S.rules![id].title : S.ruleGroups!.find(x => String(x.id) === id).attributes.title;
   S.form = { kind, id };
   const cur = monthRange(S.y, S.m);
   openDrawer('Run “' + name + '”',

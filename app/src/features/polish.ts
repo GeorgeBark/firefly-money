@@ -91,7 +91,7 @@ document.addEventListener('keydown', e => {
 /* ---------- Payee memory: fill category/budget from the last time ---------- */
 export async function payeeFill(i, name) {
   const f = S.form; if (!f || !name || !name.trim()) return;
-  const L = S.lists, pool = f.type === 'withdrawal' ? L.expense : L.revenue;
+  const L = S.lists!, pool = f.type === 'withdrawal' ? L.expense : L.revenue;
   const acc = pool.find(a => sameName(a.name, name)); if (!acc) return;
   try {
     const res = await api('/accounts/' + acc.id + '/transactions', { params: { limit: 25, page: 1 } });
@@ -107,7 +107,6 @@ export async function payeeFill(i, name) {
 }
 
 /* ---------- Undo for deleting transactions ---------- */
-S.pendingDel = new Set();
 function softDeleteTx(ids) {
   ids.forEach(id => S.pendingDel.add(id));
   document.querySelectorAll<HTMLElement>('#view tr[data-gid]').forEach(tr => { if (ids.includes(tr.dataset.gid)) tr.remove(); });

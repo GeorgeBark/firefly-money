@@ -74,7 +74,6 @@ export function dayLabel(iso) {
 }
 // What a rendered transaction row was drawn from, by group id, so a row can be redrawn or edited in place
 export type TxMeta = { g: Group, accountId: string, opts: { select: boolean, accountId: string } };
-S.txMeta = {};
 export function txRows(groups, opts: any = {}) {
   if (S.pendingDel && S.pendingDel.size) groups = groups.filter(g => !S.pendingDel.has(g.id));
   if (!groups.length) return html`<div class="center-empty">${opts.empty || 'No transactions.'}</div>`;

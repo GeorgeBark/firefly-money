@@ -760,3 +760,7 @@
 
   /* ---------- Payee page ---------- */
   .payee-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 14px 24px; }
+
+  /* ---------- Forecast what-ifs ---------- */
+  .whatif { display: grid; grid-template-columns: 2fr 1fr 1fr 1.2fr 1.2fr auto; gap: 8px; align-items: center; }
+  @media (max-width: 800px) { .whatif { grid-template-columns: 1fr 1fr; } .whatif input[name=label] { grid-column: 1 / -1; } }

@@ -44,7 +44,7 @@ function incomeDates(inc, from, to) {
   else monthsFrom(from, to).forEach(([y, m]) => (p.kind === 'semimonthly' ? [15, 31] : [p.day]).forEach(day => { const d = bizDay(y, m, day); if (d > inc.last && d >= from && d <= to) out.push(d); }));
   return out.sort();
 }
-async function forecastModel(sel, horizon) {
+async function forecastModel(sel, horizon, withWhatIfs = false) {
   const L = await lists();
   const banks = L.own.filter(a => isAsset(a) && !isCard(a));
   const from = todayIso(), to = addDays(from, horizon);
@@ -110,25 +110,41 @@ async function forecastModel(sel, horizon) {
     const at = b.attributes; if (at.active === false || (at.paid_dates || []).length) return;
     (at.pay_dates || []).map(d => String(d).slice(0, 10)).forEach(d => add(d, at.name, 'Bill', -billAmount(at), 'bill' + b.id));
   });
+  // Your what-ifs: a purchase, a raise, a new subscription... (only on the Forecast page, not in the Overview's card)
+  const whatIfs = withWhatIfs ? LS.get('fcWhatIf', []) : [];
+  whatIfs.forEach(w => whatIfDates(w, from, to).forEach(d => add(d, w.label, 'What if', w.amount, 'whatif' + w.id)));
   const excluded = new Set(LS.get('fcExclude', []));
   ev.sort((a, b) => a.date.localeCompare(b.date) || b.amount - a.amount);
-  let bal = start, min = start, minDate = from;
-  const byDay: any = {};
-  ev.forEach(e => { e.off = excluded.has(e.key); if (!e.off) bal += e.amount; e.after = bal; byDay[e.date] = bal; if (bal < min) { min = bal; minDate = e.date; } });
-  const series = []; let run = start;
-  for (let d = from; d <= to; d = addDays(d, 1)) { if (byDay[d] !== undefined) run = byDay[d]; series.push({ d, v: run }); }
-  const buffer = +LS.get('fcBuffer', 100);
+  // base: the same balance without the what-ifs, to show what they change
+  let bal = start, min = start, minDate = from, base = start, minBase = start;
+  const byDay: any = {}, baseDay: any = {};
+  ev.forEach(e => {
+    e.off = excluded.has(e.key); if (!e.off) { bal += e.amount; if (e.kind !== 'What if') base += e.amount; }
+    e.after = bal; byDay[e.date] = bal; baseDay[e.date] = base; if (bal < min) { min = bal; minDate = e.date; } minBase = Math.min(minBase, base);
+  });
+  const series = []; let run = start, runB = start;
+  for (let d = from; d <= to; d = addDays(d, 1)) { if (byDay[d] !== undefined) { run = byDay[d]; runB = baseDay[d]; } series.push({ d, v: run, b: runB }); }
+  const buffer = +LS.get('fcBuffer', 100), whatIfOn = ev.some(e => e.kind === 'What if' && !e.off);
   const nextPay = ev.find(e => !e.off && (e.kind === 'Payday' || e.kind === 'Income'));
   return { sel, accIds, name: sel === 'all' ? 'all bank accounts' : (L.byId[sel] || {}).name, banks, start, ev, series, min, minDate, buffer,
-    safe: Math.max(0, Math.floor(min - buffer)), short: min < 0 ? -min : 0, nextPay, incomes, horizon };
+    safe: Math.max(0, Math.floor(min - buffer)), short: min < 0 ? -min : 0, nextPay, incomes, horizon, whatIfs, whatIfOn,
+    safeBase: Math.max(0, Math.floor(minBase - buffer)), minBase };
+}
+// The days a what-if happens between from and to: once, every month on its day, or every two weeks
+export function whatIfDates(w, from: string, to: string) {
+  if (w.repeat === 'monthly') { const day = +w.date.slice(8, 10); return monthsFrom(w.date, to).map(([y, m]) => isoDate(new Date(y, m, Math.min(day, new Date(y, m + 1, 0).getDate()), 12))).filter(d => d >= from && d >= w.date && d <= to); }
+  if (w.repeat === 'biweekly') { const out = []; for (let d = w.date; d <= to; d = addDays(d, 14)) if (d >= from) out.push(d); return out; }
+  return w.date >= from && w.date <= to ? [w.date] : [];
 }
 function forecastChart(m) {
   const W = innerWidth < 600 ? 420 : 960, H = W < 960 ? 180 : 220, pt = 14, pb = 26, s = m.series, n = s.length;
-  const lo = Math.min(0, ...s.map(x => x.v)), hi = Math.max(...s.map(x => x.v), 1), span = hi - lo || 1;
+  const lo = Math.min(0, ...s.map(x => x.v), ...s.map(x => x.b)), hi = Math.max(...s.map(x => x.v), ...s.map(x => x.b), 1), span = hi - lo || 1;
   const x = i => (W - 8) * i / Math.max(1, n - 1) + 4, y = v => pt + (H - pt - pb) * (1 - (v - lo) / span);
   let path = '';
   s.forEach((p, i) => { path += (i ? ' H' + x(i).toFixed(1) + ' V' : 'M' + x(i).toFixed(1) + ' ') + y(p.v).toFixed(1); });
   const area = path + ' V' + y(lo).toFixed(1) + ' H' + x(0).toFixed(1) + ' Z';
+  let basePath = '';
+  if (m.whatIfOn) s.forEach((p, i) => { basePath += (i ? ' H' + x(i).toFixed(1) + ' V' : 'M' + x(i).toFixed(1) + ' ') + y(p.b).toFixed(1); });
   const byDate: any = {};
   m.ev.filter(e => !e.off).forEach(e => { (byDate[e.date] = byDate[e.date] || []).push(e); });
   const dots = htmlList(Object.entries<any>(byDate).map(([d, list]) => {
@@ -138,23 +154,34 @@ function forecastChart(m) {
     return html`<g class="pt" data-tip="${tip}"><rect x="${+cx - 10}" y="${pt}" width="20" height="${H - pt - pb}" fill="transparent"/><circle class="dot" cx="${cx}" cy="${cy}" r="${list.length > 1 ? 5 : 3.5}" fill="${net > 0 ? 'var(--good)' : 'var(--spend)'}"/></g>`;
   }));
   const every = W < 960 && n > 35 ? 14 : 7, ticks = htmlList(s.filter((p, i) => i % every === 0).map(p => { const i = daysBetween(s[0].d, p.d); return html`<text x="${x(i)}" y="${H - 6}" text-anchor="${i === 0 ? 'start' : 'middle'}">${fmtDay(p.d)}</text>`; }));
-  return html`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Projected balance"><defs><linearGradient id="fcg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--good)" stop-opacity=".22"/><stop offset="1" stop-color="var(--good)" stop-opacity="0"/></linearGradient></defs>${lo < 0 ? html`<rect x="0" y="${y(0)}" width="${W}" height="${y(lo) - y(0)}" fill="var(--spend)" opacity=".08"/>` : ''}<line x1="0" x2="${W}" y1="${y(0)}" y2="${y(0)}" stroke="var(--line)" stroke-dasharray="4 4"/><path d="${area}" fill="url(#fcg)"/><path d="${path}" fill="none" stroke="var(--good)" stroke-width="2.2"/>${dots}${ticks}</svg>`;
+  return html`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Projected balance"><defs><linearGradient id="fcg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--good)" stop-opacity=".22"/><stop offset="1" stop-color="var(--good)" stop-opacity="0"/></linearGradient></defs>${lo < 0 ? html`<rect x="0" y="${y(0)}" width="${W}" height="${y(lo) - y(0)}" fill="var(--spend)" opacity=".08"/>` : ''}<line x1="0" x2="${W}" y1="${y(0)}" y2="${y(0)}" stroke="var(--line)" stroke-dasharray="4 4"/><path d="${area}" fill="url(#fcg)"/>${basePath ? html`<path d="${basePath}" fill="none" stroke="var(--muted)" stroke-width="1.6" stroke-dasharray="5 4"/>` : ''}<path d="${path}" fill="none" stroke="var(--good)" stroke-width="2.2"/>${dots}${ticks}</svg>`;
 }
 VIEWS.forecast = async (r, paint) => {
   const sel = r.q.account || LS.get('fcAccount', ''), horizon = +(r.q.days || LS.get('fcDays', 60));
-  const m = await forecastModel(sel, horizon);
-  const kinds = { Payday: 'good', Income: 'good', Recurring: '', Loan: 'warn', Card: 'warn', Bill: 'bad' };
+  const m = await forecastModel(sel, horizon, true);
+  const kinds = { Payday: 'good', Income: 'good', Recurring: '', Loan: 'warn', Card: 'warn', Bill: 'bad', 'What if': 'warn' };
   const rows = htmlList(m.ev.map(e => html`<tr${e.off ? html` style="opacity:.45"` : ''}><td class="sel"><input type="checkbox"${e.off ? '' : ' checked'} title="Include in the forecast" data-onchange="App.fcToggle('${e.key}', this.checked)"></td><td class="date hide-s">${fmtDay(e.date)}</td><td><div class="desc">${e.label}</div><span class="chip ${kinds[e.kind] || ''}">${e.kind}</span><span class="sub-s show-s">${fmtDay(e.date)}</span></td><td class="amt ${e.amount > 0 ? 'pos' : 'neg'}">${e.amount > 0 ? '+' : ''}${money(e.amount)}</td><td class="amt ${e.after < 0 ? 'neg' : ''}">${e.off ? '—' : money(e.after)}</td></tr>`));
   const headline = m.short
     ? html`<div class="eyebrow">Heads up</div><div class="big num negative" data-count="${-m.short}">${money0(-m.short)}</div><div class="sub-s" style="margin-top:6px">Your balance is projected to go <strong>${money(m.short)} below zero</strong> on ${fmtDate(m.minDate)}. Move money in or delay a payment before then.</div>`
     : html`<div class="eyebrow">Safe to spend</div><div class="big num" data-count="${m.safe}">${money0(m.safe)}</div><div class="sub-s" style="margin-top:6px">${m.nextPay ? 'Until your next ' + (m.nextPay.kind === 'Payday' ? 'payday' : 'deposit') + ' on ' + fmtDate(m.nextPay.date) + ', while still covering everything below' : 'While still covering everything below'} and keeping a ${money0(m.buffer)} cushion.</div>`;
+  const whatIfNote = m.whatIfOn ? html`<div class="sub-s" style="margin-top:6px">Without your what-ifs: ${m.minBase < 0 ? html`<span class="neg">${money0(m.minBase)} at the lowest</span>` : money0(m.safeBase) + ' safe to spend'}.</div>` : '';
+  const REPEAT = { once: 'once', monthly: 'every month', biweekly: 'every 2 weeks' };
+  const wiRows = htmlList(m.whatIfs.map(w => html`<div class="row"><span class="name">${w.label} <span class="sub-s">${fmtDay(w.date)} · ${REPEAT[w.repeat] || 'once'}</span></span><span style="display:flex;gap:10px;align-items:center"><span class="num ${w.amount > 0 ? 'pos' : 'neg'}">${w.amount > 0 ? '+' : ''}${money(w.amount)}</span><button type="button" class="round" aria-label="Remove" data-onclick="App.fcWhatIfDel('${w.id}')">×</button></span></div>`));
+  const whatIfPanel = html`<section class="panel" style="margin-bottom:20px"><h2>What if…</h2><p class="lead">Try a purchase, a raise or a new subscription and see where the balance goes. The dashed line is the forecast without them.</p>${wiRows ? html`<div class="list" style="margin-bottom:14px">${wiRows}</div>` : ''}<form class="whatif" data-onsubmit="event.preventDefault();App.fcWhatIfAdd(this)"><input type="text" name="label" placeholder="e.g. New laptop" required><select name="sign"><option value="-1">I spend</option><option value="1">I receive</option></select><input type="number" name="amount" step="0.01" min="0.01" placeholder="Amount" required><input type="date" name="date" value="${todayIso()}" required><select name="repeat">${htmlList(Object.entries(REPEAT).map(([k, l]) => opt(k, l, 'once')))}</select><button class="btn">Add</button></form></section>`;
   paint(html`${head('Forecast', 'Where ' + m.name + ' is heading over the next ' + m.horizon + ' days',
-      html`<select data-onchange="App.fcSet('account', this.value)" style="width:auto">${htmlList(m.banks.map(a => opt(a.id, a.name, m.sel)))}${opt('all', 'All bank accounts', m.sel)}</select><select data-onchange="App.fcSet('days', this.value)" style="width:auto">${htmlList([30, 60, 90].map(d => opt(d, d + ' days', m.horizon)))}</select>`)}<section class="hero" style="margin-bottom:28px"><div>${headline}</div><div class="stats"><div class="stat"><div class="eyebrow">Balance now</div><div class="val num">${money0(m.start)}</div></div><div class="stat"><div class="eyebrow">Lowest point</div><div class="val num ${m.min < 0 ? 'neg' : ''}">${money0(m.min)}</div><div class="sub">${fmtDay(m.minDate)}</div></div><div class="stat"><div class="eyebrow">Cushion</div><div class="val num"><input type="number" min="0" step="10" value="${m.buffer}" data-onchange="App.fcBuffer(this.value)" style="width:110px;font-size:20px;padding:4px 10px"></div><div class="sub">kept aside, never counted as spendable</div></div></div></section><section class="panel chart" style="margin-bottom:20px"><h2>Projected balance</h2><p class="lead">Each dot is a scheduled payment or deposit · the shaded area is below zero</p>${forecastChart(m)}</section><section class="panel flush"><div style="padding:22px 26px 6px"><h2 style="font-size:15px;margin:0 0 3px">What’s coming</h2><p class="lead" style="margin-bottom:8px">Untick anything that won’t happen — the forecast remembers.</p></div>${rows ? html`<table class="tbl"><thead><tr><th class="sel"></th><th class="hide-s">Date</th><th>What</th><th class="r">Amount</th><th class="r">Balance after</th></tr></thead><tbody>${rows}</tbody></table>` : html`<div class="center-empty">Nothing scheduled in this period.</div>`}</section><p class="sub-s" style="margin-top:14px">How this works: paydays are spotted from deposits that repeat on a schedule${m.incomes.length ? ' (' + m.incomes.map(i => i.name + ' ' + money0(i.amount) + ' ' + ({ semimonthly: 'twice a month', monthly: 'monthly', every: 'every ' + i.p.n + ' days' }[i.p.kind])).join(', ') + ')' : ''}. It adds your recurring transactions, bills, loan payments that repeat monthly, and assumes each credit card balance is paid in full on its due date — or on your next payday if the card has no due date in Firefly. Day-to-day card spending isn’t predicted: whatever you put on a card also has to come out of this “safe to spend”.</p>`);
+      html`<select data-onchange="App.fcSet('account', this.value)" style="width:auto">${htmlList(m.banks.map(a => opt(a.id, a.name, m.sel)))}${opt('all', 'All bank accounts', m.sel)}</select><select data-onchange="App.fcSet('days', this.value)" style="width:auto">${htmlList([30, 60, 90].map(d => opt(d, d + ' days', m.horizon)))}</select>`)}<section class="hero" style="margin-bottom:28px"><div>${headline}${whatIfNote}</div><div class="stats"><div class="stat"><div class="eyebrow">Balance now</div><div class="val num">${money0(m.start)}</div></div><div class="stat"><div class="eyebrow">Lowest point</div><div class="val num ${m.min < 0 ? 'neg' : ''}">${money0(m.min)}</div><div class="sub">${fmtDay(m.minDate)}</div></div><div class="stat"><div class="eyebrow">Cushion</div><div class="val num"><input type="number" min="0" step="10" value="${m.buffer}" data-onchange="App.fcBuffer(this.value)" style="width:110px;font-size:20px;padding:4px 10px"></div><div class="sub">kept aside, never counted as spendable</div></div></div></section><section class="panel chart" style="margin-bottom:20px"><h2>Projected balance</h2><p class="lead">Each dot is a scheduled payment or deposit · the shaded area is below zero</p>${forecastChart(m)}</section>${whatIfPanel}<section class="panel flush"><div style="padding:22px 26px 6px"><h2 style="font-size:15px;margin:0 0 3px">What’s coming</h2><p class="lead" style="margin-bottom:8px">Untick anything that won’t happen — the forecast remembers.</p></div>${rows ? html`<table class="tbl"><thead><tr><th class="sel"></th><th class="hide-s">Date</th><th>What</th><th class="r">Amount</th><th class="r">Balance after</th></tr></thead><tbody>${rows}</tbody></table>` : html`<div class="center-empty">Nothing scheduled in this period.</div>`}</section><p class="sub-s" style="margin-top:14px">How this works: paydays are spotted from deposits that repeat on a schedule${m.incomes.length ? ' (' + m.incomes.map(i => i.name + ' ' + money0(i.amount) + ' ' + ({ semimonthly: 'twice a month', monthly: 'monthly', every: 'every ' + i.p.n + ' days' }[i.p.kind])).join(', ') + ')' : ''}. It adds your recurring transactions, bills, loan payments that repeat monthly, and assumes each credit card balance is paid in full on its due date — or on your next payday if the card has no due date in Firefly. Day-to-day card spending isn’t predicted: whatever you put on a card also has to come out of this “safe to spend”.</p>`);
 };
 function fcToggle(key, on) {
   const s = new Set(LS.get('fcExclude', [])); on ? s.delete(key) : s.add(key); LS.set('fcExclude', [...s]); route();
 }
 function fcSet(k, v) { LS.set(k === 'account' ? 'fcAccount' : 'fcDays', v); location.hash = hashWith({ [k]: v }); }
+function fcWhatIfAdd(f) {
+  const amount = Math.abs(num(f.amount.value)), label = f.label.value.trim();
+  if (!amount || !label || !f.date.value) return;
+  LS.set('fcWhatIf', [...LS.get('fcWhatIf', []), { id: Date.now().toString(36), label, amount: amount * +f.sign.value, date: f.date.value, repeat: f.repeat.value }]);
+  route();
+}
+function fcWhatIfDel(id) { LS.set('fcWhatIf', LS.get('fcWhatIf', []).filter(w => w.id !== id)); route(); }
 function fcBuffer(v) { LS.set('fcBuffer', Math.max(0, num(v))); route(); }
 async function safeCard() {
   try {
@@ -168,5 +195,7 @@ Object.assign(App, {
   fcToggle,
   fcSet,
   fcBuffer,
+  fcWhatIfAdd,
+  fcWhatIfDel,
   safeCard,
 });

@@ -56,13 +56,23 @@ export function createMockApi(now = new Date()) {
     .map(([name, t, c, date], i) => ({ id: String(i + 1), attributes: { name, target_amount: String(t), current_amount: String(c), left_to_save: String(t - c),
       target_date: date, active: true, accounts: [{ account_id: '2', name: 'High-Yield Savings', current_amount: String(c) }] } }));
 
+  // Bills: three that the payees above charge every month, and a yearly one with no charges yet (due in 18 days)
+  const BILLS: [string, string, number, number, string, number, string, string | null][] = [  // id, name, lowest, highest, repeats, first due date, group, payee
+    ['1', 'StreamFlix', 15.49, 15.49, 'monthly', utc(2026, 0, 11), 'Subscriptions', 'StreamFlix'],
+    ['2', 'Tunes Plus', 11.99, 11.99, 'monthly', utc(2026, 0, 12), 'Subscriptions', 'Tunes Plus'],
+    ['3', 'City Power & Light', 80, 115, 'monthly', utc(2026, 0, 13), 'Home', 'City Power & Light'],
+    ['4', 'Car insurance', 540, 540, 'yearly', TODAY + 18 * DAY - 365 * DAY, 'Car', null],
+  ];
+  const BILL_OF = Object.fromEntries(BILLS.filter(b => b[7]).map(b => [b[7], b]));
+
   let TX = [];
   const addTx = (d: number, type, amt: number, description, src, dst, cat = null, bud = null) => {
     const gid = String(TX.length + 1), s = ACC_BY[src].attributes, t = ACC_BY[dst].attributes;
-    TX.push({ id: gid, type: 'transactions', attributes: { group_title: null, transactions: [{
+    const bill = type === 'withdrawal' ? BILL_OF[t.name] : null;
+    TX.push({ id: gid, type: 'transactions', attributes: { group_title: null, created_at: iso(d) + 'T18:00:00-05:00', transactions: [{
       transaction_journal_id: gid, type, date: iso(d) + 'T12:00:00-05:00', amount: amt.toFixed(2), description,
       source_id: src, source_name: s.name, source_type: s.type, destination_id: dst, destination_name: t.name, destination_type: t.type,
-      category_name: cat, category_id: CAT_ID[cat] ?? null, budget_id: BUDGETS[bud] ?? null, budget_name: bud, bill_id: null, tags: [], notes: '',
+      category_name: cat, category_id: CAT_ID[cat] ?? null, budget_id: BUDGETS[bud] ?? null, budget_name: bud, bill_id: bill ? bill[0] : null, bill_name: bill ? bill[1] : null, tags: [], notes: '',
       foreign_amount: null, foreign_currency_code: null, reconciled: false }] } });
   };
 
@@ -129,6 +139,24 @@ export function createMockApi(now = new Date()) {
     }
     return { ...a, attributes: { ...t, current_balance: (+t.current_balance - moved).toFixed(2) } };
   };
+  // The days a bill is due from start to end (ISO dates)
+  const billDue = (b, start: string, end: string) => {
+    const [fy, fm, fd] = ymd(b[5]), out = [];
+    for (let k = 0; ; k += b[4] === 'monthly' ? 1 : 12) {
+      const d = iso(utc(fy, fm + k, Math.min(fd, ymd(utc(fy, fm + k + 1, 0))[2])));
+      if (d > end) return out;
+      if (d >= start) out.push(d);
+    }
+  };
+  // A bill as Firefly answers it, for a date range: the days it's due in that range, and the charges that paid it
+  const billJson = (b, q) => {
+    const [id, name, lo, hi, freq, first, grp] = b, ranged = !!(q.start && q.end);
+    const paid = ranged ? TX.filter(g => jd(g).bill_id === id && inRange(g, q)).map(g => ({ transaction_group_id: g.id, transaction_journal_id: g.id, date: jd(g).date })) : [];
+    const next = billDue(b, iso(TODAY), iso(TODAY + 400 * DAY));
+    return { id, attributes: { name, amount_min: lo.toFixed(2), amount_max: hi.toFixed(2), date: iso(first), repeat_freq: freq, skip: 0,
+      active: true, object_group_title: grp, currency_code: 'USD', notes: '', next_expected_match: next[0] ?? null,
+      pay_dates: ranged ? billDue(b, q.start, q.end) : [], paid_dates: paid } };
+  };
   const PREFS = {};       // Firefly user preferences (Money keeps its synced settings in one), kept until the page reloads
 
   // Answers one API call (path without /api/v1). Returns the JSON body, or null for 204 No Content;
@@ -157,7 +185,9 @@ export function createMockApi(now = new Date()) {
     }
     if (path === '/budget-limits') return page([{ id: '1', attributes: { budget_id: '1', amount: '900' } }, { id: '2', attributes: { budget_id: '2', amount: '200' } }], q);
     if (path === '/piggy-banks') return page(PIGGIES, q);
-    if (['/bills', '/tags', '/recurrences', '/rule-groups', '/rules', '/link-types', '/webhooks', '/available-budgets'].includes(path)) return page([], q);
+    if (path === '/bills') return page(BILLS.map(b => billJson(b, q)), q);
+    if ((m = path.match(/^\/bills\/(\d+)\/transactions$/))) return page(TX.filter(g => jd(g).bill_id === m[1] && inRange(g, q)), q);
+    if (['/tags', '/recurrences', '/rule-groups', '/rules', '/link-types', '/webhooks', '/available-budgets'].includes(path)) return page([], q);
     if (path === '/currencies') return page([{ id: '1', attributes: { code: 'USD', name: 'US Dollar', symbol: '$', enabled: true, primary: true } }], q);
     if (path === '/summary/basic') return { 'net-worth-in-USD': { monetary_value: '5418.00' } };
     if (path === '/insight/expense/category') return expenseByCat(q);

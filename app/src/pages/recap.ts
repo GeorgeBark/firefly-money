@@ -11,14 +11,14 @@ import { billDays } from './bills';
 /* ================= Monthly recap =================
    One month in review: what came in and went out against last month and the three before it, where the money
    went, the biggest purchases, payees that are new, bills, and how much your net worth moved. */
-const delta = (now, then, up = 'up') => {
+const delta = (now: number, then: number, up = 'up') => {
   if (!then) return '';
   const d = now - then, pct = Math.round(d / then * 100);
   if (Math.abs(pct) < 3) return html`<span class="neutral">about the same as usual</span>`;
   return html`<span class="${(d > 0) === (up === 'up') ? 'up' : 'down'}">${d > 0 ? '▲' : '▼'} ${money0(Math.abs(d))} (${pct > 0 ? '+' : ''}${pct}%)</span> vs usual`;
 };
 // The month's own accounts on a day, summed: assets minus debts (Firefly keeps liabilities as negative balances)
-async function netOn(date) {
+async function netOn(date: string) {
   const [as, ls] = await Promise.all([getAll('/accounts', { type: 'asset', date }), getAll('/accounts', { type: 'liabilities', date })]);
   const byId = new Map([...as, ...ls].map(a => [String(a.id), normAccount(a)]));
   return [...byId.values()].filter(a => a.active && a.netWorth && (isAsset(a) || isLiab(a))).reduce((s, a) => s + a.balance, 0);
@@ -39,7 +39,7 @@ VIEWS.recap = async (r, paint) => {
   const soFar = cur.end >= t, end = soFar ? t : cur.end;
   const p = { start: cur.start, end }, before = { start: monthRange(cur.y, cur.m - 3).start, end: monthRange(cur.y, cur.m - 1).end };
   const year = { start: monthRange(cur.y, cur.m - 12).start, end: addDays(cur.start, -1) };
-  const g = (path, params) => api(path, { params }).catch(() => []);
+  const g = (path: string, params: Record<string, string | number>) => api(path, { params }).catch(() => []);
   const [inc, exp, inc3, exp3, cats, cats3, noCat, noCat3, payees, payees12, spends, bills, nwStart, nwEnd] = await Promise.all([
     g('/insight/income/total', p), g('/insight/expense/total', p), g('/insight/income/total', before), g('/insight/expense/total', before),
     g('/insight/expense/category', p), g('/insight/expense/category', before), g('/insight/expense/no-category', p), g('/insight/expense/no-category', before),
@@ -92,6 +92,6 @@ VIEWS.recap = async (r, paint) => {
   if (fresh.length) notes.push(html`${fresh.length} new payee${fresh.length === 1 ? '' : 's'}, starting with ${fresh[0].name}.`);
   if (late.length) notes.push(html`<span class="up">${late.length} bill${late.length === 1 ? ' is' : 's are'} overdue.</span>`);
 
-  const kpi = (label, v, sub, cls = '') => html`<div class="kpi"><div class="eyebrow">${label}</div><div class="val num ${cls}">${v}</div><div class="sub-s">${sub}</div></div>`;
+  const kpi = (label: string, v: unknown, sub: unknown, cls = '') => html`<div class="kpi"><div class="eyebrow">${label}</div><div class="val num ${cls}">${v}</div><div class="sub-s">${sub}</div></div>`;
   paint(html`${head(cur.label + ' recap', soFar ? 'So far, up to ' + fmtDay(end) : 'The month in review', monthNav())}${notes.length ? html`<section class="panel recap-notes"><ul>${htmlList(notes.map(n => html`<li>${n}</li>`))}</ul></section>` : ''}<div class="kpis">${kpi('Earned', money0(earned), soFar ? (sumDiff(inc3) ? 'usually ' + money0(sumDiff(inc3) / 3) + ' a month' : '') : delta(earned, usualIn, 'down'), 'pos')}${kpi('Spent', money0(spent), delta(spent, usualOut), 'neg')}${kpi('Kept', money0(kept), earned ? Math.round(rate * 100) + '% of income' : '', kept < 0 ? 'neg' : '')}${nw != null ? kpi('Net worth', (nw > 0 ? '+' : '') + money0(nw), 'change over the month', nw < 0 ? 'neg' : 'pos') : ''}</div><div class="cards"><section class="panel"><div class="panel-head"><h2>Where it went</h2><a class="link" href="#/categories">Categories</a></div><p class="lead">The marks show a usual month${soFar ? ' up to the same day' : ''}</p>${catHtml || html`<p class="empty">Nothing spent yet.</p>`}</section><section class="panel"><h2>Biggest purchases</h2><p class="lead">${splits.length} purchase${splits.length === 1 ? '' : 's'} in all</p>${topHtml ? html`<div class="list">${topHtml}</div>` : html`<p class="empty">No purchases.</p>`}</section><section class="panel"><h2>New payees</h2><p class="lead">Paid this month and not in the year before</p>${freshHtml ? html`<div class="list">${freshHtml}</div>` : html`<p class="empty">No new payees. Same places as always.</p>`}</section><section class="panel"><div class="panel-head"><h2>Bills</h2><a class="link" href="#/bills?view=calendar">Calendar</a></div>${billList.length ? html`<p class="lead">${billList.filter(x => x.state === 'paid').length} of ${billList.length} paid</p><div class="list"><div class="row"><span class="name">Paid</span><span class="num pos">${money0(billSum.paid)}</span></div><div class="row"><span class="name">Still due</span><span class="num">${money0(billSum.due)}</span></div>${late.length ? html`<div class="row"><span class="name">Overdue: ${late.map(x => x.name).join(', ')}</span><span class="num neg">${money0(billSum.late)}</span></div>` : ''}</div>` : html`<p class="empty">No bills due this month.</p>`}</section></div>`);
 };

@@ -1,7 +1,7 @@
 import { html, htmlList } from '../core/html';
 import { api, eachLimited, getAll } from '../core/api';
 import { withAuth } from '../core/auth';
-import { App, S, el, fmtDay, money, num, todayIso } from '../core/base';
+import { App, S, el, fmtDay, money, num, todayIso, type ApiData } from '../core/base';
 import { confirmBox, head, toast } from '../core/dom';
 import { normGroup } from '../core/feed';
 import { addDays } from '../core/helpers';
@@ -10,6 +10,9 @@ import { VIEWS, route } from '../core/router';
 import { newTx } from '../features/txform';
 
 /* ================= Reconcile ================= */
+type RecRow = { gid: string, jid: string, date: string, desc: string, amt: number, rec: boolean };
+// The statement being reconciled (S.rec): the account, its rows, and the journal ids ticked off so far
+type Rec = { a: ApiData, rows: RecRow[], startBal: number, owed: boolean, start: string, end: string, checked: Set<string>, diff?: number | null };
 VIEWS.reconcile = async (r, paint) => {
   await lists();
   const a = normAccount((await api('/accounts/' + r.id)).data);
@@ -19,7 +22,7 @@ VIEWS.reconcile = async (r, paint) => {
     getAll('/accounts/' + r.id + '/transactions', { start, end }),
   ]);
   const owed = isCard(a) || isLiab(a);
-  const rows: { gid: string, jid: string, date: string, desc: string, amt: number, rec: boolean }[] = [];
+  const rows: RecRow[] = [];
   txs.map(normGroup).forEach(g => g.splits.forEach(s => {
     if (s.source_id !== a.id && s.destination_id !== a.id) return;
     rows.push({ gid: g.id, jid: s.jid, date: s.date, desc: s.description, amt: s.source_id === a.id ? -s.amount : s.amount, rec: s.reconciled });
@@ -32,8 +35,8 @@ VIEWS.reconcile = async (r, paint) => {
   recCalc();
 };
 function recCalc() {
-  const R = S.rec; if (!R) return;
-  const disp = v => R.owed ? -v : v;
+  const R: Rec = S.rec; if (!R) return;
+  const disp = (v: number) => R.owed ? -v : v;
   const cleared = R.startBal + R.rows.filter(x => R.checked.has(x.jid)).reduce((s, x) => s + x.amt, 0);
   const raw = el<HTMLInputElement>('rc-bal').value.trim(), stmt = raw === '' ? null : (R.owed ? -num(raw) : num(raw));
   const diff = stmt === null ? null : Math.round((stmt - cleared) * 100) / 100;
@@ -44,11 +47,11 @@ function recCalc() {
     String(html`<button class="btn primary" data-onclick="App.recFinish()"${newly ? '' : ' disabled'}>Mark ${newly} as reconciled</button>${diff ? html`<button class="btn" data-onclick="App.recAdjust()">Add a ${money(Math.abs(diff))} adjustment</button>` : ''}`);
   R.diff = diff;
 }
-function recTick(cb) { cb.checked ? S.rec.checked.add(cb.dataset.rec) : S.rec.checked.delete(cb.dataset.rec); recCalc(); }
-function recAll(on) { document.querySelectorAll<HTMLInputElement>('input[data-rec]:not(:disabled)').forEach(cb => { cb.checked = on; on ? S.rec.checked.add(cb.dataset.rec) : S.rec.checked.delete(cb.dataset.rec); }); recCalc(); }
+function recTick(cb: HTMLInputElement) { cb.checked ? S.rec.checked.add(cb.dataset.rec) : S.rec.checked.delete(cb.dataset.rec); recCalc(); }
+function recAll(on: boolean) { document.querySelectorAll<HTMLInputElement>('input[data-rec]:not(:disabled)').forEach(cb => { cb.checked = on; on ? S.rec.checked.add(cb.dataset.rec) : S.rec.checked.delete(cb.dataset.rec); }); recCalc(); }
 function recDates() { location.hash = '#/reconcile/' + S.rec.a.id + '?start=' + el<HTMLInputElement>('rc-start').value + '&end=' + el<HTMLInputElement>('rc-end').value + (el<HTMLInputElement>('rc-bal').value ? '&balance=' + encodeURIComponent(el<HTMLInputElement>('rc-bal').value) : ''); }
 async function recFinish() {
-  const R = S.rec, todo: { gid: string, jid: string }[] = R.rows.filter(x => R.checked.has(x.jid) && !x.rec);
+  const R: Rec = S.rec, todo: { gid: string, jid: string }[] = R.rows.filter(x => R.checked.has(x.jid) && !x.rec);
   if (R.diff && !await confirmBox('The difference isn’t zero', 'You can still mark the ticked transactions as reconciled, but the account won’t match the statement yet.', 'Mark anyway')) return;
   await withAuth(async () => {
     let n = 0;

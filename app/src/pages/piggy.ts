@@ -1,7 +1,7 @@
 import { html, htmlList } from '../core/html';
 import { api, getAll } from '../core/api';
 import { busy } from '../core/auth';
-import { App, S, el, fmtDate, money, money0, num, todayIso, type Field } from '../core/base';
+import { App, S, el, fmtDate, money, money0, num, todayIso, type ApiData, type Field } from '../core/base';
 import { closeDrawer, formError, head, openDrawer, opt, toast } from '../core/dom';
 import { isAsset, isCard, lists } from '../core/lists';
 import { VIEWS, route } from '../core/router';
@@ -9,7 +9,7 @@ import { goalPace } from '../features/pace';
 
 /* ================= Piggy banks ================= */
 // What a goal needs from here on, and a chip saying whether it keeps up (shared with the Overview's Savings goals card)
-export function paceBits(p) {
+export function paceBits(p: Piggy) {
   const g = goalPace(p, todayIso());
   if (g.status === 'done') return { line: 'Goal reached', chip: html`<span class="chip good">Reached</span>` };
   if (g.status === 'open') return { line: money0(g.left) + ' to go', chip: '' };
@@ -17,9 +17,11 @@ export function paceBits(p) {
   return { line: 'Save ' + money0(g.perMonth) + '/month to reach it by ' + fmtDate(p.targetDate),
     chip: g.status === 'behind' ? html`<span class="chip warn" title="Where an even pace from the start date would be by now">${money0(g.gap)} behind</span>` : html`<span class="chip good">On track</span>` };
 }
-export function normPiggy(p) {
+export type PiggyAccount = { id: string, name: string, amount: number };
+export type Piggy = ReturnType<typeof normPiggy>;
+export function normPiggy(p: ApiData) {
   const at = p.attributes || {};
-  const accounts = (at.accounts || []).map(x => ({ id: String(x.account_id ?? x.id), name: x.name || x.account_name || '', amount: num(x.current_amount) }));
+  const accounts: PiggyAccount[] = (at.accounts || []).map((x: ApiData) => ({ id: String(x.account_id ?? x.id), name: x.name || x.account_name || '', amount: num(x.current_amount) }));
   if (!accounts.length && at.account_id) accounts.push({ id: String(at.account_id), name: at.account_name || '', amount: num(at.current_amount) });
   return { id: String(p.id), name: at.name, target: num(at.target_amount), current: num(at.current_amount), left: num(at.left_to_save), perMonth: num(at.save_per_month),
     targetDate: at.target_date || '', startDate: at.start_date || '', notes: at.notes || '', active: at.active !== false, accounts, group: at.object_group_title || '' };
@@ -39,8 +41,8 @@ VIEWS.piggy = async (r, paint) => {
     html`<div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(320px,1fr))">${cards}</div>` :
     html`<section class="panel"><div class="center-empty">No piggy banks yet.<br>Use one to set money aside in an account for a goal — a trip, tuition, an emergency fund.</div></section>`}`);
 };
-function piggyForm(id) {
-  const L = S.lists!, p = id ? S.piggyCache![id] : null;
+function piggyForm(id?: string) {
+  const L = S.lists!, p: Piggy | null = id ? S.piggyCache![id] : null;
   S.form = { id };
   const accId = p && p.accounts[0] ? p.accounts[0].id : ((L.own.find(a => a.role === 'savingAsset') || L.own.find(a => isAsset(a) && !isCard(a)) || {}).id || '');
   openDrawer(id ? 'Edit piggy bank' : 'New piggy bank',
@@ -55,7 +57,7 @@ function piggyForm(id) {
   }).catch(() => { const box = el('pgHistory'); if (box) box.innerHTML = ''; });
 }
 async function savePiggy() {
-  const id = S.form.id, v = x => el<Field>(x) ? el<Field>(x).value.trim() : '';
+  const id = S.form.id, v = (x: string) => el<Field>(x) ? el<Field>(x).value.trim() : '';
   if (!v('p-name')) return formError('Give it a name.');
   if (!(num(v('p-target')) > 0)) return formError('Set a goal amount above zero.');
   const body: any = { name: v('p-name'), target_amount: String(num(v('p-target'))), notes: el<HTMLTextAreaElement>('p-notes').value, object_group_title: v('p-group') };
@@ -69,20 +71,20 @@ async function savePiggy() {
     closeDrawer(); toast(id ? 'Piggy bank saved' : 'Piggy bank created'); route();
   });
 }
-function piggyMoney(id, dir) {
-  const p = S.piggyCache![id];
+function piggyMoney(id: string, dir: number) {
+  const p: Piggy = S.piggyCache![id];
   S.form = { id, dir };
   openDrawer((dir > 0 ? 'Add money to ' : 'Take money out of ') + p.name,
     html`<form id="pmForm" data-onsubmit="event.preventDefault();App.savePiggyMoney()"><p class="sub-s" style="margin-top:0">Currently ${money(p.current)} of ${money(p.target)}. This only moves money in Firefly’s bookkeeping — no transaction is created.</p>${p.accounts.length > 1 ? html`<label>Account<select id="pm-acc">${htmlList(p.accounts.map(a => opt(a.id, (a.name || (S.lists!.byId[a.id] || {}).name) + ' (' + money(a.amount) + ')', '')))}</select></label>` : ''}<label>Amount<input type="number" min="0.01" step="0.01" id="pm-amt" required></label><button type="submit" hidden></button></form>`,
     html`<span class="grow"></span><button class="btn" data-onclick="App.closeDrawer()">Cancel</button><button class="btn primary" id="pmSave" data-onclick="App.submit('pmForm')">${dir > 0 ? 'Add' : 'Take out'}</button>`);
 }
 async function savePiggyMoney() {
-  const { id, dir } = S.form, p = S.piggyCache![id], amt = num(el<HTMLInputElement>('pm-amt').value);
+  const { id, dir } = S.form, p: Piggy = S.piggyCache![id], amt = num(el<HTMLInputElement>('pm-amt').value);
   if (!(amt > 0)) return formError('Enter an amount above zero.');
   const accId = el<HTMLSelectElement>('pm-acc') ? el<HTMLSelectElement>('pm-acc').value : (p.accounts[0] || {}).id;
   if (!accId) return formError('This piggy bank has no account linked. Edit it in Firefly III.');
   const accounts = p.accounts.map(a => ({ account_id: a.id, current_amount: String(a.id === accId ? Math.max(0, a.amount + dir * amt) : a.amount) }));
-  if (dir < 0 && (p.accounts.find(a => a.id === accId) || {}).amount < amt) return formError('There isn’t that much saved in it.');
+  if (dir < 0 && ((p.accounts.find(a => a.id === accId) || {}) as ApiData).amount < amt) return formError('There isn’t that much saved in it.');
   await busy(el('pmSave'), async () => {
     await api('/piggy-banks/' + id, { method: 'PUT', body: { accounts } });
     closeDrawer(); toast(dir > 0 ? 'Money added' : 'Money taken out'); route();

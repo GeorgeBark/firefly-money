@@ -1,24 +1,26 @@
 import { html, htmlList } from '../core/html';
 import { AuthError, api, getAll } from '../core/api';
 import { busy, showLogin } from '../core/auth';
-import { App, S, arr, el, money, money0, monthRange, num, period, sumDiff } from '../core/base';
+import { App, S, arr, el, money, money0, monthRange, num, period, sumDiff, type ApiData, type Period } from '../core/base';
 import { closeDrawer, formError, head, monthNav, openDrawer, opt, toast } from '../core/dom';
-import { invalidate, lists } from '../core/lists';
+import { invalidate, lists, type Lists } from '../core/lists';
 import { VIEWS, hashWith, route } from '../core/router';
 
 /* ================= Budgets ================= */
 const AUTO_PERIODS = [['weekly', 'Week', '/wk'], ['monthly', 'Month', '/mo'], ['quarterly', 'Quarter', '/qtr'], ['half_year', 'Half year', '/6 mo'], ['yearly', 'Year', '/yr']];
-const AUTO_LABEL = { reset: 'Same amount', rollover: 'Rolls over', adjusted: 'Adjusts for overspending' };
+const AUTO_LABEL: Record<string, string> = { reset: 'Same amount', rollover: 'Rolls over', adjusted: 'Adjusts for overspending' };
 // What a rollover or adjusted auto-budget moved into this month: the month's amount minus the usual amount
-function carried(b) {
+function carried(b: { lim?: BudgetLimit, auto: string, autoPeriod: string, autoAmt: number }) {
   if (!b.lim || !['rollover', 'adjusted'].includes(b.auto) || b.autoPeriod !== 'monthly') return '';
   const d = b.lim.amount - b.autoAmt;
   if (Math.abs(d) < 1) return '';
   return html`<div class="sub-s">${d > 0 ? 'Includes ' + money(d) + ' carried over from last month' : html`<span class="up">${money(-d)} less</span> after overspending last month`}</div>`;
 }
-export async function budgetLimits(cur, L) {
-  const out: any = {};
-  const take = (bid, x) => { const at = x.attributes || {}; out[String(bid)] = { id: String(x.id), amount: num(at.amount) }; };
+// This period's amount for each budget, by budget id
+export type BudgetLimit = { id: string, amount: number };
+export async function budgetLimits(cur: Period, L: Lists) {
+  const out: Record<string, BudgetLimit> = {};
+  const take = (bid: string, x: ApiData) => { const at = x.attributes || {}; out[String(bid)] = { id: String(x.id), amount: num(at.amount) }; };
   try {
     const all = await getAll('/budget-limits', { start: cur.start, end: cur.end });
     all.forEach(x => take(x.attributes.budget_id, x));
@@ -31,7 +33,7 @@ VIEWS.budgets = async (r, paint) => {
   const L = await lists();
   const cur = period(), all = !!cur.all;   // All time shows what was spent; amounts are set per month
   const [res, limits, noBudget, avail] = await Promise.all([
-    api('/budgets', { params: { start: cur.start, end: cur.end } }), all ? {} : budgetLimits(cur, L),
+    api('/budgets', { params: { start: cur.start, end: cur.end } }), all ? {} as Record<string, BudgetLimit> : budgetLimits(cur, L),
     api('/insight/expense/no-budget', { params: { start: cur.start, end: cur.end } }).catch(() => []),
     all ? { data: [] } : api('/available-budgets', { params: { start: cur.start, end: cur.end } }).catch(() => ({ data: [] })),
   ]);
@@ -39,7 +41,7 @@ VIEWS.budgets = async (r, paint) => {
   const showInactive = r.q.inactive === '1';
   const bs = arr(res).map(b => ({ id: String(b.id), name: b.attributes.name, active: b.attributes.active !== false, notes: b.attributes.notes || '',
     auto: b.attributes.auto_budget_type && b.attributes.auto_budget_type !== 'none' ? b.attributes.auto_budget_type : '', autoAmt: num(b.attributes.auto_budget_amount), autoPeriod: b.attributes.auto_budget_period || 'monthly',
-    spent: Math.abs((b.attributes.spent || []).reduce((s, x) => s + num(x.sum), 0)), lim: limits[String(b.id)] }));
+    spent: Math.abs((b.attributes.spent || []).reduce((s: number, x: ApiData) => s + num(x.sum), 0)), lim: limits[String(b.id)] }));
   const visible = bs.filter(b => b.active || showInactive);
   const totLim = visible.reduce((s, b) => s + (b.lim ? b.lim.amount : 0), 0), totSpent = visible.reduce((s, b) => s + b.spent, 0), unb = sumDiff(noBudget);
   const rows = htmlList(visible.map(b => {
@@ -51,7 +53,7 @@ VIEWS.budgets = async (r, paint) => {
       : html`<div class="center-empty">No budgets yet. Create one to start tracking.</div>`}</section>${inactiveCount ? html`<p style="margin-top:14px"><a class="link" href="${hashWith({ inactive: showInactive ? '' : '1' })}">${showInactive ? 'Hide' : 'Show'} ${inactiveCount} inactive</a></p>` : ''}<p class="sub-s" style="margin-top:14px">${all ? 'Budget amounts are set per month. Pick a month to set them.' : 'Type an amount in the right column and press Enter to set that month’s budget. Clear it to remove it.'}</p>`);
   S.budgetLimits = limits; S.budgetCache = Object.fromEntries(bs.map(b => [b.id, b]));
 };
-async function setLimit(bid, input) {
+async function setLimit(bid: string, input: HTMLInputElement) {
   const cur = monthRange(S.y, S.m), lim = (S.budgetLimits || {})[bid], val = input.value.trim();
   input.disabled = true;
   try {
@@ -61,11 +63,11 @@ async function setLimit(bid, input) {
     toast('Budget updated'); route();
   } catch (e) { input.disabled = false; if (e instanceof AuthError) return showLogin(e.message); toast((e as Error).message); }
 }
-async function budgetForm(id) {
+async function budgetForm(id?: string) {
   const L = await lists(true), b = id ? L.budgets.find(x => x.id === id) : null;
   S.form = { id };
   openDrawer(id ? 'Edit budget' : 'New budget',
-    html`<form id="budForm" data-onsubmit="event.preventDefault();App.saveBudget()"><label>Name<input type="text" id="b-name" value="${b ? b.name : ''}" required></label>${!id ? html`<label>Amount for ${monthRange(S.y, S.m).label} (optional)<input type="number" min="0" step="1" id="b-amount"></label>` : ''}${(() => { const bc = (S.budgetCache || {})[id] || {}; return html`<div class="grid2"><label>Auto-budget<select id="b-auto">${htmlList([['none', 'Off'], ['reset', 'Same amount every month'], ['rollover', 'Roll over what’s left'], ['adjusted', 'Adjust for overspending']].map(([v, l]) => opt(v, l, bc.auto || 'none')))}</select></label><label>Amount<input type="number" min="0" step="1" id="b-autoamt" value="${bc.autoAmt || ''}"></label></div><label>Every<select id="b-autoper">${htmlList(AUTO_PERIODS.map(([v, l]) => opt(v, l, bc.autoPeriod || 'monthly')))}</select></label><p class="hint">Firefly sets the budget’s amount at the start of each period. “Roll over” carries what’s left (or overspent) into the next period; “Adjust” only takes off what you overspent.</p>`; })()}<label>Notes<textarea id="b-notes" rows="3">${b ? b.notes : ''}</textarea></label>${id ? html`<label class="check"><input type="checkbox" id="b-active"${b!.active ? ' checked' : ''}> Active</label>` : ''}<button type="submit" hidden></button></form>`,
+    html`<form id="budForm" data-onsubmit="event.preventDefault();App.saveBudget()"><label>Name<input type="text" id="b-name" value="${b ? b.name : ''}" required></label>${!id ? html`<label>Amount for ${monthRange(S.y, S.m).label} (optional)<input type="number" min="0" step="1" id="b-amount"></label>` : ''}${(() => { const bc = (S.budgetCache || {})[String(id)] || {}; return html`<div class="grid2"><label>Auto-budget<select id="b-auto">${htmlList([['none', 'Off'], ['reset', 'Same amount every month'], ['rollover', 'Roll over what’s left'], ['adjusted', 'Adjust for overspending']].map(([v, l]) => opt(v, l, bc.auto || 'none')))}</select></label><label>Amount<input type="number" min="0" step="1" id="b-autoamt" value="${bc.autoAmt || ''}"></label></div><label>Every<select id="b-autoper">${htmlList(AUTO_PERIODS.map(([v, l]) => opt(v, l, bc.autoPeriod || 'monthly')))}</select></label><p class="hint">Firefly sets the budget’s amount at the start of each period. “Roll over” carries what’s left (or overspent) into the next period; “Adjust” only takes off what you overspent.</p>`; })()}<label>Notes<textarea id="b-notes" rows="3">${b ? b.notes : ''}</textarea></label>${id ? html`<label class="check"><input type="checkbox" id="b-active"${b!.active ? ' checked' : ''}> Active</label>` : ''}<button type="submit" hidden></button></form>`,
     html`${id ? html`<button class="btn danger" data-onclick="App.deleteThing('budgets','${id}','budget')">Delete</button>` : ''}<span class="grow"></span><button class="btn" data-onclick="App.closeDrawer()">Cancel</button><button class="btn primary" id="budSave" data-onclick="App.submit('budForm')">${id ? 'Save' : 'Create budget'}</button>`);
 }
 async function saveBudget() {

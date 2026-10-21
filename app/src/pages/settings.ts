@@ -39,7 +39,7 @@ function moneyVersion() {
   const m = document.querySelector<HTMLMetaElement>('meta[name="money-version"]'), v = m ? m.content.trim() : '';
   return v && !v.startsWith('$') ? v : '';
 }
-async function currency(code, action) {
+async function currency(code: string, action: string) {
   if (!code) return;
   await withAuth(async () => {
     try { await api('/currencies/' + code + '/' + action, { method: 'POST' }); }
@@ -48,12 +48,12 @@ async function currency(code, action) {
       else if (action === 'disable' && (e as ApiError).status === 409) return disableInUse(code);
       else throw e;
     }
-    invalidate(); toast({ enable: 'Enabled ', disable: 'Disabled ', primary: 'Main currency is now ' }[action] + code); route();
+    invalidate(); toast(({ enable: 'Enabled ', disable: 'Disabled ', primary: 'Main currency is now ' } as Record<string, string>)[action] + code); route();
   });
 }
 // Firefly refuses (409) to disable a currency that anything still uses. Exchange rates are the usual
 // culprit (Firefly adds a set of EUR rates itself), so offer to remove those and try again.
-async function disableInUse(code) {
+async function disableInUse(code: string) {
   const rates = (S.rates || []).filter(x => [x.attributes.from_currency_code || x.attributes.from, x.attributes.to_currency_code || x.attributes.to].includes(code));
   if (!rates.length) {
     return confirmBox(code + ' is still in use', 'Firefly won’t disable ' + code + ' while an account, bill, budget, piggy bank or transaction uses it. Change those to another currency first.', 'OK');
@@ -71,12 +71,12 @@ async function disableInUse(code) {
   }
   invalidate(); route();
 }
-async function addRate(f) {
+async function addRate(f: HTMLFormElement) {
   if (f.f.value === f.t.value) return toast('Pick two different currencies.');
   await withAuth(async () => { await api('/exchange-rates', { method: 'POST', body: { from: f.f.value, to: f.t.value, rate: String(num(f.r.value)), date: f.d.value } }); toast('Rate added'); route(); });
 }
-async function deleteRate(id) { await withAuth(async () => { await api('/exchange-rates/' + id, { method: 'DELETE' }); toast('Rate removed'); route(); }); }
-async function exportData(kind, btn) {
+async function deleteRate(id: string) { await withAuth(async () => { await api('/exchange-rates/' + id, { method: 'DELETE' }); toast('Rate removed'); route(); }); }
+async function exportData(kind: string, btn: HTMLButtonElement) {
   btn.disabled = true;
   await withAuth(async () => {
     const params: any = { type: 'csv' };
@@ -86,14 +86,14 @@ async function exportData(kind, btn) {
   });
   btn.disabled = false;
 }
-async function addHook(f) {
+async function addHook(f: HTMLFormElement) {
   const body = { title: f.t.value.trim(), url: f.u.value.trim(), active: true, trigger: f.w.value, response: f.r.value, delivery: 'JSON',
     triggers: [f.w.value], responses: [f.r.value], deliveries: ['JSON'] };
   if (!/^https?:\/\//.test(body.url)) return toast('The URL must start with http:// or https://');
   await withAuth(async () => { await api('/webhooks', { method: 'POST', body }); toast('Webhook added'); route(); });
 }
-async function toggleHook(id, on) { await withAuth(async () => { await api('/webhooks/' + id, { method: 'PUT', body: { active: on } }); toast(on ? 'Webhook on' : 'Webhook off'); }); }
-async function deleteHook(id) {
+async function toggleHook(id: string, on: boolean) { await withAuth(async () => { await api('/webhooks/' + id, { method: 'PUT', body: { active: on } }); toast(on ? 'Webhook on' : 'Webhook off'); }); }
+async function deleteHook(id: string) {
   if (!await confirmBox('Delete this webhook?', 'Firefly will stop calling that address.')) return;
   await withAuth(async () => { await api('/webhooks/' + id, { method: 'DELETE' }); toast('Webhook deleted'); route(); });
 }
@@ -111,11 +111,11 @@ function applePayHtml(key: string | null) {
   const url = location.origin + '/api/money-ingest';
   return html`<section class="panel"><h2>Apple Pay</h2><p class="lead">Log Apple Pay purchases the moment you pay. An iPhone Shortcut sends the amount, merchant and card here, and Money adds the expense to the account named like the card, tagged “Apple Pay”, with the category from the last time. Your iPhone must be able to reach this address when you pay, so outside your home network it needs a VPN (like Tailscale) or a reverse proxy.</p><div class="list"><div class="row"><span class="name" style="flex:none">Address</span><span style="display:flex;gap:8px;align-items:center;min-width:0"><code style="overflow-wrap:anywhere;font-size:13px">${url}</code><button class="link" type="button" data-onclick="App.copyText('${url}', 'Address copied')">Copy</button></span></div><div class="row"><span class="name">Key</span><span style="display:flex;gap:8px;align-items:center"><code>••••••••</code><button class="link" type="button" data-onclick="App.copyText('${key}', 'Key copied')">Copy</button></span></div></div><p class="sub-s" style="margin-top:14px">Treat the key like a password: anyone with it can add expenses. Changing the dashboard password or Firefly token gives a new key. <a class="link" href="https://github.com/Muffy0906/firefly-money/blob/main/docs/apple-pay.md" target="_blank" rel="noopener">Set up the Shortcut ↗</a></p></section>`;
 }
-async function copyText(text, done) {
+async function copyText(text: string, done: string) {
   try { await navigator.clipboard.writeText(text); toast(done); } catch (e) { toast('Couldn’t copy. Your browser blocked it.'); }
 }
 
-function toggleLogos(on) { LS.set('logos', !!on); toast(on ? 'Logos on' : 'Logos off'); }
+function toggleLogos(on: boolean) { LS.set('logos', !!on); toast(on ? 'Logos on' : 'Logos off'); }
 
 // The methods markup handlers call (see events.ts), added to App and to its type
 const methods = {

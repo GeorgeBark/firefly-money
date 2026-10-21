@@ -19,3 +19,19 @@ export function gridSettle(ts, first?) {
   }
   return ts;
 }
+// Where a dragged tile lands: when its top edge is in the lower half of a tile it overlaps, it goes just below that
+// tile instead of pushing it out of the way, so a tile has to be dragged past another's middle to swap with it.
+export function gridDrop(ts, k) {
+  const t = ts.find(x => x.k === k);
+  if (t) for (let moved = true; moved;) {
+    moved = false;
+    for (const p of ts) if (p !== t && t.x < p.x + p.w && p.x < t.x + t.w && t.y > p.y + p.h / 2 && t.y < p.y + p.h) { t.y = p.y + p.h; moved = true; }
+  }
+  return gridSettle(ts, k);
+}
+// Snap a dragged position (in grid units) to steps of `step` with a dead zone: it moves on only once the pointer is
+// well past the halfway point, so a few pixels of wobble don't make the other tiles jump back and forth.
+export function snapStep(pos: number, cur: number, step: number, dead = 0.25) {
+  const d = pos - cur;
+  return Math.abs(d) < step * (0.5 + dead) ? cur : cur + Math.round(d / step) * step;
+}

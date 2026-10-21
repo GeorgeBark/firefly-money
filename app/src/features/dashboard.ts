@@ -4,7 +4,7 @@ import { App, S, el } from '../core/base';
 import { vt, vtName } from '../core/dom';
 import { LS, buzz } from '../core/helpers';
 import { route } from '../core/router';
-import { GRID, ROW, gridSettle } from './grid';
+import { GRID, ROW, gridDrop, gridSettle, snapStep } from './grid';
 
 /* ---------- Customizable dashboard ----------
    Cards sit in columns you arrange yourself: each card stays in the column and at the height you put it. A wide card
@@ -50,16 +50,18 @@ function dashPlace(L, keys, n, wide, est) {
 const gridMode = () => { const v = el('view'); return ((v && v.clientWidth) || innerWidth) >= 700; };
 // Lay the tiles on the page out from their saved spots (data-gx/gy/gw), their measured heights and `over` (the tile
 // being dragged or resized, at its new spot). Always starts from the saved spots, so nothing drifts.
+// Outside Customize every tile rises as far as it can, so empty space (from a tile moved down, hidden, or shorter
+// than before) always closes up; while customizing, gaps stay where you leave them until you're done.
 function gridLayout(d, over?) {
-  const gap = parseFloat(getComputedStyle(d).columnGap) || 20;
+  const gap = parseFloat(getComputedStyle(d).columnGap) || 20, pack = !d.classList.contains('editing');
   const ts = [...d.querySelectorAll(':scope > .w')].map(el => {
-    const t: any = { el, k: el.dataset.w, x: +el.dataset.gx, y: +el.dataset.gy, w: +el.dataset.gw, float: el.dataset.float === '1' };
+    const t: any = { el, k: el.dataset.w, x: +el.dataset.gx, y: +el.dataset.gy, w: +el.dataset.gw, float: pack || el.dataset.float === '1' };
     if (over && over.k === t.k) Object.assign(t, over, { float: false });
     el.style.gridColumn = (t.x + 1) + ' / span ' + t.w;
     return t;
   });
   ts.forEach(t => { t.h = Math.max(1, Math.ceil((t.el.offsetHeight + gap) / ROW)); });
-  gridSettle(ts, over && over.k);
+  if (over) gridDrop(ts, over.k); else gridSettle(ts);
   ts.forEach(t => { t.el.style.gridRow = (t.y + 1) + ' / span ' + t.h; t.el._g = t; });
   return ts;
 }
@@ -129,7 +131,14 @@ function dashAnimate(fn) {
   vt('dash', fn, () => ws.forEach(w => vtName(w, 'dw-' + w.dataset.w)));
 }
 const dashRedraw = () => { S.pageKey = ''; PAGES.clear(); route(); };
-function dashEdit(on) { S.dashEdit = on; dashRedraw(); }
+function dashEdit(on) {
+  const d = el('dash');
+  if (!on && d && d.classList.contains('grid')) {      // done: close the gaps and keep the tidy layout
+    d.querySelectorAll(':scope > .w').forEach((w: any) => { w.dataset.float = '1'; });
+    gridLayout(d); gridKeep(d);
+  }
+  S.dashEdit = on; dashRedraw();
+}
 const dashCard = (k): any => document.querySelector('#dash [data-w="' + k + '"]');
 const newBand = n => { const b = document.createElement('div'); b.className = 'band'; b.innerHTML = '<div class="dcol"></div>'.repeat(n); return b; };
 // Up and down: within the column, or past a wide card into the band beyond it (same column)
@@ -348,7 +357,9 @@ function bindGrid(d) {
       return shift({ k: t.k, x: t.x, y: t.y, w });
     }
     const left = drag.r0.left + drag.x - drag.x0 - r.left, top = drag.r0.top + drag.y - drag.y0 - r.top;
-    shift({ k: t.k, x: Math.max(0, Math.min(GRID - t.w, Math.round(left / (cw + gap)))), y: Math.max(0, Math.round(top / ROW)), w: t.w });
+    // Snap with a dead zone: one column sideways, four rows (32px) up or down, each only once well past halfway
+    const cur = drag.over || t;
+    shift({ k: t.k, x: Math.max(0, Math.min(GRID - t.w, snapStep(left / (cw + gap), cur.x, 1))), y: Math.max(0, snapStep(top / ROW, cur.y, 4)), w: t.w });
   };
   const tick = () => {
     if (!drag) return;

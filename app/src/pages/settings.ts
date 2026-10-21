@@ -4,6 +4,7 @@ import { withAuth } from '../core/auth';
 import { App, S, el, fmtDate, isoDate, num, todayIso } from '../core/base';
 import { confirmBox, head, opt, toast } from '../core/dom';
 import { LS, saveBlob } from '../core/helpers';
+import { logosOn } from '../core/logo';
 import { invalidate, lists } from '../core/lists';
 import { VIEWS, route } from '../core/router';
 
@@ -30,7 +31,8 @@ VIEWS.settings = async (r, paint) => {
   const recalcHtml = html`<section class="panel"><h2>Recalculate</h2><p class="lead">If a total looks wrong, throw away everything this app has saved and fetch every number fresh from Firefly III. Your data in Firefly isn’t changed.</p><button class="btn" type="button" data-onclick="App.recalcAll(this)">Recalculate everything</button></section>`;
   const syncOff = !!LS.get('syncOff', false), syncAt = LS.get('syncAt', 0);
   const syncHtml = html`<section class="panel"><h2>Sync between devices</h2><p class="lead">Your Overview layout, dismissed insights, forecast, loan plan and subscription choices are saved in Firefly III, so they follow you to every device. Theme, hidden amounts and density stay with each device.</p><label class="check"><input type="checkbox"${syncOff ? '' : ' checked'} data-onchange="App.toggleSync(this.checked)"> Sync this device’s settings</label><p class="sub-s">${syncOff ? 'Off: this device keeps its own settings.' : S.syncError ? html`<span class="up">Couldn’t sync: ${S.syncError}</span>` : syncAt ? 'Last synced ' + fmtDate(isoDate(new Date(syncAt))) + ' at ' + new Date(syncAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) + '.' : 'Nothing synced yet.'}</p>${syncOff ? '' : html`<button class="btn small" type="button" data-onclick="App.syncNow()">Sync now</button>`}</section>`;
-  paint(html`${head('Settings', '', '')}<div class="cards">${recalcHtml}${syncHtml}${cur}${rateHtml}${exp}${hookHtml}${aboutHtml}</div>`);
+  const logoHtml = html`<section class="panel"><h2>Logos</h2><p class="lead">Show payees’ and banks’ logos instead of their initials. Your Money server fetches each logo from DuckDuckGo’s icon service by the payee’s website (guessed from its name; change it in the account’s settings) and keeps it, so your browser never contacts another site.</p><label class="check"><input type="checkbox"${logosOn() ? ' checked' : ''} data-onchange="App.toggleLogos(this.checked)"> Show logos</label></section>`;
+  paint(html`${head('Settings', '', '')}<div class="cards">${recalcHtml}${syncHtml}${logoHtml}${cur}${rateHtml}${exp}${hookHtml}${aboutHtml}</div>`);
 };
 // The build stamped into the Docker image by GitHub, e.g. "c78fd51 · 2026-09-30". Empty for a local build or plain files.
 function moneyVersion() {
@@ -96,8 +98,11 @@ async function deleteHook(id) {
   await withAuth(async () => { await api('/webhooks/' + id, { method: 'DELETE' }); toast('Webhook deleted'); route(); });
 }
 
+function toggleLogos(on) { LS.set('logos', !!on); toast(on ? 'Logos on' : 'Logos off'); }
+
 Object.assign(App, {
   currency,
+  toggleLogos,
   addRate,
   deleteRate,
   exportData,

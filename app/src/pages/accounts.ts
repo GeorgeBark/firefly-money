@@ -3,7 +3,8 @@ import { api, getAll } from '../core/api';
 import { busy } from '../core/auth';
 import { App, S, absDiff, arr, el, fmtDate, fmtDay, money, money0, monthRange, num, period, todayIso } from '../core/base';
 import { closeDrawer, confirmBox, formError, head, monthNav, openDrawer, opt, toast } from '../core/dom';
-import { normGroup, signed, txRows } from '../core/feed';
+import { nameAvatar, normGroup, signed, txRows } from '../core/feed';
+import { logoDomain, setLogoSite } from '../core/logo';
 import { addDays } from '../core/helpers';
 import { invalidate, isAsset, isCard, isLiab, lists, normAccount, planText, stripPlan, withPlan } from '../core/lists';
 import { VIEWS, hashWith, route } from '../core/router';
@@ -29,20 +30,20 @@ VIEWS.accounts = async (r, paint) => {
   let cols, row, total = '';
   if (tab === 'assets') {
     cols = html`<th>Name</th><th class="hide-s">Type</th><th class="r">Balance</th>`;
-    row = a => html`<td class="desc"><span class="nm">${a.name}</span></td><td class="hide-s neutral">${ROLE_LABEL[a.role] || a.role}</td><td class="amt">${money(a.balance)}</td>`;
+    row = a => html`<td class="desc"><span class="acct">${nameAvatar(a.name, 'sm')}<span class="nm">${a.name}</span></span></td><td class="hide-s neutral">${ROLE_LABEL[a.role] || a.role}</td><td class="amt">${money(a.balance)}</td>`;
     total = money(items.reduce((s, a) => s + a.balance, 0)) + ' total';
   } else if (tab === 'cards') {
     cols = html`<th>Name</th><th class="hide-s">Payment due</th><th class="r">Owed</th>`;
-    row = a => html`<td class="desc"><span class="nm">${a.name}</span></td><td class="hide-s neutral">${a.paymentDate ? 'Day ' + new Date(String(a.paymentDate).slice(0, 10) + 'T12:00:00').getDate() + ' of the month' : '—'}</td><td class="amt">${a.balance < 0 ? money(-a.balance) : html`<span class="pos">Paid off</span>`}</td>`;
+    row = a => html`<td class="desc"><span class="acct">${nameAvatar(a.name, 'sm')}<span class="nm">${a.name}</span></span></td><td class="hide-s neutral">${a.paymentDate ? 'Day ' + new Date(String(a.paymentDate).slice(0, 10) + 'T12:00:00').getDate() + ' of the month' : '—'}</td><td class="amt">${a.balance < 0 ? money(-a.balance) : html`<span class="pos">Paid off</span>`}</td>`;
     total = money(items.reduce((s, a) => s + Math.max(0, -a.balance), 0)) + ' owed in total';
   } else if (tab === 'liabilities') {
     cols = html`<th>Name</th><th class="hide-s">Paid off</th><th class="hide-s">Interest</th><th class="r">Remaining</th>`;
-    row = a => { const pr = prog[a.id] || {}; return html`<td class="desc"><span class="nm">${a.name}</span><div class="sub-s" style="text-transform:capitalize">${a.liabType}</div></td><td class="hide-s" style="min-width:200px">${pr.pct != null ? html`<div class="track" style="max-width:220px"><div class="fill good" style="width:${(a.debt ? pr.pct : 100).toFixed(1)}%"></div></div><div class="sub-s">${a.debt ? pr.pct.toFixed(0) + '% · ' + money0(pr.repaid) + ' of ' + money0(pr.borrowed) : 'Paid off'}</div>` : html`<span class="neutral">—</span>`}</td><td class="hide-s neutral">${num(a.interest) ? num(a.interest) + '% ' + a.interestPeriod : '—'}</td><td class="amt">${money(a.debt)}</td>`; };
+    row = a => { const pr = prog[a.id] || {}; return html`<td class="desc"><span class="acct">${nameAvatar(a.name, 'sm')}<span class="nm">${a.name}</span></span><div class="sub-s" style="text-transform:capitalize">${a.liabType}</div></td><td class="hide-s" style="min-width:200px">${pr.pct != null ? html`<div class="track" style="max-width:220px"><div class="fill good" style="width:${(a.debt ? pr.pct : 100).toFixed(1)}%"></div></div><div class="sub-s">${a.debt ? pr.pct.toFixed(0) + '% · ' + money0(pr.repaid) + ' of ' + money0(pr.borrowed) : 'Paid off'}</div>` : html`<span class="neutral">—</span>`}</td><td class="hide-s neutral">${num(a.interest) ? num(a.interest) + '% ' + a.interestPeriod : '—'}</td><td class="amt">${money(a.debt)}</td>`; };
     total = money(items.reduce((s, a) => s + a.debt, 0)) + ' owed in total';
   } else {
     const used = items.filter(a => sums[a.id]).length, when = cur.all ? 'all time' : 'in ' + cur.label;
     cols = html`<th>Name</th><th class="r">${tab === 'expense' ? 'Spent' : 'Received'} ${cur.all ? 'all time' : 'in ' + cur.short}</th>`;
-    row = a => html`<td class="desc"><span class="nm">${a.name}</span></td><td class="amt">${sums[a.id] ? money(sums[a.id]) : html`<span class="neutral">—</span>`}</td>`;
+    row = a => html`<td class="desc"><span class="acct">${nameAvatar(a.name, 'sm')}<span class="nm">${a.name}</span></span></td><td class="amt">${sums[a.id] ? money(sums[a.id]) : html`<span class="neutral">—</span>`}</td>`;
     total = money(items.reduce((s, a) => s + (sums[a.id] || 0), 0)) + (tab === 'expense' ? ' spent at ' + used + ' of ' + items.length + ' payees ' : ' received from ' + used + ' of ' + items.length + ' income sources ') + when;
   }
   const body = items.length ? html`<table class="tbl"><thead><tr>${cols}</tr></thead><tbody>${htmlList(items.sort((a, b) => (sums[b.id] || 0) - (sums[a.id] || 0) || a.name.localeCompare(b.name)).map(a => html`<tr class="click" data-onclick="App.go('#/account/${a.id}')"${a.active ? '' : html` style="opacity:.5"`}>${row(a)}</tr>`))}</tbody></table>` : html`<div class="center-empty">Nothing here yet.</div>`;
@@ -100,7 +101,7 @@ function balanceChart(groups, a, range) {
 async function accountForm(id, kind) {
   const L = await lists();
   const a = id ? (L.byId[id] || normAccount((await api('/accounts/' + id)).data)) : null;
-  S.form = { kind: kind || 'asset', id };
+  S.form = { kind: kind || 'asset', id, name: a ? a.name : '' };
   const k = S.form.kind;
   const kinds = [['asset', 'Bank account'], ['card', 'Credit card'], ['liability', 'Loan or debt'], ['expense', 'Payee'], ['revenue', 'Income source']];
   let f = html`<form id="accForm" data-onsubmit="event.preventDefault();App.saveAccount()">`;
@@ -124,6 +125,7 @@ async function accountForm(id, kind) {
     const ob = k === 'asset' ? a.opening : Math.abs(a.opening);
     f = html`${f}<div class="grid2"><label>${k === 'asset' ? 'Opening balance' : 'Opening amount owed'}<input type="number" step="0.01" id="a-open" value="${a.opening ? ob : ''}" placeholder="None"></label><label>Opening date<input type="date" id="a-opendate" value="${a.openingDate ? String(a.openingDate).slice(0, 10) : ''}"></label></div>`;
   }
+  f = html`${f}<label>Website (for its logo)<input type="text" id="a-site" value="${a ? logoDomain(a.name) : ''}" placeholder="e.g. walmart.com" autocapitalize="off" spellcheck="false"></label><p class="hint">Guessed from the name. Clear it to show initials instead.</p>`;
   f = html`${f}<label>Notes<textarea id="a-notes" rows="3">${a ? (k === 'liability' ? stripPlan(a.notes) : a.notes) : ''}</textarea></label>`;
   if (id) f = html`${f}<label class="check"><input type="checkbox" id="a-active"${a.active ? ' checked' : ''}> Active</label>`;
   if (id && (k === 'asset' || k === 'card' || k === 'liability')) f = html`${f}<label class="check"><input type="checkbox" id="a-networth"${a.netWorth ? ' checked' : ''}> Include in net worth</label>`;
@@ -132,9 +134,11 @@ async function accountForm(id, kind) {
     html`${id ? html`<button class="btn danger" type="button" data-onclick="App.deleteAccount('${id}')">Delete</button>` : ''}<span class="grow"></span><button class="btn" data-onclick="App.closeDrawer()">Cancel</button><button class="btn primary" id="accSave" data-onclick="App.submit('accForm')">${id ? 'Save' : 'Create account'}</button>`);
 }
 async function saveAccount() {
-  const { kind, id } = S.form, v = x => el(x) ? el(x).value.trim() : '';
+  const { kind, id, name } = S.form, v = x => el(x) ? el(x).value.trim() : '';
   const b: any = { name: v('a-name'), notes: v('a-notes') };
   if (!b.name) return formError('Give the account a name.');
+  const site = v('a-site').toLowerCase().replace(/^[a-z]+:\/\//, '').replace(/^www\./, '').split(/[/?#]/)[0];
+  if (site && !/^[a-z0-9][a-z0-9.-]*\.[a-z]{2,12}$/.test(site)) return formError('The website should look like walmart.com.');
   if (kind === 'asset') { b.type = 'asset'; b.account_role = v('a-role'); b.account_number = v('a-number'); }
   if (kind === 'card') { b.type = 'asset'; b.account_role = 'ccAsset'; b.credit_card_type = 'monthlyFull'; b.monthly_payment_date = v('a-paydate'); }
   if (kind === 'liability') {
@@ -159,6 +163,7 @@ async function saveAccount() {
   if (id) { b.active = el('a-active').checked; if (el('a-networth')) b.include_net_worth = el('a-networth').checked; delete b.type; }
   await busy(el('accSave'), async () => {
     const res = id ? await api('/accounts/' + id, { method: 'PUT', body: b }) : await api('/accounts', { method: 'POST', body: b });
+    setLogoSite(b.name, site, name);
     invalidate(); closeDrawer(); toast(id ? 'Account saved' : 'Account created');
     if (!id && res && res.data) location.hash = '#/account/' + res.data.id; else route();
   });

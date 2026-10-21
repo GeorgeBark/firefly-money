@@ -12,6 +12,9 @@ map $arg_v $asset_cache {
     ""      "no-cache";
 }
 
+# Logos for payees and accounts (see /logo/ below), kept for a month
+proxy_cache_path /var/cache/nginx/logos levels=1:2 keys_zone=logos:2m max_size=50m inactive=30d use_temp_path=off;
+
 server {
     listen ${LISTEN_PORT};
 
@@ -33,6 +36,38 @@ server {
         add_header Cache-Control $asset_cache;
         add_header X-Content-Type-Options "nosniff";
     }
+
+    # Logos for payees and accounts (app/src/core/logo.ts). This server fetches each website's icon from
+    # DuckDuckGo's icon service and caches it, so the browser never contacts another site and the service
+    # only sees this server. No password: <img> can't send one, and an icon reveals nothing. A domain
+    # without an icon answers a plain 404, and the app shows the monogram instead.
+    location ~ "^/logo/(?<logo>[a-z0-9][a-z0-9.-]{0,62}\.[a-z]{2,12})$" {
+        resolver ${NGINX_LOCAL_RESOLVERS} valid=300s;
+        resolver_timeout 5s;
+        set $icons "https://icons.duckduckgo.com/ip3/";
+        proxy_pass $icons$logo.ico;
+        proxy_ssl_server_name on;
+        proxy_set_header Host icons.duckduckgo.com;
+        proxy_set_header Cookie "";
+        proxy_set_header Referer "";
+        proxy_set_header Authorization "";
+        proxy_set_header X-Dash-Key "";
+        proxy_set_header User-Agent "Money";
+        proxy_hide_header Set-Cookie;
+        proxy_ignore_headers Set-Cookie Cache-Control Expires;
+        proxy_cache logos;
+        proxy_cache_valid 200 30d;
+        proxy_cache_valid any 1d;
+        proxy_cache_use_stale error timeout updating;
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 10s;
+        proxy_intercept_errors on;
+        error_page 400 403 404 410 500 502 503 504 =404 @nologo;
+        add_header Cache-Control "public, max-age=604800";
+        add_header X-Content-Type-Options "nosniff";
+        limit_except GET { deny all; }
+    }
+    location @nologo { add_header Cache-Control "public, max-age=86400"; return 404; }
 
     # The app page. Mounted as a template so nginx copies it at startup,
     # which avoids file-permission problems on TrueNAS. Only index.html is ever served.

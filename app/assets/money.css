@@ -340,6 +340,13 @@
     background: color-mix(in oklab, var(--c) 17%, var(--panel)); color: color-mix(in oklab, var(--c) 62%, var(--text));
     box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--c) 22%, transparent); }
   .av.xfer { --c: var(--muted); }
+  .av { position: relative; overflow: hidden; }
+  /* A logo fetched through /logo/ covers the monogram; if there is none, the img is removed (core/logo.ts) */
+  .av img.logo { position: absolute; inset: 0; width: 100%; height: 100%; box-sizing: border-box; padding: 16%; object-fit: contain; background: #fff; border-radius: inherit; opacity: 0; transition: opacity .15s; }
+  .av img.logo.ok { opacity: 1; }
+  .av.sm { width: 26px; height: 26px; font-size: 10.5px; }
+  .acct { display: inline-flex; align-items: center; gap: 10px; }
+  .acct + .sub-s { margin-left: 36px; }
   .av svg { width: 17px; height: 17px; }
   .av.lg { width: 52px; height: 52px; font-size: 19px; }
   .av.lg svg { width: 24px; height: 24px; }

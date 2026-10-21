@@ -1,6 +1,7 @@
 import { Html, html, htmlList } from './html';
 import { S, money, num, todayIso } from './base';
 import { daysBetween } from './helpers';
+import { logoImg } from './logo';
 
 /* ================= Transactions: normalize ================= */
 export function normGroup(g) {
@@ -55,8 +56,10 @@ function hueOf(name) {
 export function avatarHtml(g, cls = '') {
   const p = payeeOf(g);
   if (p.kind === 'transfer') return html`<span class="av xfer ${cls}" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13M13 4l4 4-4 4M20 16H7M11 12l-4 4 4 4"/></svg></span>`;
-  return html`<span class="av ${cls}" style="--h:${hueOf(p.name)}" aria-hidden="true">${monogram(p.name)}</span>`;
+  return nameAvatar(p.name, cls);
 }
+// A coloured monogram for a payee or account name, with its logo on top when there is one
+export const nameAvatar = (name, cls = '') => html`<span class="av ${cls}" style="--h:${hueOf(name)}" aria-hidden="true">${monogram(name)}${logoImg(name)}</span>`;
 
 /* ---------- Day labels for the grouped feed ---------- */
 export function dayLabel(iso) {

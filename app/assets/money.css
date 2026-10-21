@@ -259,7 +259,11 @@
   @keyframes drain { to { transform: scaleX(0); } }
   /* ---------- Chart tooltip ---------- */
   .tip { position: fixed; z-index: 45; pointer-events: none; background: var(--text); color: var(--bg); padding: 8px 12px; border-radius: 10px; font-size: 12.5px; line-height: 1.5; box-shadow: var(--shadow); }
-  .flowchart .hit:hover { fill: var(--faint); fill-opacity: .5; }
+  /* Hover band: drawn behind the bars and only over the plot area, so it stops at the axis and leaves the month label alone */
+  .flowchart .band { fill: var(--text); fill-opacity: 0; pointer-events: none; transition: fill-opacity .12s; }
+  .flowchart .col:hover .band { fill-opacity: .06; }
+  .flowchart .col:hover text { fill: var(--text); }
+  .chart rect:is(.hit, .band) { filter: none !important; }
   .chart .pt { cursor: default; }
   .chart .pt .dot { transition: r .1s; }
   .chart .pt:hover .dot { r: 6.5; }

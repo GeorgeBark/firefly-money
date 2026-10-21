@@ -118,17 +118,17 @@ async function accountForm(id, kind) {
     f = html`${f}<label>Type<select id="a-ltype">${htmlList([['loan', 'Loan'], ['debt', 'Debt'], ['mortgage', 'Mortgage']].map(([v, l]) => opt(v, l, a ? a.liabType : 'loan')))}</select></label>`;
     if (!id) f = html`${f}<div class="grid2"><label>Amount you owe<input type="number" step="0.01" min="0.01" id="a-open" required></label><label>As of<input type="date" id="a-opendate" value="${todayIso()}" required></label></div>`;
     f = html`${f}<div class="grid2"><label>Interest %<input type="number" step="0.001" min="0" id="a-interest" value="${a ? num(a.interest) || '' : ''}" placeholder="0"></label><label>Per<select id="a-iperiod">${htmlList(['monthly', 'yearly', 'weekly', 'daily', 'quarterly', 'half-year'].map(v => opt(v, v, a ? a.interestPeriod || 'monthly' : 'monthly')))}</select></label></div>`;
-    const pl = (a && a.plan) || {};
+    const pl: { amount?: number, day?: number | null, from?: string } = (a && a.plan) || {};
     f = html`${f}<div class="grid2"><label>Monthly payment<input type="number" step="0.01" min="0" id="a-pamt" value="${pl.amount || ''}" placeholder="e.g. 500"></label><label>Due day of the month<input type="number" min="1" max="31" step="1" id="a-pday" value="${pl.day || ''}" placeholder="e.g. 30"></label></div><label>Paid from<select id="a-pfrom">${opt('', 'Not set', pl.from || '')}${htmlList(L.own.filter(x => !isLiab(x)).map(x => opt(x.name, x.name, pl.from || '')))}</select></label><p class="hint">Used by the Overview, Forecast and Loan planner. Saved in the loan’s notes in Firefly.</p>`;
   }
   if (id && (k === 'asset' || k === 'card' || k === 'liability')) {
-    const ob = k === 'asset' ? a.opening : Math.abs(a.opening);
-    f = html`${f}<div class="grid2"><label>${k === 'asset' ? 'Opening balance' : 'Opening amount owed'}<input type="number" step="0.01" id="a-open" value="${a.opening ? ob : ''}" placeholder="None"></label><label>Opening date<input type="date" id="a-opendate" value="${a.openingDate ? String(a.openingDate).slice(0, 10) : ''}"></label></div>`;
+    const ob = k === 'asset' ? a!.opening : Math.abs(a!.opening);
+    f = html`${f}<div class="grid2"><label>${k === 'asset' ? 'Opening balance' : 'Opening amount owed'}<input type="number" step="0.01" id="a-open" value="${a!.opening ? ob : ''}" placeholder="None"></label><label>Opening date<input type="date" id="a-opendate" value="${a!.openingDate ? String(a!.openingDate).slice(0, 10) : ''}"></label></div>`;
   }
   f = html`${f}<label>Website (for its logo)<input type="text" id="a-site" value="${a ? logoDomain(a.name) : ''}" placeholder="e.g. walmart.com" autocapitalize="off" spellcheck="false"></label><p class="hint">Guessed from the name. Clear it to show initials instead.</p>`;
   f = html`${f}<label>Notes<textarea id="a-notes" rows="3">${a ? (k === 'liability' ? stripPlan(a.notes) : a.notes) : ''}</textarea></label>`;
-  if (id) f = html`${f}<label class="check"><input type="checkbox" id="a-active"${a.active ? ' checked' : ''}> Active</label>`;
-  if (id && (k === 'asset' || k === 'card' || k === 'liability')) f = html`${f}<label class="check"><input type="checkbox" id="a-networth"${a.netWorth ? ' checked' : ''}> Include in net worth</label>`;
+  if (id) f = html`${f}<label class="check"><input type="checkbox" id="a-active"${a!.active ? ' checked' : ''}> Active</label>`;
+  if (id && (k === 'asset' || k === 'card' || k === 'liability')) f = html`${f}<label class="check"><input type="checkbox" id="a-networth"${a!.netWorth ? ' checked' : ''}> Include in net worth</label>`;
   f = html`${f}<button type="submit" hidden></button></form>`;
   openDrawer(id ? 'Edit account' : 'New account', f,
     html`${id ? html`<button class="btn danger" type="button" data-onclick="App.deleteAccount('${id}')">Delete</button>` : ''}<span class="grow"></span><button class="btn" data-onclick="App.closeDrawer()">Cancel</button><button class="btn primary" id="accSave" data-onclick="App.submit('accForm')">${id ? 'Save' : 'Create account'}</button>`);

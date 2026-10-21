@@ -29,13 +29,24 @@ export const planText = p => p && p.amount > 0 ? money(p.amount) + '/month' + (p
 export const isAsset = a => a.type === 'asset';
 export const isCard = a => a.type === 'asset' && a.role === 'ccAsset';
 export const isLiab = a => a.type.startsWith('liab') || ['loan', 'debt', 'mortgage'].includes(a.type);
-export async function lists(force?): Promise<any> {
+export type Category = { id: string, name: string, notes: string };
+export type Budget = { id: string, name: string, active: boolean, notes: string };
+export type Bill = { id: string, name: string, active: boolean };
+export type Tag = { id: string, name: string };
+export type Currency = { id: string, code: string, name: string, symbol: string, enabled: boolean, primary: boolean };
+export type Lists = {
+  accounts: Account[], byId: Record<string, Account>, own: Account[], expense: Account[], revenue: Account[],
+  categories: Category[], budgets: Budget[], bills: Bill[], tags: Tag[], currencies: Currency[], foreign: Currency[],
+};
+export async function lists(force?: boolean): Promise<Lists> {
   if (S.lists && !force && Date.now() - S.listsAt < 300000) return S.lists;
   const [accounts, categories, budgets, bills, tags, currencies] = await Promise.all([
     getAll('/accounts', { type: 'all' }), getAll('/categories'), getAll('/budgets'), getAll('/bills'), getAll('/tags'), getAll('/currencies').catch(() => []),
   ]);
   const acc = accounts.map(normAccount);
-  const L: any = {
+  const cur = currencies.map(c => ({ id: String(c.id), code: c.attributes.code, name: c.attributes.name, symbol: c.attributes.symbol, enabled: !!c.attributes.enabled,
+    primary: !!(c.attributes.primary || c.attributes.default || c.attributes.native) }));
+  const L: Lists = {
     accounts: acc,
     byId: Object.fromEntries(acc.map(a => [a.id, a])),
     own: acc.filter(a => (isAsset(a) || isLiab(a)) && a.active),
@@ -45,11 +56,10 @@ export async function lists(force?): Promise<any> {
     budgets: budgets.map(b => ({ id: String(b.id), name: b.attributes.name, active: b.attributes.active !== false, notes: b.attributes.notes || '' })),
     bills: bills.map(b => ({ id: String(b.id), name: b.attributes.name, active: b.attributes.active !== false })),
     tags: tags.map(t => ({ id: String(t.id), name: t.attributes.tag })).sort((a, b) => a.name.localeCompare(b.name)),
-    currencies: currencies.map(c => ({ id: String(c.id), code: c.attributes.code, name: c.attributes.name, symbol: c.attributes.symbol, enabled: !!c.attributes.enabled,
-      primary: !!(c.attributes.primary || c.attributes.default || c.attributes.native) })),
+    currencies: cur,
+    foreign: cur.filter(c => c.enabled && c.code !== S.currency),
   };
-  L.foreign = L.currencies.filter(c => c.enabled && c.code !== S.currency);
-  S.currency = (L.currencies.find(c => c.primary) || acc.find(a => isAsset(a) && a.currency) || {}).code || (acc.find(a => isAsset(a) && a.currency) || {}).currency || S.currency;
+  S.currency = (L.currencies.find(c => c.primary) || {} as { code?: string }).code || (acc.find(a => isAsset(a) && a.currency) || {}).currency || S.currency;
   L.foreign = L.currencies.filter(c => c.enabled && c.code !== S.currency);
   S.lists = L; S.listsAt = Date.now();
   return L;

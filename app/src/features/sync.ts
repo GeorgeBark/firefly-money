@@ -9,7 +9,7 @@ import { route } from '../core/router';
 export const SYNCED = ['dash', 'insightsHidden', 'fcExclude', 'fcBuffer', 'fcDays', 'fcAccount', 'loanPlan', 'subsHidden', 'nwYears', 'logos', 'logoSites'];
 const PREF = 'money_settings';
 let timer: any = 0, applying = false, pulledAt = 0;
-const syncOn = () => !!S.key && !LS.get('syncOff', false);
+const syncOn = () => S.signedIn && !LS.get('syncOff', false);
 function snapshot() {
   const keys = {};
   SYNCED.forEach(k => { const v = LS.get(k, undefined); if (v !== undefined) keys[k] = v; });

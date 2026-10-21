@@ -6,7 +6,7 @@ export const PAGE_SIZE = 50;
 export const App: any = (window as any).App = {};
 export let today = new Date();
 export const setToday = (d: Date) => { today = d; };
-export const S: any = { y: today.getFullYear(), m: today.getMonth(), key: '', lists: null, tok: 0, form: null, currency: 'USD' };
+export const S: any = { y: today.getFullYear(), m: today.getMonth(), signedIn: false, lists: null, tok: 0, form: null, currency: 'USD' };
 export const el = (id: string): any => document.getElementById(id);
 export const pad = n => String(n).padStart(2, '0');
 export const isoDate = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());

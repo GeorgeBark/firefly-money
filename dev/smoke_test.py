@@ -32,12 +32,24 @@ async def check(pw, width, height, mobile):
     br = await pw.chromium.launch()
     ctx = await br.new_context(viewport={'width': width, 'height': height}, is_mobile=mobile, has_touch=mobile, device_scale_factor=2 if mobile else 1)
     # MONEY_CHECK_HTML makes html`` log markup that it escaped and html`` joined with + (see app/src/core/html.ts)
-    await ctx.add_init_script("localStorage.setItem('moneyKey','demo'); window.MONEY_CHECK_HTML = true")
+    await ctx.add_init_script("window.MONEY_CHECK_HTML = true")
     page = await ctx.new_page()
     errors = []
     page.on('pageerror', lambda e: errors.append(f'{page.url}: {e}'))
     # anything the Content-Security-Policy blocks (the mock server sends the same policy as nginx)
     page.on('console', lambda m: any(k in m.text for k in ('Content Security Policy', 'Escaped HTML-looking text', 'Html joined with +')) and errors.append(f'{page.url}: {m.text}'))
+    # Signing in (the static demo needs none and never shows the sign-in screen)
+    await page.goto(BASE)
+    if mobile:          # with the form
+        await page.wait_for_selector('#login:not([hidden]), #app:not([hidden])')
+        if await page.locator('#login:not([hidden])').count():
+            await page.fill('#loginPw', 'nope'); await page.click('#loginForm button[type=submit]')
+            await page.wait_for_selector('#loginErr:not([hidden])')
+            await page.fill('#loginPw', 'demo'); await page.click('#loginForm button[type=submit]')
+    else:               # a password saved by an older version is traded for a session, then deleted
+        await page.evaluate("localStorage.setItem('moneyKey', 'demo')"); await page.reload()
+    await page.wait_for_function(PAINTED, timeout=15000)
+    if await page.evaluate("localStorage.getItem('moneyKey')"): errors.append('the password saved by an older version was not deleted')
     # every data-on* handler in the source parses and calls an App method that exists
     if not mobile:
         await goto(page, '')
@@ -155,6 +167,13 @@ async def check(pw, width, height, mobile):
         await page.evaluate('App.dashReset()'); await page.wait_for_function(PAINTED, timeout=15000)
         if not await page.locator('#view .hero').count(): errors.append('Reset did not bring the summary back')
         await page.evaluate('App.dashEdit(false)')
+        # Signing out ends the session: the API refuses until you sign in again
+        if '/demo/' not in BASE:
+            await page.evaluate('App.signOut()'); await page.wait_for_selector('#login:not([hidden])')
+            # (the sign-out request may still be on its way, and the flaky demo server answers some reads with a 502)
+            st = await page.evaluate('''async () => { for (let i = 0; i < 20; i++) { const s = (await fetch('/api/v1/about', { headers: { 'X-Money': '1' } })).status;
+              if (s !== 502 && s !== 200) return s; await new Promise(r => setTimeout(r, 200)); } return 'still signed in'; }''')
+            if st != 401: errors.append(f'the session still worked after signing out: {st}')
     await br.close()
     return errors
 
@@ -163,7 +182,8 @@ async def screenshots(pw, out):
     br = await pw.chromium.launch()
     async def shot(route, name, w=1440, h=900, mobile=False, theme='glass', action=None, full=False):
         ctx = await br.new_context(viewport={'width': w, 'height': h}, is_mobile=mobile, has_touch=mobile, device_scale_factor=2 if mobile else 1)
-        await ctx.add_init_script("localStorage.setItem('moneyKey','demo');" + (f"localStorage.setItem('moneyTheme','{theme}');" if theme else ''))
+        await ctx.add_cookies([{'name': 'money_session', 'value': 'demo', 'url': BASE.split('#')[0].rstrip('/') + '/api/'}])
+        if theme: await ctx.add_init_script(f"localStorage.setItem('moneyTheme','{theme}')")
         pg = await ctx.new_page(); await pg.goto(BASE + '#/' + route)
         await pg.wait_for_function(PAINTED); await pg.wait_for_function("() => !document.querySelector('#view .sk, #view [aria-busy]')"); await pg.wait_for_timeout(1200)
         if action: await action(pg)

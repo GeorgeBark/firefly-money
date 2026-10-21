@@ -2,22 +2,42 @@ import { AuthError, CACHE, PAGES, PDB } from './api';
 import { S, el } from './base';
 import { closeDrawer, formError, toast } from './dom';
 
-/* Signing in and out: the saved password, and what happens when Firefly or the password check says no. */
+/* Signing in and out, and what happens when Firefly or the session check says no.
+   The server keeps the session in an HttpOnly cookie that scripts can't read (see app/session.js), so the page
+   only remembers whether you ticked "Keep me signed in", which decides whether data is saved on this device. */
 
-export function storedKey() {
-  try { const k = localStorage.getItem('moneyKey'); S.remember = !!k; return k || sessionStorage.getItem('moneyKey') || ''; } catch (e) { return ''; }
+const SESSION = '/api/money-session', FLAG = 'moneySignedIn';
+export function rememberedSignIn() { try { return localStorage.getItem(FLAG) === '1'; } catch (e) { return false; } }
+function setRemembered(on) { S.remember = on; try { if (on) localStorage.setItem(FLAG, '1'); else localStorage.removeItem(FLAG); } catch (e) { /* storage blocked */ } }
+let signingOut: Promise<unknown> = Promise.resolve();
+export async function signIn(password, remember) {
+  await signingOut;      // or the sign-out's cookie could land after this sign-in's
+  const r = await fetch(SESSION, { method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'application/json', 'X-Money': '1' }, body: JSON.stringify({ password, remember: !!remember }) });
+  if (r.status === 401) throw new AuthError('That password isn’t right.');
+  if (r.status === 429) throw new Error('Too many sign-in attempts. Wait a minute, then try again.');
+  if (!r.ok) throw new Error('Couldn’t sign in (' + r.status + ').');
+  S.signedIn = true; setRemembered(!!remember);
 }
-export function saveKey(k, remember) { S.remember = !!remember; try { (remember ? localStorage : sessionStorage).setItem('moneyKey', k); } catch (e) { /* storage blocked */ } }
-export function clearKey() { try { localStorage.removeItem('moneyKey'); sessionStorage.removeItem('moneyKey'); } catch (e) { /* ignore */ } }
+export function signOut() { signingOut = fetch(SESSION, { method: 'DELETE', headers: { 'X-Money': '1' } }).catch(() => {}); }
+// Up to v1.1 the page kept the password itself (localStorage with "Keep me signed in", else sessionStorage).
+// Trade it for a session once and delete it, so updating doesn't sign anyone out. When offline, try again next time.
+export async function migrateSavedPassword() {
+  let k = '', kept = false;
+  try { k = localStorage.getItem('moneyKey') || ''; kept = !!k; k = k || sessionStorage.getItem('moneyKey') || ''; } catch (e) { return; }
+  if (!k) return;
+  if (kept) setRemembered(true);
+  try { await signIn(k, kept); } catch (e) { if (!(e instanceof AuthError)) return; }
+  try { localStorage.removeItem('moneyKey'); sessionStorage.removeItem('moneyKey'); } catch (e) { /* ignore */ }
+}
 // Everything this device saved (in memory, IndexedDB and the offline cache) goes when the sign-in screen shows.
 function forgetDeviceData() {
-  CACHE.clear(); PAGES.clear(); PDB.clear(); S.remember = false;
+  CACHE.clear(); PAGES.clear(); PDB.clear(); S.signedIn = false; setRemembered(false);
   try { if (window.caches) caches.open('money-v1').then(c => c.keys().then(ks => ks.forEach(k => { if (new URL(k.url).pathname.startsWith('/api/')) c.delete(k); }))).catch(() => {}); } catch (e) { /* no Cache Storage */ }
 }
 export function showLogin(msg?) {
   closeDrawer(); S.lists = null; forgetDeviceData();
   el('app').hidden = true; el('login').hidden = false;
-  const e = el('loginErr'); e.hidden = !msg || msg === 'Wrong password.' && !S.key; e.textContent = msg || '';
+  const e = el('loginErr'); e.hidden = !msg; e.textContent = msg || '';
   el('loginPw').value = ''; el('loginPw').focus();
 }
 export async function withAuth(fn) { try { return await fn(); } catch (e) { if (e instanceof AuthError) return showLogin(e.message); toast(e.message); } }

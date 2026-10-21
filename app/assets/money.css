@@ -757,3 +757,6 @@
   .list button.row { width: 100%; border: 0; border-top: 1px solid var(--line); background: none; font: inherit; color: inherit; padding: 10px 0; cursor: pointer; text-align: left; align-items: center; }
   .list button.row:first-child { border-top: none; padding-top: 0; }
   .list button.row:hover .name > span:last-child { text-decoration: underline; text-underline-offset: 3px; }
+
+  /* ---------- Payee page ---------- */
+  .payee-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 14px 24px; }

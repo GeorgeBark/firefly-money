@@ -30,20 +30,20 @@ document.addEventListener('error', e => {
 document.addEventListener('load', e => { const t = e.target as HTMLElement; if (t instanceof HTMLImageElement && t.classList.contains('logo')) t.classList.add('ok'); }, true);
 
 export const logosOn = () => LS.get('logos', true) !== false;
-const key = name => String(name).trim().toLowerCase();
-export function logoDomain(name) {
+const key = (name: string) => String(name).trim().toLowerCase();
+export function logoDomain(name: string): string {
   const set = LS.get('logoSites', {})[key(name)];
   return set !== undefined ? set : guessDomain(name);
 }
 // Remembers the website set in the account form (only when it differs from the guess), under its new name
-export function setLogoSite(name, site, oldName = '') {
+export function setLogoSite(name: string, site: string, oldName = '') {
   const m = { ...LS.get('logoSites', {}) };
   delete m[key(oldName)]; delete m[key(name)];
   if (site !== guessDomain(name)) m[key(name)] = site;
   failed.delete(site);
   LS.set('logoSites', m);
 }
-function guessDomain(name) {
+function guessDomain(name: string) {
   const n = String(name).replace(NOISE, '').toLowerCase().trim();
   const site = n.match(/\b([a-z0-9][a-z0-9-]*\.(?:com|net|org|io|co|us|ca|uk|de|in|ae|au))\b/);
   if (site) return site[1];
@@ -55,7 +55,7 @@ function guessDomain(name) {
   return d.length >= 3 && d.length <= 30 ? d + '.com' : '';
 }
 // The <img> to put over a monogram, or nothing
-export function logoImg(name) {
+export function logoImg(name: string) {
   if (!logosOn()) return '';
   const d = logoDomain(name);
   return d && !failed.has(d) ? html`<img class="logo" src="logo/${d}" data-d="${d}" alt="" loading="lazy" decoding="async">` : '';

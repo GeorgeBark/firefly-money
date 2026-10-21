@@ -1,8 +1,8 @@
-import { html, htmlList } from './html';
-import { App, S, el, fmtDate, monthRange, today } from './base';
+import { type Html, html, htmlList } from './html';
+import { App, S, type State, el, fmtDate, monthRange, today } from './base';
 
 /* ================= UI plumbing ================= */
-const ICONS = {
+const ICONS: Record<string, Html> = {
   overview: html`<path d="M3 12l9-8 9 8M5 10v10h14V10"/>`,
   transactions: html`<path d="M4 7h13M13 3l4 4-4 4M20 17H7M11 13l-4 4 4 4"/>`,
   accounts: html`<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h3"/>`,
@@ -23,22 +23,22 @@ const ICONS = {
   eyeoff: html`<path d="M3 3l18 18M10.6 5.1A10.4 10.4 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.2M6.6 6.6C3.8 8.3 2 12 2 12s3.6 7 10 7c1.6 0 3-.4 4.3-1M9.9 9.9a3 3 0 0 0 4.2 4.2"/>`,
   density: html`<path d="M4 6h16M4 10h16M4 14h16M4 18h16"/>`,
 };
-export const icon = k => html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ICONS[k]}</svg>`;
+export const icon = (k: string) => html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ICONS[k]}</svg>`;
 export const NAV = [['', 'Overview', 'overview'], ['forecast', 'Forecast', 'forecast'], ['transactions', 'Transactions', 'transactions'], ['inbox', 'Categorize', 'inbox'],
   ['accounts', 'Accounts', 'accounts'], ['loans', 'Loan planner', 'loans'],
   ['budgets', 'Budgets', 'budgets'], ['categories', 'Categories & tags', 'categories'], ['bills', 'Bills', 'bills'], ['recurring', 'Recurring', 'recurring'],
   ['piggy', 'Piggy banks', 'piggy'], ['rules', 'Rules', 'rules'], ['reports', 'Reports', 'reports'], ['settings', 'Settings', 'settings']];
-export function drawNav(active) {
+export function drawNav(active: string) {
   el('nav').innerHTML = String(htmlList(NAV.map(([r, label, ic]) => html`<a href="#/${r}" class="${r === active ? 'on' : ''}" data-onmouseenter="App.prefetch('${r}')">${icon(ic)}<span>${label}</span></a>`)));
   if (window.App && App.drawTabbar) App.drawTabbar(active);
 }
-let toastTimer;
-export function toast(msg) {
+let toastTimer: ReturnType<typeof setTimeout> | undefined;
+export function toast(msg: string) {
   const t = el('toast'); t.textContent = msg; t.classList.add('show');
   clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
 }
-export function confirmBox(title, text, okLabel = 'Delete') {
-  return new Promise(res => {
+export function confirmBox(title: string, text: string, okLabel = 'Delete') {
+  return new Promise<boolean>(res => {
     const d = el<HTMLDialogElement>('confirm');
     d.innerHTML = String(html`<h3>${title}</h3><p>${text}</p><div class="btns"><button class="btn" value="no">Cancel</button><button class="btn primary" value="yes">${okLabel}</button></div>`);
     d.querySelectorAll('button').forEach(b => b.onclick = () => { d.close(); res(b.value === 'yes'); });
@@ -50,13 +50,13 @@ export function confirmBox(title, text, okLabel = 'Delete') {
 /* ---------- View Transitions (animated morphs between states) ---------- */
 export const VT_OK = !!document.startViewTransition && !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 // Run a DOM update inside a view transition. kind sets a class on <html> so CSS can pick the animation.
-export function vt(kind, update, setup?) {
+export function vt(kind: string, update: () => void, setup?: () => void) {
   if (!VT_OK || document.hidden) { update(); return null; }
   const root = document.documentElement;
   if (S.vtRun) { try { S.vtRun.skipTransition(); } catch (e) { /* already done */ } }
   root.classList.add('vt-' + kind);
   if (setup) setup();
-  let t;
+  let t: ViewTransition & { kind?: string };
   try { t = document.startViewTransition(update); } catch (e) { root.classList.remove('vt-' + kind); update(); return null; }
   S.vtRun = t;
   // The browser may skip or abort a transition (a newer one starts, the viewport or scrollbar changes size...).
@@ -67,12 +67,12 @@ export function vt(kind, update, setup?) {
   t.finished.catch(quiet).then(() => { root.classList.remove('vt-' + kind); if (S.vtRun === t) S.vtRun = null; document.querySelectorAll<HTMLElement>('[data-vtn]').forEach(n => { n.style.viewTransitionName = ''; delete n.dataset.vtn; }); });
   return t;
 }
-export const vtName = (node, name) => { if (node) { node.style.viewTransitionName = name; node.dataset.vtn = '1'; } };
+export const vtName = (node: Element | null | undefined, name: string) => { if (node) { const n = node as HTMLElement; n.style.viewTransitionName = name; n.dataset.vtn = '1'; } };
 // Drawer header "hero": the transaction's avatar, payee and amount, so the row can morph into it
-function drawerHeroHtml(h) {
+function drawerHeroHtml(h: NonNullable<State['drawerHero']>) {
   return html`<div class="dhero" data-id="${h.id}">${h.av}<div class="dh-txt"><div class="eyebrow">${h.kicker}</div><h2>${h.name}</h2><div class="sub-s num">${h.amount} · ${fmtDate(h.date)}</div></div></div>`;
 }
-export function openDrawer(title, bodyHtml, footHtml?) {
+export function openDrawer(title: string, bodyHtml: Html | string, footHtml?: Html | string) {
   const d = el('drawer'), wasOpen = d.classList.contains('open');
   S.drawerTok = (S.drawerTok || 0) + 1;
   let h = S.drawerHero;
@@ -86,7 +86,7 @@ export function openDrawer(title, bodyHtml, footHtml?) {
   }
   d.innerHTML = String(html`<div class="grab" aria-hidden="true"></div><header>${h ? drawerHeroHtml({ ...h, kicker: title === 'Loading…' ? h.kicker : title }) : html`<h2>${title}</h2>`}<button class="round" type="button" data-onclick="App.closeDrawer()" aria-label="Close">×</button></header><div class="body" id="drawerBody">${bodyHtml}</div>${footHtml ? html`<footer>${footHtml}</footer>` : ''}`);
   if (!wasOpen) S.drawerReturn = document.activeElement as HTMLElement | null;
-  d.setAttribute('aria-label', title === 'Loading…' && h ? h.name : title);
+  d.setAttribute('aria-label', String(title === 'Loading…' && h ? h.name : title));
   d.classList.add('open'); d.setAttribute('aria-hidden', 'false'); el('scrim').classList.add('open');
   if (!wasOpen) setTimeout(() => { const f = d.querySelector<HTMLElement>('input:not([type=hidden]):not([type=checkbox]):not([type=date]), select'); if (f && innerWidth > 900) f.focus(); }, 280);
 }
@@ -106,7 +106,7 @@ export function closeDrawer() {
   vt('drawer-close', () => { const dav = d.querySelector<HTMLElement>('.dhero .av'); if (dav) dav.style.viewTransitionName = ''; shut(); vtName(row, 'txav'); },
     () => vtName(d.querySelector('.dhero .av'), 'txav'));
 }
-export function formError(msg) {
+export function formError(msg: string) {
   const b = el('drawerBody'); if (!b) return toast(msg);
   let e = b.querySelector('.form-err');
   if (!e) { e = document.createElement('div'); e.className = 'form-err'; b.prepend(e); }
@@ -119,10 +119,10 @@ export function monthNav() {
   const isNow = ahead >= 12;   // allow planning up to a year ahead
   return html`<div class="month"><button class="round" data-onclick="App.shiftMonth(-1)" aria-label="Previous month">‹</button><span>${r.label}</span><button class="round" data-onclick="App.shiftMonth(1)" aria-label="Next month"${isNow ? ' disabled' : ''}>›</button>${ahead !== 0 ? html`<button class="btn small" style="margin-left:6px" data-onclick="App.thisMonth()">Today</button>` : ''}<button class="btn small" style="margin-left:6px" data-onclick="App.allTime()">All time</button></div>`;
 }
-export function head(title, sub, actions?) {
+export function head(title: string | Html, sub: string | Html, actions?: string | Html) {
   return html`<div class="head"><div><h1>${title}</h1>${sub ? html`<p class="sub">${sub}</p>` : ''}</div><div class="actions">${actions || ''}</div></div>`;
 }
-export const opt = (v, label, sel) => html`<option value="${v}"${String(v) === String(sel) ? ' selected' : ''}>${label}</option>`;
+export const opt = (v: string | number, label: string | number, sel: unknown) => html`<option value="${v}"${String(v) === String(sel) ? ' selected' : ''}>${label}</option>`;
 
 // The methods markup handlers call (see events.ts), added to App and to its type
 const methods = {

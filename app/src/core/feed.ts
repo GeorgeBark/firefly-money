@@ -1,12 +1,22 @@
 import { Html, html, htmlList } from './html';
-import { S, money, num, todayIso } from './base';
+import { type ApiData, S, money, num, todayIso } from './base';
 import { daysBetween } from './helpers';
 import { logoImg } from './logo';
 
 /* ================= Transactions: normalize ================= */
-export function normGroup(g) {
+// One split (Firefly "transaction") of a group, in the shape the app uses
+export type Split = {
+  jid: string, type: string, date: string, amount: number, description: string,
+  source_id: string, source_name: string, source_type: string, destination_id: string, destination_name: string, destination_type: string,
+  category: string, budget_id: string, budget_name: string, bill_id: string, bill_name: string, tags: string[], notes: string,
+  sba: string | null | undefined, dba: string | null | undefined,      // source/destination balance after, when Firefly sends it
+  fa: string, fc: string, reconciled: boolean,                         // foreign amount and currency
+};
+// A transaction group: what the app calls a transaction. type and date are its first split's.
+export type Group = { id: string, title: string, type: string, date: string, splits: Split[], total: number };
+export function normGroup(g: ApiData): Group {
   const a = g.attributes || {};
-  const splits = (a.transactions || []).map(t => ({
+  const splits: Split[] = (a.transactions || []).map((t: ApiData) => ({
     jid: String(t.transaction_journal_id), type: t.type, date: t.date, amount: num(t.amount), description: t.description || '',
     source_id: String(t.source_id || ''), source_name: t.source_name || '', source_type: t.source_type || '',
     destination_id: String(t.destination_id || ''), destination_name: t.destination_name || '', destination_type: t.destination_type || '',
@@ -15,18 +25,18 @@ export function normGroup(g) {
     sba: t.source_balance_after, dba: t.destination_balance_after,
     fa: t.foreign_amount != null && t.foreign_amount !== '' ? String(num(t.foreign_amount)) : '', fc: t.foreign_currency_code || '', reconciled: !!t.reconciled,
   }));
-  const f = splits[0] || {};
-  return { id: String(g.id), title: a.group_title || '', type: f.type, date: f.date, splits, total: splits.reduce((s, x) => s + x.amount, 0) };
+  const f: Partial<Split> = splits[0] || {};
+  return { id: String(g.id), title: a.group_title || '', type: f.type as string, date: f.date as string, splits, total: splits.reduce((s, x) => s + x.amount, 0) };
 }
-export type Group = ReturnType<typeof normGroup>;
+
 // Signed amount: negative = money out. With an account in view, sign is relative to that account.
-export function signed(g, accountId) {
+export function signed(g: Group, accountId?: string) {
   if (accountId) return g.splits.reduce((s, x) => s + (x.source_id === accountId ? -x.amount : x.destination_id === accountId ? x.amount : 0), 0);
   if (g.type === 'withdrawal') return -g.total;
   if (g.type === 'deposit') return g.total;
   return 0;
 }
-function amountCell(g, accountId) {
+function amountCell(g: Group, accountId?: string) {
   const v = signed(g, accountId);
   if (!accountId && g.type === 'transfer') return html`<td class="amt neutral">${money(g.total)}</td>`;
   return html`<td class="amt ${v < 0 ? 'neg' : v > 0 ? 'pos' : 'neutral'}">${v > 0 ? '+' : ''}${money(v)}</td>`;
@@ -34,8 +44,8 @@ function amountCell(g, accountId) {
 
 /* ---------- Merchant avatars ---------- */
 const AV_NOISE = /^(sq|tst|pos|ach|dd|pp|paypal|aplpay|sp|py|ic|in|web|pmt)\s*\*\s*|^(sq|tst)\s+/i;
-export function payeeOf(g) {
-  const f = g.splits[0] || {};
+export function payeeOf(g: Group) {
+  const f: Partial<Split> = g.splits[0] || {};
   if (g.type === 'transfer') return { name: g.splits.length > 1 ? (g.title || f.description) : f.destination_name || f.description, kind: 'transfer' };
   const side = g.type === 'deposit' ? 'source_name' : 'destination_name';
   const names = [...new Set(g.splits.map(s => s[side]).filter(Boolean))];
@@ -43,27 +53,27 @@ export function payeeOf(g) {
   if (!name || /^\(?(no name|cash account)\)?$/i.test(name)) name = f.description;
   return { name: String(name || '?'), kind: g.type };
 }
-export function monogram(name) {
+export function monogram(name: string) {
   const words = String(name).replace(AV_NOISE, '').replace(/[^A-Za-z0-9&' ]+/g, ' ').split(/\s+/).filter(w => w && !/^(the|and|of|inc|llc|co)$/i.test(w));
   if (!words.length) return '•';
   if (words.length === 1 || /^\d/.test(words[1])) return (/^[A-Z]{2,4}$/.test(words[0]) ? words[0].slice(0, 2) : words[0][0]).toUpperCase();
   return (words[0][0] + words[1][0]).toUpperCase();
 }
-function hueOf(name) {
+function hueOf(name: string) {
   let h = 0; const k = String(name).replace(AV_NOISE, '').toLowerCase().replace(/[^a-z]/g, '').slice(0, 10);
   for (let i = 0; i < k.length; i++) h = (h * 31 + k.charCodeAt(i)) >>> 0;
   return h % 360;
 }
-export function avatarHtml(g, cls = '') {
+export function avatarHtml(g: Group, cls = '') {
   const p = payeeOf(g);
   if (p.kind === 'transfer') return html`<span class="av xfer ${cls}" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13M13 4l4 4-4 4M20 16H7M11 12l-4 4 4 4"/></svg></span>`;
-  return nameAvatar(p.name, cls);
+  return nameAvatar(p.name!, cls);     // only a transfer's name can be missing
 }
 // A coloured monogram for a payee or account name, with its logo on top when there is one
-export const nameAvatar = (name, cls = '') => html`<span class="av ${cls}" style="--h:${hueOf(name)}" aria-hidden="true">${monogram(name)}${logoImg(name)}</span>`;
+export const nameAvatar = (name: string, cls = '') => html`<span class="av ${cls}" style="--h:${hueOf(name)}" aria-hidden="true">${monogram(name)}${logoImg(name)}</span>`;
 
 /* ---------- Day labels for the grouped feed ---------- */
-export function dayLabel(iso) {
+export function dayLabel(iso: string) {
   const d = String(iso).slice(0, 10), t = todayIso(), diff = daysBetween(d, t);
   if (diff === 0) return 'Today';
   if (diff === 1) return 'Yesterday';
@@ -74,12 +84,13 @@ export function dayLabel(iso) {
 }
 // What a rendered transaction row was drawn from, by group id, so a row can be redrawn or edited in place
 export type TxMeta = { g: Group, accountId: string, opts: { select: boolean, accountId: string } };
-export function txRows(groups, opts: any = {}) {
+export type TxRowsOpts = { select?: boolean, accountId?: string, empty?: string };
+export function txRows(groups: Group[], opts: TxRowsOpts = {}) {
   if (S.pendingDel && S.pendingDel.size) groups = groups.filter(g => !S.pendingDel.has(g.id));
   if (!groups.length) return html`<div class="center-empty">${opts.empty || 'No transactions.'}</div>`;
   const cols = (opts.select ? 1 : 0) + 4;
   // Net per day (relative to the account when one is in view; transfers count as zero otherwise)
-  const byDay: any = {};
+  const byDay: Record<string, number> = {};
   groups.forEach(g => { const d = String(g.date).slice(0, 10); byDay[d] = (byDay[d] || 0) + signed(g, opts.accountId); });
   let lastDay = '';
   const rows = htmlList(groups.map(g => {
@@ -91,7 +102,7 @@ export function txRows(groups, opts: any = {}) {
     const buds = [...new Set(g.splits.map(s => s.budget_name).filter(Boolean))];
     const tags = [...new Set<string>(g.splits.flatMap(s => s.tags))].filter(t => !t.startsWith('Data Import on'));
     const fx = htmlList(g.splits.filter(s => s.fa && s.fc).map(s => html`<span class="chip">${s.fc} ${num(s.fa).toFixed(2)}</span>`));
-    const inl = k => multi ? '' : html` inl" data-k="${k}" data-onclick="event.stopPropagation();App.pick(this)" title="Change ${k}`;
+    const inl = (k: string) => multi ? '' : html` inl" data-k="${k}" data-onclick="event.stopPropagation();App.pick(this)" title="Change ${k}`;
     const chips = html`<span class="cat-s${inl('category')}">${cats.length ? cats.join(', ') : g.type === 'withdrawal' ? 'Uncategorized' : g.type === 'deposit' ? 'Income' : 'Transfer'}</span>${fx}${multi ? html`<span class="chip">${g.splits.length} splits</span>` : ''}${htmlList(buds.map(b => html`<span class="chip${inl('budget')}">Budget · ${b}</span>`))}${!buds.length && !multi && g.type === 'withdrawal' ? html`<span class="chip ghost${inl('budget')}">+ Budget</span>` : ''}${htmlList(tags.map(t => html`<span class="chip"># ${t}</span>`))}`;
     S.txMeta[g.id] = { g, accountId: opts.accountId || '', opts: { select: !!opts.select, accountId: opts.accountId || '' } };
     let dh: Html | '' = '';

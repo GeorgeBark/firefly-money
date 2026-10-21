@@ -7,22 +7,22 @@ import { closeDrawer, formError, toast } from './dom';
 export function storedKey() {
   try { const k = localStorage.getItem('moneyKey'); S.remember = !!k; return k || sessionStorage.getItem('moneyKey') || ''; } catch (e) { return ''; }
 }
-export function saveKey(k, remember) { S.remember = !!remember; try { (remember ? localStorage : sessionStorage).setItem('moneyKey', k); } catch (e) { /* storage blocked */ } }
+export function saveKey(k: string, remember: boolean) { S.remember = !!remember; try { (remember ? localStorage : sessionStorage).setItem('moneyKey', k); } catch (e) { /* storage blocked */ } }
 export function clearKey() { try { localStorage.removeItem('moneyKey'); sessionStorage.removeItem('moneyKey'); } catch (e) { /* ignore */ } }
 // Everything this device saved (in memory, IndexedDB and the offline cache) goes when the sign-in screen shows.
 function forgetDeviceData() {
   CACHE.clear(); PAGES.clear(); PDB.clear(); S.remember = false;
   try { if (window.caches) caches.open('money-v1').then(c => c.keys().then(ks => ks.forEach(k => { if (new URL(k.url).pathname.startsWith('/api/')) c.delete(k); }))).catch(() => {}); } catch (e) { /* no Cache Storage */ }
 }
-export function showLogin(msg?) {
+export function showLogin(msg?: string) {
   closeDrawer(); S.lists = null; forgetDeviceData();
   el('app').hidden = true; el('login').hidden = false;
   const e = el('loginErr'); e.hidden = !msg || msg === 'Wrong password.' && !S.key; e.textContent = msg || '';
   el<HTMLInputElement>('loginPw').value = ''; el<HTMLInputElement>('loginPw').focus();
 }
-export async function withAuth(fn) { try { return await fn(); } catch (e) { if (e instanceof AuthError) return showLogin(e.message); toast((e as Error).message); } }
-export async function busy(btn, fn) {
+export async function withAuth<T>(fn: () => Promise<T>) { try { return await fn(); } catch (e) { if (e instanceof AuthError) return showLogin(e.message); toast((e as Error).message); } }
+export async function busy(btn: HTMLButtonElement | null | undefined, fn: () => Promise<unknown>) {
   if (btn) { btn.disabled = true; btn.dataset.l = btn.textContent; btn.textContent = 'Saving…'; }
   try { await fn(); } catch (e) { if (e instanceof AuthError) return showLogin(e.message); formError((e as Error).message); }
-  finally { if (btn && btn.isConnected) { btn.disabled = false; btn.textContent = btn.dataset.l; } }
+  finally { if (btn && btn.isConnected) { btn.disabled = false; btn.textContent = btn.dataset.l!; } }
 }

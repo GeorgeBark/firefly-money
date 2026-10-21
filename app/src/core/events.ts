@@ -61,9 +61,10 @@ type Statement = { ev: 'preventDefault' | 'stopPropagation' } | { fn: string, ar
     if (!prog) { prog = parse(src); parsed.set(src, prog); }
     for (const s of prog) {
       if ('ev' in s) { e[s.ev](); continue; }
-      const f = window.App && Object.prototype.hasOwnProperty.call(window.App, s.fn) && window.App[s.fn];
+      const app = window.App as unknown as Record<string, unknown>;
+      const f = app && Object.prototype.hasOwnProperty.call(app, s.fn) && app[s.fn];
       if (typeof f !== 'function') throw new Error('No App.' + s.fn + ' for handler: ' + src);
-      f.apply(window.App, s.args.map(a => 'ev' in a ? e : 'path' in a ? a.path.reduce<any>((o, k) => o[k], node) : a.v));
+      f.apply(window.App, s.args.map(a => 'ev' in a ? e : 'path' in a ? a.path.reduce<unknown>((o, k) => (o as Record<string, unknown>)[k], node) : a.v));
     }
   }
 

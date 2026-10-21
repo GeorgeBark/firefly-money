@@ -4,7 +4,7 @@ import { Html, html, htmlList, joinHtml, raw } from '../app/src/core/html';
 const str = (h: unknown) => String(h);
 
 describe('html', () => {
-  afterEach(() => { delete (window as any).MONEY_CHECK_HTML; vi.restoreAllMocks(); });
+  afterEach(() => { delete window.MONEY_CHECK_HTML; vi.restoreAllMocks(); });
   it('escapes values', () => {
     expect(str(html`<b title="${'"x" & \'y\''}">${'<img src=x onerror=alert(1)>'}</b>`))
       .toBe('<b title="&quot;x&quot; &amp; &#39;y&#39;">&lt;img src=x onerror=alert(1)&gt;</b>');
@@ -23,7 +23,7 @@ describe('html', () => {
   });
   it('reports escaped markup and + joins while checking', () => {
     const err = vi.spyOn(console, 'error').mockImplementation(() => {});
-    (window as any).MONEY_CHECK_HTML = true;
+    window.MONEY_CHECK_HTML = true;
     ['<b>x</b>', ' data-x="1"', 'Fish & chips'].forEach(v => html`${v}`);
     expect(err).toHaveBeenCalledTimes(2);
     void (html`<b>` + '');

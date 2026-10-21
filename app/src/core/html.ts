@@ -8,11 +8,11 @@ export class Html {
   toString() { return this.html; }
   // + asks for the 'default' hint; innerHTML, String() and template literals ask for 'string'
   [Symbol.toPrimitive](hint: string) {
-    if (hint === 'default' && (window as any).MONEY_CHECK_HTML) console.error('Html joined with +: ' + this.html.slice(0, 120));
+    if (hint === 'default' && window.MONEY_CHECK_HTML) console.error('Html joined with +: ' + this.html.slice(0, 120));
     return this.html;
   }
 }
-const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+const ESC: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 const escape = (s: string) => s.replace(/[&<>"']/g, c => ESC[c]);
 // While testing (the smoke test sets MONEY_CHECK_HTML), report text that looks like markup (a tag, an entity or an
 // attribute) but gets escaped: that's usually a helper still returning a plain string where it should return html``.
@@ -22,7 +22,7 @@ function part(v: unknown): string {
   if (v instanceof Html) return v.html;
   if (Array.isArray(v)) return v.map(part).join('');
   const s = String(v);
-  if ((window as any).MONEY_CHECK_HTML && LOOKS_LIKE_HTML.test(s)) console.error('Escaped HTML-looking text: ' + s.slice(0, 120));
+  if (window.MONEY_CHECK_HTML && LOOKS_LIKE_HTML.test(s)) console.error('Escaped HTML-looking text: ' + s.slice(0, 120));
   return escape(s);
 }
 export function html(strings: TemplateStringsArray, ...values: unknown[]): Html {

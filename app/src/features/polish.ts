@@ -107,9 +107,9 @@ export async function payeeFill(i, name) {
 }
 
 /* ---------- Undo for deleting transactions ---------- */
-function softDeleteTx(ids) {
+function softDeleteTx(ids: string[]) {
   ids.forEach(id => S.pendingDel.add(id));
-  document.querySelectorAll<HTMLElement>('#view tr[data-gid]').forEach(tr => { if (ids.includes(tr.dataset.gid)) tr.remove(); });
+  document.querySelectorAll<HTMLElement>('#view tr[data-gid]').forEach(tr => { if (ids.includes(tr.dataset.gid!)) tr.remove(); });
   tidyDays();
   S.sel = new Set(); if (el('bulkbar')) el('bulkbar').hidden = true;
   const box = el('undo'); clearTimeout(S.undoT);

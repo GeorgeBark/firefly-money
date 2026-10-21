@@ -5,7 +5,7 @@ import ingest from '../app/ingest.js';
 const env = (globalThis as any).process.env;
 beforeEach(() => { env.DASH_PASSWORD = 'correct horse'; env.FIREFLY_TOKEN = 'tok'; });
 
-const ACCOUNTS = {
+const ACCOUNTS: Record<string, { id: string, attributes: { name: string, account_number?: string } }[]> = {
   asset: [{ id: '1', attributes: { name: 'Checking', account_number: '000123456789' } }, { id: '2', attributes: { name: 'Savings' } }],
   liabilities: [{ id: '3', attributes: { name: 'Apple Card' } }, { id: '4', attributes: { name: 'Chase Sapphire', account_number: '4111 1111 1111 9876' } }],
 };
@@ -14,10 +14,10 @@ function req({ method = 'POST', body = {} as any, auth = '', session = '', firef
   const calls: { uri: string, method: string, args: string, body: any }[] = [];
   const r: any = { method, requestText: typeof body === 'string' ? body : JSON.stringify(body), headersIn: { Authorization: auth, 'X-Money': session ? '1' : undefined }, headersOut: {},
     variables: { money_session: session }, status: 0, text: '', calls };
-  r.return = (s, t = '') => { r.status = s; r.text = t; };
-  r.subrequest = async (uri, o) => {
+  r.return = (s: number, t = '') => { r.status = s; r.text = t; };
+  r.subrequest = async (uri: string, o: { method: string, args: string, body?: string }) => {
     calls.push({ uri, method: o.method, args: o.args, body: o.body ? JSON.parse(o.body) : null });
-    const path = uri.replace('/__firefly/api/v1', ''), reply = (status, data) => ({ status, responseText: JSON.stringify(data) });
+    const path = uri.replace('/__firefly/api/v1', ''), reply = (status: number, data: unknown) => ({ status, responseText: JSON.stringify(data) });
     if (path === '/accounts') return reply(200, { data: ACCOUNTS[/type=(\w+)/.exec(o.args)![1]] });
     if (path === '/search/accounts') return reply(200, { data: firefly.payee ? [{ id: '9', attributes: { name: firefly.payee } }] : [] });
     if (path === '/accounts/9/transactions') return reply(200, { data: [{ attributes: { transactions: [{ destination_id: '9', category_name: 'Coffee', budget_id: '5' }] } }] });
@@ -27,7 +27,7 @@ function req({ method = 'POST', body = {} as any, auth = '', session = '', firef
   return r;
 }
 async function keyFor() { const r = req({ method: 'GET', session: '1' }); await ingest.endpoint(r); return JSON.parse(r.text).key; }
-const posted = r => r.calls.find(c => c.uri.endsWith('/transactions') && c.method === 'POST').body.transactions[0];
+const posted = (r: any) => r.calls.find((c: any) => c.uri.endsWith('/transactions') && c.method === 'POST').body.transactions[0];
 
 describe('ingest.js', () => {
   it('reads amounts the way Wallet and people write them', () => {
@@ -68,7 +68,7 @@ describe('ingest.js', () => {
     expect(r.status).toBe(200);
     expect(r.text).toBe('Logged 4.75 at Blue Bottle (Apple Card).\n');
     expect(posted(r)).toMatchObject({ type: 'withdrawal', amount: '4.75', description: 'Blue Bottle', source_id: '3', destination_name: 'Blue Bottle', tags: ['Apple Pay'], category_name: 'Coffee', budget_id: '5' });
-    expect(r.calls.find(c => c.uri.endsWith('/transactions') && c.method === 'POST').body).toMatchObject({ error_if_duplicate_hash: true, apply_rules: true });
+    expect(r.calls.find((c: any) => c.uri.endsWith('/transactions') && c.method === 'POST').body).toMatchObject({ error_if_duplicate_hash: true, apply_rules: true });
   });
   it('uses the account the Shortcut names, and logs refunds as income', async () => {
     const r = req({ auth: 'Bearer ' + await keyFor(), body: { amount: '-$20', merchant: 'Target', card: 'Whatever', account: 'checking' } });

@@ -6,12 +6,12 @@ import session from '../app/session.js';
 function req({ method = 'GET', body = '', cookie = '', https = false } = {}) {
   const r: any = { method, requestText: body, headersIn: https ? { 'X-Forwarded-Proto': 'https' } : {}, headersOut: {}, status: 0,
     variables: { scheme: 'http', cookie_money_session: cookie } };
-  r.return = s => { r.status = s; };
+  r.return = (s: number) => { r.status = s; };
   return r;
 }
-const signIn = (password, remember = false, https = false) => { const r = req({ method: 'POST', body: JSON.stringify({ password, remember }), https }); session.endpoint(r); return r; };
+const signIn = (password: string, remember = false, https = false) => { const r = req({ method: 'POST', body: JSON.stringify({ password, remember }), https }); session.endpoint(r); return r; };
 const env = (globalThis as any).process.env;      // what nginx passes on with its env directive
-const value = r => /money_session=([^;]*)/.exec(r.headersOut['Set-Cookie'])![1];
+const value = (r: { headersOut: Record<string, string> }) => /money_session=([^;]*)/.exec(r.headersOut['Set-Cookie'])![1];
 
 beforeEach(() => { env.DASH_PASSWORD = 'correct horse'; env.FIREFLY_TOKEN = 'tok'; });
 afterEach(() => vi.useRealTimers());

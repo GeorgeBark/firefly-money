@@ -25,7 +25,7 @@ type MockSplit = {
   transaction_journal_id: string, type: string, date: string, amount: string, description: string,
   source_id: string, source_name: string, source_type: string, destination_id: string, destination_name: string, destination_type: string,
   category_name: string | null, category_id: string | null, budget_id: string | null, budget_name: string | null, bill_id: string | null, bill_name: string | null, tags: string[], notes: string,
-  foreign_amount: string | null, foreign_currency_code: string | null, reconciled: boolean,
+  foreign_amount: string | null, foreign_currency_code: string | null, reconciled: boolean, latitude: number | null, longitude: number | null,
 };
 type MockGroup = { id: string, type: 'transactions', attributes: { group_title: string | null, created_at: string, transactions: MockSplit[] } };
 
@@ -74,15 +74,19 @@ export function createMockApi(now = new Date()) {
   ];
   const BILL_OF = Object.fromEntries(BILLS.filter(b => b[7]).map(b => [b[7], b]));
 
+  // Where the in-store payees are (a few blocks of one town), for the Map page; three in four purchases there have a place
+  const SPOTS: Record<string, [number, number]> = { 'Green Grocer': [40.7290, -73.9890], 'Corner Market': [40.7265, -73.9815], 'SQ *BEAN THERE COFFEE': [40.7308, -73.9973],
+    'Burrito Bar': [40.7223, -73.9874], 'Taco Stand': [40.7195, -73.9960], 'Fuel Stop': [40.7410, -73.9780], 'Pharmacy Plus': [40.7340, -73.9900], 'Big Box Store': [40.7480, -73.9860] };
+
   let TX: MockGroup[] = [];
   const addTx = (d: number, type: string, amt: number, description: string, src: string, dst: string, cat: string | null = null, bud: string | null = null) => {
     const gid = String(TX.length + 1), s = ACC_BY[src].attributes, t = ACC_BY[dst].attributes;
-    const bill = type === 'withdrawal' ? BILL_OF[t.name] : null;
+    const bill = type === 'withdrawal' ? BILL_OF[t.name] : null, spot = type === 'withdrawal' && +gid % 4 ? SPOTS[t.name] : undefined;
     TX.push({ id: gid, type: 'transactions', attributes: { group_title: null, created_at: iso(d) + 'T18:00:00-05:00', transactions: [{
       transaction_journal_id: gid, type, date: iso(d) + 'T12:00:00-05:00', amount: amt.toFixed(2), description,
       source_id: src, source_name: s.name, source_type: s.type, destination_id: dst, destination_name: t.name, destination_type: t.type,
       category_name: cat, category_id: CAT_ID[cat ?? ''] ?? null, budget_id: BUDGETS[bud ?? ''] ?? null, budget_name: bud, bill_id: bill ? bill[0] : null, bill_name: bill ? bill[1] : null, tags: [], notes: '',
-      foreign_amount: null, foreign_currency_code: null, reconciled: false }] } });
+      foreign_amount: null, foreign_currency_code: null, reconciled: false, latitude: spot ? spot[0] : null, longitude: spot ? spot[1] : null }] } });
   };
 
   // About five months of history: two paychecks a month, everyday spending, and a card payment on the 3rd

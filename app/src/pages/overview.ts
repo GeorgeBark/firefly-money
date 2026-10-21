@@ -1,33 +1,35 @@
 import { type Html, html, htmlList, raw } from '../core/html';
 import { api, getAll, sleep } from '../core/api';
-import { App, S, absDiff, arr, el, fmtDate, fmtDay, isoDate, money, money0, monthRange, num, period, sumDiff, today, todayIso } from '../core/base';
+import { App, S, absDiff, arr, el, fmtDate, fmtDay, isoDate, money, money0, monthRange, num, period, sumDiff, today, todayIso, type ApiData, type Period } from '../core/base';
 import { head, monthNav } from '../core/dom';
 import { normGroup, txRows } from '../core/feed';
 import { addDays } from '../core/helpers';
-import { isAsset, isCard, isLiab, lists } from '../core/lists';
+import { type Account, isAsset, isCard, isLiab, lists } from '../core/lists';
 import { VIEWS } from '../core/router';
 import { DASH_NAMES, tileOpt } from '../features/dashboard';
 import { bindSwipe } from '../features/phone';
 import { billAmount } from './bills';
-import { budgetLimits } from './budgets';
+import { type BudgetLimit, budgetLimits } from './budgets';
 import { loanHistory } from './loans';
-import { normPiggy, paceBits } from './piggy';
+import { type Piggy, normPiggy, paceBits } from './piggy';
 
 /* ================= Overview ================= */
+type CatRow = { name: string, id?: string, amt: number, prev: number };
+type CashMonth = { label: string, income: number, spend: number, go?: string };
 VIEWS[''] = async (r, paint) => {
   const L = await lists();
   const cur = period(), all = !!cur.all, prev = monthRange(S.y, S.m - 1);
   // The cash-flow chart's months (six unless its settings say otherwise), up to today in All time
   const nMonths = tileOpt('cashflow', 'months');
   const months = [...Array(nMonths)].map((_, i) => all ? monthRange(today.getFullYear(), today.getMonth() - nMonths + 1 + i) : monthRange(S.y, S.m - nMonths + 1 + i));
-  const p = x => ({ start: x.start, end: x.end });
+  const p = (x: Period) => ({ start: x.start, end: x.end });
   const future = !all && (S.y > today.getFullYear() || (S.y === today.getFullYear() && S.m > today.getMonth()));
   const monthOnly = future || all;   // cards that only make sense for one month (insights, the day heatmap)
   const uncatQ = 'has_no_category:true transaction_type:withdrawal date_after:' + cur.start + ' date_before:' + cur.end;
   const own = L.accounts.filter(a => a.active);
   const cards = own.filter(isCard), loans = own.filter(isLiab);
   // What the balance tiles list, by their settings: closed (inactive) accounts, zero balances, paid-off debts
-  const shown = (k, test, settled) => L.accounts.filter(a => test(a) && (a.active || tileOpt(k, 'closed')) && (tileOpt(k, k === 'cash' ? 'zero' : 'paidOff') || !settled(a)));
+  const shown = (k: string, test: (a: Account) => boolean, settled: (a: Account) => boolean) => L.accounts.filter(a => test(a) && (a.active || tileOpt(k, 'closed')) && (tileOpt(k, k === 'cash' ? 'zero' : 'paidOff') || !settled(a)));
   const cashShown = shown('cash', a => isAsset(a) && !isCard(a), a => !a.balance);
   const cardsShown = shown('cards', isCard, a => a.balance >= 0), loansShown = shown('loans', isLiab, l => !l.debt);
   // Everything is requested at once (the main numbers first, so they reach Firefly first). The page is drawn
@@ -60,15 +62,15 @@ VIEWS[''] = async (r, paint) => {
   const last = all ? allTot! : trend[5], before = all ? { spend: 0 } : trend[4];
 
   // categories
-  const cats = new Map();
+  const cats = new Map<string, CatRow>();
   arr(catNow).forEach(x => cats.set(x.name, { name: x.name, id: x.id, amt: absDiff(x), prev: 0 }));
   arr(catPrev).forEach(x => { const c = cats.get(x.name) || { name: x.name, id: x.id, amt: 0, prev: 0 }; c.prev = absDiff(x); cats.set(x.name, c); });
   const un = sumDiff(noCatNow), unP = sumDiff(noCatPrev);
   if (un || unP) cats.set('Uncategorized', { name: 'Uncategorized', amt: un, prev: unP });
 
-  const build = slow => {
+  const build = (slow: ApiData[] | null) => {
     const [prog, safe, insights, sparks, dayTx, incomeSrc, payNow, payPrev, piggies, nw] = slow || [];
-    const wait = k => slow ? null : skeletonPanel(k);
+    const wait = (k: string) => slow ? null : skeletonPanel(k);
     const W: [string, unknown][] = [
       ['safe', future ? '' : wait('safe') ?? safe],
       ['attention', attentionPanel({ uncat, uncatQ, bills: arr(bills), budgets: arr(budgets), limits, future })],
@@ -99,8 +101,8 @@ VIEWS[''] = async (r, paint) => {
   if (S.pageHtml !== first || !fillIn(full)) paint(full);
 };
 // Replace only the placeholders and the cards that changed, so the numbers already on screen don't redraw.
-function fillIn(markup) {
-  const v = el('view'), t = document.createElement('template'); t.innerHTML = markup;
+function fillIn(markup: Html) {
+  const v = el('view'), t = document.createElement('template'); t.innerHTML = String(markup);
   if (v.querySelector('#dash.moving')) return true;      // a card is being dragged: keep what's on screen until the next refresh
   const olds = [...v.querySelectorAll('#dash .w')] as HTMLElement[], news = [...t.content.querySelectorAll<HTMLElement>('#dash .w')];
   if (olds.map(w => w.dataset.w).join() !== news.map(w => w.dataset.w).join()) return false;      // a card came or went: redraw it all
@@ -112,11 +114,11 @@ function fillIn(markup) {
   if (App.fitSankey) App.fitSankey();
   return true;
 }
-function skeletonPanel(k) {
-  const h = { safe: 70, loans: 90, heatmap: 230, flow: 240, payees: 200, networth: 230 }[k] || 120;
+function skeletonPanel(k: string) {
+  const h = ({ safe: 70, loans: 90, heatmap: 230, flow: 240, payees: 200, networth: 230 } as Record<string, number>)[k] || 120;
   return html`<section class="panel" aria-busy="true"><h2>${DASH_NAMES[k] || ''}</h2><p class="lead">&nbsp;</p><div class="sk" style="height:${h}px"></div></section>`;
 }
-function attentionPanel({ uncat, uncatQ, bills, budgets, limits, future }) {
+function attentionPanel({ uncat, bills, budgets, limits, future }: { uncat: ApiData, uncatQ: string, bills: ApiData[], budgets: ApiData[], limits: Record<string, BudgetLimit>, future: boolean }) {
   const items: Html[] = [];
   const n = uncat && uncat.meta && uncat.meta.pagination ? uncat.meta.pagination.total : 0;
   const now = new Date(), lastMonth = monthRange(now.getFullYear(), now.getMonth() - 1);
@@ -128,19 +130,19 @@ function attentionPanel({ uncat, uncatQ, bills, budgets, limits, future }) {
     if (d && d <= week) items.push(html`<a class="row" href="#/bills"><span class="name">📅 ${b.attributes.name} due ${fmtDay(d)}</span><span class="num">${money(billAmount(b.attributes))}</span></a>`);
   });
   if (!future) budgets.forEach(b => {
-    const lim = limits[String(b.id)], spent = Math.abs((b.attributes.spent || []).reduce((s, x) => s + num(x.sum), 0));
+    const lim = limits[String(b.id)], spent = Math.abs((b.attributes.spent || []).reduce((s: number, x: ApiData) => s + num(x.sum), 0));
     if (lim && lim.amount && spent > lim.amount) items.push(html`<a class="row" href="#/transactions?budget=${b.id}"><span class="name">⚠️ ${b.attributes.name} is over budget</span><span class="num up">${money0(spent - lim.amount)} over</span></a>`);
     else if (lim && lim.amount && spent > lim.amount * .85) items.push(html`<a class="row" href="#/transactions?budget=${b.id}"><span class="name">◔ ${b.attributes.name} is at ${Math.round(spent / lim.amount * 100)}%</span><span class="num">${money0(lim.amount - spent)} left</span></a>`);
   });
   if (!items.length) return '';
   return html`<section class="panel attention"><h2>Needs attention</h2><p class="lead">Quick things to tidy up</p><div class="list">${htmlList(items)}</div></section>`;
 }
-function heroHtml(netWorth, last, before, prevShort, future) {
+function heroHtml(netWorth: number, last: { income: number, spend: number }, before: { spend: number }, prevShort: string, future: boolean) {
   const change = before.spend ? (last.spend - before.spend) / before.spend * 100 : 0, kept = last.income - last.spend;
   if (future && !last.spend) before = { spend: 0 };
   return html`<section class="hero"><div><div class="eyebrow">Net worth</div><div class="big num${netWorth < 0 ? ' negative' : ''}" data-count="${netWorth}">${money0(netWorth)}</div></div><div class="stats"><div class="stat"><div class="eyebrow">Spent</div><div class="val num" data-count="${last.spend}">${money0(last.spend)}</div><div class="sub">${before.spend ? html`<span class="${change > 0 ? 'up' : 'down'}">${change > 0 ? '▲' : '▼'} ${Math.abs(change).toFixed(0)}%</span> vs ${prevShort}` : html`&nbsp;`}</div></div><div class="stat"><div class="eyebrow">Earned</div><div class="val num" data-count="${last.income}">${money0(last.income)}</div><div class="sub">&nbsp;</div></div><div class="stat"><div class="eyebrow">Kept</div><div class="val num" data-count="${kept}">${money0(kept)}</div><div class="sub">${last.income ? (kept / last.income * 100).toFixed(0) + '% of income' : html`&nbsp;`}</div></div></div></section>`;
 }
-function spendingPanel(cats, future, all, count = 8, compare = true) {
+function spendingPanel(cats: CatRow[], future: boolean, all: boolean, count = 8, compare = true) {
   const cmp = compare && !all;
   cats = cats.filter(c => c.amt > 0 || (c.prev > 0 && !future)).sort((a, b) => b.amt - a.amt);
   if (cats.length > count) {
@@ -157,11 +159,11 @@ function spendingPanel(cats, future, all, count = 8, compare = true) {
   }));
   return html`<section class="panel"><h2>Where it went</h2><p class="lead">Spending by category ${all ? 'of all time' : 'this month'}</p>${rows || html`<p class="empty">${future ? 'This month hasn’t started yet.' : 'No spending recorded ' + (all ? 'yet.' : 'this month.')}</p>`}${rows && cmp ? html`<div class="legend"><span><i style="background:var(--spend)"></i>This month</span><span><i style="background:var(--text);opacity:.35;width:2px"></i>Last month</span></div>` : ''}</section>`;
 }
-function balancesPanel(title, lead, items, val, paidOff, sparks: any = {}) {
+function balancesPanel(title: string, lead: string, items: Account[], val: (a: Account) => number, paidOff: boolean, sparks: any = {}) {
   const rows = htmlList([...items].sort((a, b) => val(b) - val(a)).map(a => html`<a class="row" href="#/account/${a.id}"><span class="name">${a.name}</span>${sparks[a.id] ? App.sparkline(sparks[a.id], paidOff) : ''}<span class="num">${paidOff && !val(a) ? html`<span class="down">Paid off</span>` : money(val(a))}</span></a>`));
   return html`<section class="panel"><h2>${title}</h2><p class="lead">${lead}</p>${items.length ? html`<div class="total num">${money0(items.reduce((s, a) => s + val(a), 0))}</div><div class="list">${rows}</div>` : html`<p class="empty">None yet.</p>`}</section>`;
 }
-function loansPanel(loans, prog: any = {}) {
+function loansPanel(loans: Account[], prog: any = {}) {
   const rows = htmlList([...loans].sort((a, b) => b.debt - a.debt).map(l => {
     const pr = prog[l.id] || {}, paid = l.debt ? pr.pct ?? null : null;
     const months = pr.monthly > 0 && l.debt > 0 ? Math.ceil(l.debt / pr.monthly) : 0;
@@ -174,10 +176,10 @@ function loansPanel(loans, prog: any = {}) {
   }));
   return html`<section class="panel"><div class="panel-head"><h2>Loans</h2><a class="link" href="#/loans">Plan payoff</a></div><p class="lead">Remaining balance and payoff progress</p>${loans.length ? html`<div class="total num" style="margin-bottom:4px">${money0(loans.reduce((s, l) => s + l.debt, 0))}</div>${rows}` : html`<p class="empty">No loans.</p>`}</section>`;
 }
-export function cashFlow(trend) {
+export function cashFlow(trend: CashMonth[]) {
   const W = window.innerWidth < 600 ? 420 : 960, H = 210, top = 10, bottom = 28, n = trend.length;
   const max = Math.max(1, ...trend.flatMap(t => [t.income, t.spend])), slot = W / n, bw = Math.min(34, slot / 4);
-  const yy = v => top + (H - top - bottom) * (1 - v / max);
+  const yy = (v: number) => top + (H - top - bottom) * (1 - v / max);
   const bars = htmlList(trend.map((t, i) => {
     const cx = slot * i + slot / 2;
     return html`<g class="col"><rect class="hit" x="${slot * i}" y="0" width="${slot}" height="${H}" fill="transparent" data-i="${i}"${t.go ? html` data-go="${t.go}" style="cursor:pointer"` : ''}></rect><rect class="band" x="${slot * i + 4}" y="${top - 6}" width="${slot - 8}" height="${H - bottom - top + 6}" rx="10"></rect><rect data-i="${i}" x="${cx - bw - 3}" y="${yy(t.income)}" width="${bw}" height="${H - bottom - yy(t.income)}" rx="6" fill="var(--income)" style="color:var(--income)${t.go ? ';cursor:pointer' : ''}"><title>Earned ${money0(t.income)}</title></rect><rect data-i="${i}" x="${cx + 3}" y="${yy(t.spend)}" width="${bw}" height="${H - bottom - yy(t.spend)}" rx="6" fill="var(--spend)" style="color:var(--spend)${t.go ? ';cursor:pointer' : ''}" opacity=".85"><title>Spent ${money0(t.spend)}</title></rect><text x="${cx}" y="${H - 7}" text-anchor="middle">${t.label}</text></g>`;
@@ -186,16 +188,16 @@ export function cashFlow(trend) {
   S.chartData = trend;
   return html`<h2>Cash flow</h2><p class="lead">Earned vs. spent over the last ${n === 6 ? 'six' : n} months · click a month to open it</p><svg class="flowchart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Income and spending by month"><line x1="0" x2="${W}" y1="${H - bottom}" y2="${H - bottom}" stroke="var(--line)"/>${bars}</svg><div style="display:flex;gap:40px;margin-top:18px"><div><div class="eyebrow">Avg. spent / month</div><div class="num" style="font-size:21px">${money0(avgS)}</div></div><div><div class="eyebrow">Avg. kept / month</div><div class="num" style="font-size:21px">${money0(avgK)}</div></div></div><div class="legend"><span><i style="background:var(--income)"></i>Earned</span><span><i style="background:var(--spend)"></i>Spent</span></div>`;
 }
-function budgetsMini(budgets, limits, all, unset = true) {
+function budgetsMini(budgets: ApiData[], limits: Record<string, BudgetLimit>, all: boolean, unset = true) {
   const rows = htmlList(budgets.filter(b => b.attributes.active !== false && (unset || all || limits[String(b.id)])).map(b => {
-    const spent = Math.abs((b.attributes.spent || []).reduce((s, x) => s + num(x.sum), 0)), lim = limits[String(b.id)];
+    const spent = Math.abs((b.attributes.spent || []).reduce((s: number, x: ApiData) => s + num(x.sum), 0)), lim = limits[String(b.id)];
     const pct = lim ? spent / lim.amount * 100 : 0;
     return html`<div class="cat"><div class="row"><a class="name" href="#/transactions?budget=${b.id}" style="text-decoration:none">${b.attributes.name}</a><span class="num">${money0(spent)}${lim ? html` <span class="neutral">of ${money0(lim.amount)}</span>` : ''}</span></div>${lim ? html`<div class="track"><div class="fill ${pct > 100 ? 'over' : 'good'}" style="width:${Math.min(100, pct).toFixed(1)}%"></div></div><div class="sub">${pct > 100 ? html`<span class="up">${money0(spent - lim.amount)} over</span>` : money0(lim.amount - spent) + ' left'}</div>` : all ? '' : html`<div class="sub">No amount set for this month</div>`}</div>`;
   }));
   return html`<section class="panel"><div class="panel-head"><h2>Budgets</h2><a class="link" href="#/budgets">Manage</a></div><p class="lead">${all ? 'Spent of all time' : 'This month'}</p>${rows || html`<p class="empty">No budgets yet.</p>`}</section>`;
 }
 // Where the money went by who was paid (Firefly's expense accounts), against last month
-function payeesPanel(now, prev, future, all, count = 8, compare = true) {
+function payeesPanel(now: ApiData[], prev: ApiData[], future: boolean, all: boolean, count = 8, compare = true) {
   const before = Object.fromEntries(prev.map(x => [String(x.id), absDiff(x)]));
   const rows = now.map(x => ({ id: String(x.id), name: x.name, amt: absDiff(x), prev: before[String(x.id)] || 0 })).filter(x => x.amt > 0).sort((a, b) => b.amt - a.amt).slice(0, count);
   const max = Math.max(1, ...rows.map(x => x.amt));
@@ -206,13 +208,13 @@ function payeesPanel(now, prev, future, all, count = 8, compare = true) {
   }));
   return html`<section class="panel"><h2>Top payees</h2><p class="lead">Who you paid the most ${all ? 'of all time' : 'this month'}</p>${items || html`<p class="empty">${future ? 'This month hasn’t started yet.' : 'No spending recorded ' + (all ? 'yet.' : 'this month.')}</p>`}</section>`;
 }
-function incomePanel(sources, all) {
+function incomePanel(sources: ApiData[], all: boolean) {
   const rows = sources.map(x => ({ id: String(x.id), name: x.name, amt: absDiff(x) })).filter(x => x.amt > 0).sort((a, b) => b.amt - a.amt);
   const total = rows.reduce((s, x) => s + x.amt, 0);
   const items = htmlList(rows.map(x => html`<a class="row" href="#/account/${x.id}"><span class="name">${x.name}<br><span class="sub-s">${(x.amt / total * 100).toFixed(0)}% of income</span></span><span class="num">${money(x.amt)}</span></a>`));
   return html`<section class="panel"><h2>Income sources</h2><p class="lead">Where your money came from ${all ? 'of all time' : 'this month'}</p>${rows.length ? html`<div class="total num">${money0(total)}</div><div class="list">${items}</div>` : html`<p class="empty">No income recorded ${all ? 'yet.' : 'this month.'}</p>`}</section>`;
 }
-function goalsPanel(piggies, done = true) {
+function goalsPanel(piggies: Piggy[], done = true) {
   const live = (piggies || []).filter(p => p.active && p.target > 0 && (done || p.current < p.target));
   if (!live.length) return '';
   S.piggyCache = { ...S.piggyCache, ...Object.fromEntries(live.map(p => [p.id, p])) };      // for Add money
@@ -222,7 +224,7 @@ function goalsPanel(piggies, done = true) {
   }));
   return html`<section class="panel"><div class="panel-head"><h2>Savings goals</h2><a class="link" href="#/piggy">All goals</a></div><p class="lead">Piggy bank progress</p>${rows}</section>`;
 }
-function billsMini(bills, days = 45) {
+function billsMini(bills: ApiData[], days = 45) {
   // A bill with no due date in the window falls back to Firefly's "next expected" date, which can be months
   // away, so only keep dates that really fall within the days this card is about (45 at most: what's fetched).
   const end = addDays(todayIso(), Math.min(45, days));

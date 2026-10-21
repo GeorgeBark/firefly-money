@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { reviewQueue } from '../app/src/pages/review';
 
-const g = (id, created_at) => ({ id, attributes: { created_at } });
+const g = (id: string, created_at: string | null) => ({ id, attributes: { created_at } });
 describe('review queue', () => {
   const raw = [g('1', '2026-10-10T09:00:00-05:00'), g('2', '2026-10-20T09:00:00-05:00'), g('3', '2026-10-21T01:00:00+02:00'), g('4', null)];
   it('lists what was added after the last review, newest first', () => {

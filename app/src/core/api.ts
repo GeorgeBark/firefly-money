@@ -63,7 +63,8 @@ export async function api(path, opt: any = {}) {
 }
 // Firefly (often a small PHP server on a NAS) drops requests when too many arrive at once: the proxy then
 // answers 502/503/504, or Firefly says 429. So at most NET_MAX requests are sent at a time, and reads that
-// fail like that (or lose the connection) are retried a few times before the error is shown.
+// fail like that (or lose the connection) are retried a few times before the error is shown. A 429 (too many
+// requests, from Firefly or this server's rate limit) means nothing was done, so writes are retried after one too.
 const NET_MAX = 6, NET_RETRY = [400, 1200, 3000], NET_BUSY = new Set([429, 502, 503, 504]);
 let netActive = 0;
 const netQueue: (() => void)[] = [];
@@ -80,7 +81,7 @@ async function netFetch(u: URL, init: RequestInit, blob: boolean): Promise<{ r: 
     let res: { r: Response, body: string | Blob } | null = null, r: Response | null = null, wait = NET_RETRY[attempt];
     try { res = await netSlot(async () => { const x = await fetch(u, init); return { r: x, body: await (blob && x.ok ? x.blob() : x.text()) }; }); r = res.r; }
     catch (e) { if (!read || wait === undefined || !navigator.onLine) throw e; }
-    if (r && !(read && NET_BUSY.has(r.status) && wait !== undefined && navigator.onLine)) return res!;
+    if (r && !((read && NET_BUSY.has(r.status) || r.status === 429) && wait !== undefined && navigator.onLine)) return res!;
     const ra = r ? +(r.headers.get('Retry-After') as string) : 0;
     if (ra > 0) wait = Math.min(10000, ra * 1000);
     await sleep(wait + Math.random() * 200);
@@ -89,10 +90,10 @@ async function netFetch(u: URL, init: RequestInit, blob: boolean): Promise<{ r: 
 async function apiRaw(u, opt) {
   const { r, body } = await netFetch(u, {
     method: opt.method || 'GET', cache: 'no-store',
-    headers: { Accept: opt.as ? '*/*' : 'application/vnd.api+json', 'Content-Type': opt.raw ? (opt.contentType || 'application/octet-stream') : 'application/json', 'X-Dash-Key': S.key || '' },
+    headers: { Accept: opt.as ? '*/*' : 'application/vnd.api+json', 'Content-Type': opt.raw ? (opt.contentType || 'application/octet-stream') : 'application/json', 'X-Money': '1' },
     body: opt.raw ? opt.raw : opt.body ? JSON.stringify(opt.body) : undefined,
   }, opt.as === 'blob');
-  if (r.status === 401 && r.headers.get('X-Dash-Auth')) throw new AuthError('Wrong password.');
+  if (r.status === 401 && r.headers.get('X-Dash-Auth')) throw new AuthError('Please sign in again.');
   if (r.status === 204) return null;
   if (opt.as === 'blob' && r.ok) return body;
   const txt = body as string;

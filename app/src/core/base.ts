@@ -20,7 +20,7 @@ export type Feed = { next: number, pages: number, opts: { accountId?: string, se
 // The app's state: what's on screen, what's open, and data kept between pages
 export interface State {
   y: number, m: number, all?: boolean,                 // the month in view, or all time
-  key: string, remember?: boolean,                       // the dashboard password and whether it's kept on this device
+  signedIn: boolean, remember?: boolean,                 // signed in (the session cookie itself is HttpOnly), and whether data is kept on this device
   currency: string,
   lists: Lists | null, listsAt?: number,
   freshAfter: number, dirtyAt: number,                   // cached responses older than freshAfter are fetched again; older than dirtyAt are out of date (api.ts)
@@ -44,7 +44,7 @@ export interface State {
   rec?: ApiData, inbox?: ApiData, inboxHist?: { t: number, v: ApiData } | null, loanModel?: ApiData,
   dashEdit?: boolean, dashOptsOpen?: string | null, syncError?: string,
 }
-export const S: State = { y: today.getFullYear(), m: today.getMonth(), key: '', lists: null, tok: 0, form: null, currency: 'USD',
+export const S: State = { y: today.getFullYear(), m: today.getMonth(), signedIn: false, lists: null, tok: 0, form: null, currency: 'USD',
   freshAfter: 0, dirtyAt: 0, txMeta: {}, pendingDel: new Set() };
 // An element by id, for ids the page is known to have; pass the element type when it matters: el<HTMLInputElement>('q')
 export const el = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;

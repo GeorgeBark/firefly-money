@@ -1,8 +1,16 @@
-# Password check: the page sends the password in an X-Dash-Key header.
-map $http_x_dash_key $dash_ok {
-    default 0;
-    "${DASH_PASSWORD}" 1;
-}
+# Sign-in sessions (app/session.js): $money_session is "1" for a request with a valid session cookie, and
+# $money_renew is a fresh cookie when the current one is getting old.
+js_path /etc/nginx/money;
+js_import session from session.js;
+js_set $money_session session.check;
+js_set $money_renew session.renew;
+
+# Rate limits, per client address. Sign-in attempts: 10 a minute, after a first 5 straight away. API calls:
+# 50 a second with room for bursts of 500, far more than the app sends, so it only stops floods. Behind a
+# reverse proxy every client shares the proxy's address, so these limits are shared too.
+limit_req_zone $binary_remote_addr zone=signin:1m rate=10r/m;
+limit_req_zone $binary_remote_addr zone=api:2m rate=50r/s;
+limit_req_status 429;
 
 # The page links the stylesheet and scripts with ?v=<build version>, and each build gets a new
 # version, so a versioned URL never changes content: browsers may keep it for a year without asking
@@ -51,7 +59,6 @@ server {
         proxy_set_header Cookie "";
         proxy_set_header Referer "";
         proxy_set_header Authorization "";
-        proxy_set_header X-Dash-Key "";
         proxy_set_header User-Agent "Money";
         proxy_hide_header Set-Cookie;
         proxy_ignore_headers Set-Cookie Cache-Control Expires;
@@ -87,11 +94,23 @@ server {
         try_files /index.html =404;
     }
 
-    # Proxy to Firefly III. Requires the dashboard password; the Firefly token
-    # never leaves the server.
+    # Signing in and out (POST and DELETE, see app/session.js)
+    location = /api/money-session {
+        limit_req zone=signin burst=5 nodelay;
+        client_max_body_size 4k;
+        client_body_buffer_size 4k;
+        js_content session.endpoint;
+    }
+
+    # Proxy to Firefly III. Requires a session; the Firefly token never leaves the server.
+    # The page also sends an X-Money header with each call: another site can't add one to a request without
+    # asking first (CORS), so a page elsewhere (even another app on this server) can't use your session.
     location /api/ {
-        if ($http_x_dash_key = "") { add_header X-Dash-Auth required always; return 401; }
-        if ($dash_ok = 0)          { add_header X-Dash-Auth required always; return 401; }
+        if ($money_session = "") { add_header X-Dash-Auth required always; return 401; }
+        if ($http_x_money = "")  { return 403; }
+        limit_req zone=api burst=500 nodelay;
+        # Keeps the session going while the app is in use (no header when nothing is due)
+        add_header Set-Cookie $money_renew;
 
         limit_except GET POST PUT DELETE { deny all; }
         # Through a variable, so nginx looks up Firefly's address per request instead of once at
@@ -100,8 +119,10 @@ server {
         set $firefly "${FIREFLY_URL}";
         proxy_pass $firefly$request_uri;
         proxy_set_header Authorization "Bearer ${FIREFLY_TOKEN}";
-        proxy_set_header X-Dash-Key "";
+        proxy_set_header Cookie "";
+        proxy_set_header X-Money "";
         proxy_set_header Accept "application/vnd.api+json";
+        proxy_hide_header Set-Cookie;
         proxy_read_timeout 60s;
         client_max_body_size 50m;
     }

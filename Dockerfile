@@ -1,5 +1,5 @@
 # Money: a modern frontend for Firefly III.
-# nginx fills in FIREFLY_URL / FIREFLY_TOKEN / DASH_PASSWORD from the environment at startup.
+# nginx fills in FIREFLY_URL / FIREFLY_TOKEN from the environment at startup; app/session.js reads DASH_PASSWORD.
 
 # Build stage: bundles the TypeScript in app/src into app/assets/js. Only its output goes into the image.
 FROM --platform=$BUILDPLATFORM node:26-alpine AS build
@@ -20,18 +20,19 @@ ENV MONEY_VERSION="${MONEY_VERSION}"
 ENV LISTEN_PORT=80
 # The nginx entrypoint reads the container's DNS servers into NGINX_LOCAL_RESOLVERS (for the /api/ proxy).
 ENV NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1
-ENV NGINX_ENVSUBST_FILTER="^(FIREFLY_URL|FIREFLY_TOKEN|DASH_PASSWORD|MONEY_VERSION|LISTEN_PORT|NGINX_LOCAL_RESOLVERS)$"
+ENV NGINX_ENVSUBST_FILTER="^(FIREFLY_URL|FIREFLY_TOKEN|MONEY_VERSION|LISTEN_PORT|NGINX_LOCAL_RESOLVERS)$"
 
+COPY app/nginx.conf /etc/nginx/nginx.conf
+COPY app/session.js /etc/nginx/money/session.js
 COPY app/default.conf.template /etc/nginx/templates/default.conf.template
 COPY app/index.html /etc/nginx/templates/index.html.template
 # Stylesheet as it is, and the bundled scripts from the build stage, served from /assets/
 COPY app/assets /usr/share/nginx/html/assets
 COPY --from=build /src/app/assets/js /usr/share/nginx/html/assets/js
 
-# Also runs as any non-root user (e.g. `user: "568:568"`): the pid file goes to /tmp, and the folders
-# nginx writes to at startup (the filled-in config and page, its cache) are writable by everyone.
-RUN sed -i -e 's,^pid .*,pid /tmp/nginx.pid;,' -e '/^user /d' /etc/nginx/nginx.conf \
- && rm -f /etc/nginx/conf.d/default.conf \
+# Also runs as any non-root user (e.g. `user: "568:568"`): app/nginx.conf puts the pid file in /tmp, and the
+# folders nginx writes to at startup (the filled-in config and page, its cache) are writable by everyone.
+RUN rm -f /etc/nginx/conf.d/default.conf \
  && chmod 1777 /etc/nginx/conf.d /var/cache/nginx
 
 LABEL org.opencontainers.image.title="Money" \

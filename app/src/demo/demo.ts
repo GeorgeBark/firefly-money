@@ -1,6 +1,6 @@
 /* The online demo (npm run build:demo, published to GitHub Pages). It runs before the app and answers the
    app's /api/v1 calls in the browser with made-up data from mockapi.ts, so the demo needs no server at all.
-   It also signs in by itself and adds a small "Demo" badge that links to the repo. */
+   It's signed in from the start (nothing checks the session) and adds a small "Demo" badge that links to the repo. */
 import { NotFound, createMockApi } from './mockapi';
 
 const handle = createMockApi();
@@ -9,6 +9,7 @@ const json = { 'Content-Type': 'application/json' };
 
 window.fetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
   const u = new URL(input instanceof Request ? input.url : String(input), location.href);
+  if (u.pathname.endsWith('/api/money-session')) return new Response(null, { status: 204 });   // sign in or out
   const at = u.pathname.indexOf('/api/v1/');
   if (at < 0) return realFetch(input, init);
   await new Promise(r => setTimeout(r, 60 + Math.random() * 120));   // feels like a real server
@@ -28,9 +29,6 @@ window.fetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
 
 // No offline service worker: the app registers /sw.js at the site root, which on GitHub Pages isn't the demo's
 try { if (navigator.serviceWorker) navigator.serviceWorker.register = () => Promise.reject(new Error('Not in the demo')); } catch (e) { /* ignore */ }
-
-// Sign in with the demo password for this tab, unless the visitor already has a session
-try { if (!localStorage.getItem('moneyKey') && !sessionStorage.getItem('moneyKey')) sessionStorage.setItem('moneyKey', 'demo'); } catch (e) { /* storage blocked */ }
 
 addEventListener('DOMContentLoaded', () => {
   const a = document.createElement('a');

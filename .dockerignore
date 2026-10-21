@@ -1,6 +1,8 @@
 *
 !app/index.html
 !app/default.conf.template
+!app/nginx.conf
+!app/session.js
 !app/assets
 !app/assets/**
 app/assets/js

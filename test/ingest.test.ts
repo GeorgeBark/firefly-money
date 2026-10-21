@@ -5,9 +5,9 @@ import ingest from '../app/ingest.js';
 const env = (globalThis as any).process.env;
 beforeEach(() => { env.DASH_PASSWORD = 'correct horse'; env.FIREFLY_TOKEN = 'tok'; });
 
-const ACCOUNTS: Record<string, { id: string, attributes: { name: string, account_number?: string } }[]> = {
-  asset: [{ id: '1', attributes: { name: 'Checking', account_number: '000123456789' } }, { id: '2', attributes: { name: 'Savings' } }],
-  liabilities: [{ id: '3', attributes: { name: 'Apple Card' } }, { id: '4', attributes: { name: 'Chase Sapphire', account_number: '4111 1111 1111 9876' } }],
+const ACCOUNTS: Record<string, { id: string, attributes: { name: string, account_number?: string, currency_code?: string } }[]> = {
+  asset: [{ id: '1', attributes: { name: 'Checking', account_number: '000123456789', currency_code: 'USD' } }, { id: '2', attributes: { name: 'Savings' } }],
+  liabilities: [{ id: '3', attributes: { name: 'Apple Card', currency_code: 'USD' } }, { id: '4', attributes: { name: 'Chase Sapphire', account_number: '4111 1111 1111 9876' } }],
 };
 // A stand-in for nginx's request object, with a pretend Firefly behind r.subrequest
 function req({ method = 'POST', body = {} as any, auth = '', session = '', firefly = {} as any } = {}) {
@@ -23,9 +23,10 @@ function req({ method = 'POST', body = {} as any, auth = '', session = '', firef
     if (path === '/accounts/9/transactions') return reply(200, { data: [{ attributes: { transactions: [{ destination_id: '9', category_name: 'Coffee', budget_id: '5' }] } }] });
     if (path === '/preferences/money_cards') {
       if (o.method === 'GET') return firefly.prefs ? reply(200, { data: { attributes: { name: 'money_cards', data: JSON.stringify(firefly.prefs) } } }) : reply(404, { message: 'Not found' });
-      firefly.saved = JSON.parse(JSON.parse(o.body).data); return reply(200, {});
+      firefly.saved = JSON.parse(JSON.parse(o.body!).data); return reply(200, {});
     }
-    if (path === '/preferences' && o.method === 'POST') { const b = JSON.parse(o.body); firefly.created = b.name; firefly.saved = JSON.parse(b.data); return reply(200, {}); }
+    if (path === '/preferences' && o.method === 'POST') { const b = JSON.parse(o.body!); firefly.created = b.name; firefly.saved = JSON.parse(b.data); return reply(200, {}); }
+    if (path === '/exchange-rates') return reply(200, { data: firefly.rates || [] });
     if (path === '/transactions') return firefly.duplicate ? reply(422, { message: 'Duplicate of transaction #4.', errors: {} }) : reply(200, { data: {} });
     return reply(404, {});
   };
@@ -78,6 +79,34 @@ describe('ingest.js', () => {
     expect(r.text).toBe('Logged 4.75 at Blue Bottle (Apple Card).\n');
     expect(posted(r)).toMatchObject({ type: 'withdrawal', amount: '4.75', description: 'Blue Bottle', source_id: '3', destination_name: 'Blue Bottle', tags: ['Apple Pay'], category_name: 'Coffee', budget_id: '5' });
     expect(r.calls.find((c: any) => c.uri.endsWith('/transactions') && c.method === 'POST').body).toMatchObject({ error_if_duplicate_hash: true, apply_rules: true });
+  });
+  it('reads the currency from the amount', () => {
+    expect(ingest.parseCurrency('€12.00')).toBe('EUR');
+    expect(ingest.parseCurrency('12,00 €')).toBe('EUR');
+    expect(ingest.parseCurrency('EUR 12.00')).toBe('EUR');
+    expect(ingest.parseCurrency('CA$5.00')).toBe('CAD');
+    expect(ingest.parseCurrency('US$5.00')).toBe('USD');
+    expect(ingest.parseCurrency('£3')).toBe('GBP');
+    expect(ingest.parseCurrency('$4.75')).toBeNull();
+    expect(ingest.parseCurrency(4.75)).toBeNull();
+  });
+  it('keeps where you paid, a category from the Shortcut, and foreign amounts', async () => {
+    const key = 'Bearer ' + await keyFor();
+    const firefly: any = { payee: 'Blue Bottle', rates: [{ attributes: { from_currency_code: 'USD', to_currency_code: 'EUR', rate: '0.8', date: '2026-10-01' } }] };
+    const r = req({ auth: key, body: { amount: '€8.00', merchant: 'Blue Bottle', card: 'Apple Card', latitude: '48.8584', longitude: 2.2945, category: 'Treats' }, firefly });
+    await ingest.endpoint(r);
+    expect(r.status).toBe(200);
+    expect(r.text).toBe('Logged 8.00 EUR (about 10.00 USD) at Blue Bottle (Apple Card).\n');
+    const s = posted(r);
+    expect(s).toMatchObject({ amount: '10.00', foreign_amount: '8.00', foreign_currency_code: 'EUR', latitude: 48.8584, longitude: 2.2945, category_name: 'Treats', budget_id: '5', tags: ['Apple Pay'] });
+    expect(s.notes).toContain('https://maps.apple.com/?ll=48.8584,2.2945');
+    // no rate: the same number, tagged for a check
+    const noRate = req({ auth: key, body: { amount: '£3', merchant: 'Pret', card: 'Apple Card', category: 'Skip', latitude: '', longitude: '' } });
+    await ingest.endpoint(noRate);
+    expect(noRate.text).toBe('Logged 3.00 GBP (check the 3.00 USD) at Pret (Apple Card).\n');
+    expect(posted(noRate)).toMatchObject({ amount: '3.00', foreign_currency_code: 'GBP', tags: ['Apple Pay', 'Check amount'] });
+    expect(posted(noRate).latitude).toBeUndefined();
+    expect(posted(noRate).category_name).toBeUndefined();
   });
   it('uses the account picked for a card in Settings', async () => {
     const firefly: any = { prefs: { cards: { 'AMEX GOLD': '1' }, unmatched: [] } };

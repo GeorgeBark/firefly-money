@@ -37,6 +37,23 @@ function parseAmount(v) {
   return x > 0 ? (neg ? -x : x).toFixed(2) : null;
 }
 
+// The currency an amount is written in, from its code or symbol ("EUR 12", "€12", "CA$5"), or null when it doesn't
+// say: a plain "$" is taken as the account's own currency.
+const SYMBOLS = [['US$', 'USD'], ['CA$', 'CAD'], ['C$', 'CAD'], ['AU$', 'AUD'], ['A$', 'AUD'], ['NZ$', 'NZD'], ['HK$', 'HKD'], ['S$', 'SGD'], ['MX$', 'MXN'],
+  ['R$', 'BRL'], ['€', 'EUR'], ['£', 'GBP'], ['¥', 'JPY'], ['₹', 'INR'], ['₩', 'KRW'], ['₪', 'ILS'], ['₺', 'TRY'], ['฿', 'THB'], ['₱', 'PHP'], ['zł', 'PLN']];
+function parseCurrency(v) {
+  if (typeof v !== 'string') return null;
+  const code = /(?:^|[^A-Za-z])([A-Z]{3})(?![A-Za-z])/.exec(v);
+  if (code) return code[1];
+  const sym = SYMBOLS.find(x => v.indexOf(x[0]) >= 0);
+  return sym ? sym[1] : null;
+}
+// Latitude and longitude from the Shortcut's location, or null
+function parseSpot(lat, lng) {
+  const a = parseFloat(String(lat === undefined ? '' : lat).replace(',', '.')), o = parseFloat(String(lng === undefined ? '' : lng).replace(',', '.'));
+  return isFinite(a) && isFinite(o) && Math.abs(a) <= 90 && Math.abs(o) <= 180 && (a || o) ? { latitude: a, longitude: o } : null;
+}
+
 const words = s => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 // Words that say what kind of card it is rather than which one, so they don't count as a match on their own
 const GENERIC = ['card', 'credit', 'debit', 'visa', 'mastercard', 'signature', 'preferred', 'rewards', 'world', 'elite', 'the', 'my', 'account', 'bank', 'and'];
@@ -72,7 +89,7 @@ const own = async r => {
     if (res.status !== 200) throw new Error('Firefly answered ' + res.status);
     ((res.data && res.data.data) || []).forEach(x => {
       const a = x.attributes || {};
-      if (a.active !== false) out.push({ id: x.id, name: a.name || '', number: a.account_number || a.iban || '' });
+      if (a.active !== false) out.push({ id: x.id, name: a.name || '', number: a.account_number || a.iban || '', currency: a.currency_code || '' });
     });
   }
   return out;
@@ -101,6 +118,21 @@ function pickedAccount(accounts, prefs, card) {
     if (words(names[i]) === c) { const id = String(prefs.cards[names[i]]); return accounts.find(a => a.id === id) || null; }
   }
   return null;
+}
+
+// Firefly's latest rate from one currency to another (or the inverse of the other way round), or null
+async function rate(r, from, to) {
+  try {
+    const res = await ff(r, 'GET', '/exchange-rates', 'limit=500');
+    let best = null;
+    ((res.data && res.data.data) || []).forEach(x => {
+      const a = x.attributes || {}, f = a.from_currency_code || a.from, t = a.to_currency_code || a.to, v = parseFloat(a.rate);
+      if (!(v > 0) || (best && String(a.date) <= best.date)) return;
+      if (f === from && t === to) best = { date: String(a.date), v };
+      else if (f === to && t === from) best = { date: String(a.date), v: 1 / v };
+    });
+    return best ? best.v : null;
+  } catch (e) { return null; }
 }
 
 // The category and budget last used with this payee, as the app's quick add fills them (features/polish.ts)
@@ -154,18 +186,35 @@ async function endpoint(r) {
         return say(r, 422, 'Money doesn’t know which account the card "' + (b.card || '') + '" is. Pick it in Money → Settings → Apple Pay, then pay again.');
       }
     }
-    const refund = amount[0] === '-', abs = refund ? amount.slice(1) : amount;
+    const refund = amount[0] === '-', paid = refund ? amount.slice(1) : amount;
     const usual = refund ? {} : await lastUse(r, merchant);
+    const category = String(b.category || '').trim().slice(0, 100);
+    if (category && !/^(skip|none|-)$/i.test(category)) { usual.category_name = category; delete usual.category_id; }
+    const tags = [TAG], notes = ['Logged by the Apple Pay shortcut' + (b.card ? ' (' + String(b.card).slice(0, 100) + ')' : '') + '.'];
+    // Paid in another currency: record what was paid as the foreign amount, and the account's amount from Firefly's
+    // exchange rate (the bank's will differ a little), or the same number to fix by hand when there's no rate.
+    const cur = parseCurrency(b.amount);
+    let abs = paid, foreign = null, estimated = '';
+    if (cur && acc.currency && cur !== acc.currency) {
+      const x = await rate(r, cur, acc.currency);
+      foreign = { foreign_currency_code: cur, foreign_amount: paid };
+      if (x) { abs = (parseFloat(paid) * x).toFixed(2); estimated = 'about '; notes.push('Paid ' + paid + ' ' + cur + '; ' + acc.currency + ' amount estimated at Firefly’s rate of ' + Number(x.toFixed(6)) + '.'); }
+      else { tags.push('Check amount'); notes.push('Paid ' + paid + ' ' + cur + '. Firefly has no ' + cur + ' to ' + acc.currency + ' rate, so set the ' + acc.currency + ' amount when the bank posts it.'); }
+    }
+    const spot = parseSpot(b.latitude, b.longitude);
+    if (spot) notes.push('Where: https://maps.apple.com/?ll=' + spot.latitude + ',' + spot.longitude);
     const split = Object.assign(usual, {
       type: refund ? 'deposit' : 'withdrawal',
       date: new Date().toISOString().replace(/\.\d+Z$/, 'Z'),
       amount: abs,
       description: merchant,
-      tags: [TAG],
-      notes: 'Logged by the Apple Pay shortcut' + (b.card ? ' (' + String(b.card).slice(0, 100) + ')' : '') + '.',
-    }, refund ? { source_name: merchant, destination_id: acc.id } : { source_id: acc.id, destination_name: merchant });
+      tags,
+      notes: notes.join('\n'),
+    }, foreign || {}, spot ? { latitude: spot.latitude, longitude: spot.longitude, zoom_level: 16 } : {},
+    refund ? { source_name: merchant, destination_id: acc.id } : { source_id: acc.id, destination_name: merchant });
     const res = await ff(r, 'POST', '/transactions', '', { error_if_duplicate_hash: true, apply_rules: true, fire_webhooks: true, transactions: [split] });
-    if (res.status === 200) return say(r, 200, (refund ? 'Refund of ' : 'Logged ') + abs + ' at ' + merchant + ' (' + acc.name + ').');
+    const what = foreign ? paid + ' ' + foreign.foreign_currency_code + ' (' + (estimated || 'check the ') + abs + ' ' + acc.currency + ')' : abs;
+    if (res.status === 200) return say(r, 200, (refund ? 'Refund of ' : 'Logged ') + what + ' at ' + merchant + ' (' + acc.name + ').');
     const msg = res.data && res.data.message || '';
     if (res.status === 422 && /duplicate/i.test(msg + JSON.stringify(res.data && res.data.errors || {}))) return say(r, 200, 'Already logged.');
     return say(r, 502, 'Firefly refused it (' + res.status + '): ' + (msg || 'no reason given'));
@@ -174,4 +223,4 @@ async function endpoint(r) {
   }
 }
 
-export default { endpoint, parseAmount, matchAccount };
+export default { endpoint, parseAmount, parseCurrency, matchAccount };

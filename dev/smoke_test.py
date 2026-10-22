@@ -81,8 +81,8 @@ async def check(pw, width, height, mobile):
     await page.locator('#palList .pal-item:has(.num)').first.click(); await page.wait_for_selector('#txForm')
     await page.keyboard.press('Escape'); await page.wait_for_timeout(500)
     await page.evaluate('App.openPalette()'); await page.locator('#palQ').press_sequentially('csv backup')
-    await page.wait_for_selector('#palList .pal-item.on .pal-l:text-is("Export data (CSV)")')
-    await page.keyboard.press('Enter'); await page.wait_for_selector('#view .panel.pal-flash h2:text-is("Export data")', timeout=8000)
+    await page.wait_for_selector('#palList .pal-item.on .pal-l:text-is("Export to CSV")')
+    await page.keyboard.press('Enter'); await page.wait_for_selector('#view details[data-k="export"][open].pal-flash', timeout=8000)
     # a few interactions
     await goto(page, 'transactions'); await page.wait_for_selector('tr[data-gid]')
     await page.locator('tr[data-gid]').first.click(); await page.wait_for_selector('#txForm')

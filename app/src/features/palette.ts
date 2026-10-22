@@ -23,20 +23,24 @@ const PAGE_KEYS: Record<string, string> = {
   piggy: 'savings goals', rules: 'automation auto categorize', recap: 'month summary', ask: 'question how much', map: 'places locations',
   reports: 'charts compare year csv sankey', settings: 'preferences options',
 };
-// Settings: [label, extra words, the heading to scroll to on the Settings page]
+// Settings: [label, extra words, where on the Settings page: a group (#set-…) or a folded section (data-k), which opens]
 const SETTINGS: [string, string, string][] = [
-  ['Month start day (payday)', 'cycle pay period month starts budget period', 'Months & budgets'],
-  ['Budget alert threshold', 'warn warning 80% percent budget alerts', 'Months & budgets'],
-  ['Recalculate everything', 'refresh reload cache wrong totals', 'Recalculate'],
-  ['Sync between devices', 'sync iphone ipad devices cloud preferences', 'Sync between devices'],
-  ['Payee and bank logos', 'logos icons images duckduckgo merchant', 'Logos'],
-  ['Apple Pay', 'shortcut iphone wallet automation ingest card', 'Apple Pay'],
-  ['Main currency', 'currencies default primary usd euro', 'Currencies'],
-  ['Enable or disable currencies', 'currencies foreign', 'Currencies'],
-  ['Exchange rates', 'currency conversion rate fx', 'Exchange rates'],
-  ['Export data (CSV)', 'download backup excel numbers csv export', 'Export data'],
-  ['Webhooks', 'home assistant n8n automation url', 'Webhooks'],
-  ['About and versions', 'version firefly api about', 'About'],
+  ['Month start day (payday)', 'cycle pay period month starts budget period', '#set-months'],
+  ['Budget warning', 'alert warn threshold 80% percent budget full', '#set-months'],
+  ['Appearance', 'theme dark light color look', '#set-look'],
+  ['Payee and bank logos', 'logos icons images duckduckgo merchant', '#set-look'],
+  ['About logos', 'logos duckduckgo privacy', 'logos'],
+  ['Sync between devices', 'sync iphone ipad devices cloud preferences sync now', '#set-sync'],
+  ['Apple Pay', 'shortcut iphone wallet automation ingest key', '#set-applepay'],
+  ['Apple Pay cards', 'wallet card account match', 'cards'],
+  ['How Apple Pay works', 'shortcut setup instructions', 'applepay-how'],
+  ['Main currency', 'currencies default primary usd euro', '#set-currencies'],
+  ['Enable another currency', 'currencies foreign add', 'cur-add'],
+  ['Exchange rates', 'currency conversion rate fx', 'rates'],
+  ['Export to CSV', 'download backup excel numbers csv export data', 'export'],
+  ['Webhooks', 'home assistant n8n automation url', 'hooks'],
+  ['Recalculate everything', 'refresh reload cache wrong totals', '#set-data'],
+  ['About and versions', 'version firefly api about', '#set-about'],
 ];
 // Piggy banks and recurring transactions aren't in lists(), so fetch them once in a while
 let extra: { at: number, items: PalItem[] } | null = null;
@@ -57,7 +61,7 @@ function baseItems(): PalItem[] {
     { label: 'Recalculate everything (fetch all numbers fresh)', kind: 'Action', run: () => App.recalcAll() });
   SETTINGS.forEach(([label, keys, focus]) => items.push({ label, kind: 'Setting', keys: 'settings ' + keys, go: '#/settings', focus }));
   items.push({ label: 'Hide amounts (privacy)', kind: 'Setting', keys: 'settings privacy blur hide numbers', run: () => App.togglePrivacy() },
-    { label: 'Compact rows (density)', kind: 'Setting', keys: 'settings density compact spacing', run: () => App.toggleDensity() },
+    { label: 'Compact view', kind: 'Setting', keys: 'settings density compact spacing', run: () => App.toggleDensity() },
     { label: 'Sign out', kind: 'Setting', keys: 'log out', run: () => App.signOut() });
   THEMES.forEach(([k, label]) => items.push({ label: 'Theme: ' + label, kind: 'Setting', keys: 'settings appearance dark light color', run: () => setTheme(k) }));
   drafts().forEach(d => items.push({ label: draftLabel(d), kind: 'Draft', keys: 'draft unfinished', run: () => App.openDraft(d.id) }));
@@ -189,16 +193,15 @@ function palRun(i: number) {
     if (it.focus) jumpTo(it.focus, same ? 0 : 4000);
   } else if (it.run) it.run();
 }
-// Scroll to a section of the page (by its heading) once the page has drawn, and flash it
-function jumpTo(heading: string, wait: number) {
-  const want = heading.toLowerCase(), t0 = Date.now();
+// Scroll to a part of the Settings page once it has drawn (opening it if it's folded away), and flash it
+function jumpTo(target: string, wait: number) {
+  const t0 = Date.now();
   const look = () => {
-    const h = [...document.querySelectorAll<HTMLElement>('#view h2, #view h3')].find(n => n.textContent!.trim().toLowerCase() === want)
-      || [...document.querySelectorAll<HTMLElement>('#view h2, #view h3, #view label')].find(n => n.textContent!.toLowerCase().includes(want));
-    if (!h) { if (Date.now() - t0 < wait) setTimeout(look, 120); return; }
-    const box = h.closest<HTMLElement>('section, .panel') || h;
+    const box = target.startsWith('#') ? document.querySelector<HTMLElement>('#view ' + target) : document.querySelector<HTMLDetailsElement>('#view details[data-k="' + target + '"]');
+    if (!box) { if (Date.now() - t0 < wait) setTimeout(look, 120); return; }
+    if (box instanceof HTMLDetailsElement) box.open = true;
+    box.classList.remove('pal-flash'); void box.offsetWidth; box.classList.add('pal-flash');   // (its scroll-margin keeps it clear of the title bar)
     box.scrollIntoView({ block: 'start', behavior: 'smooth' });
-    box.classList.remove('pal-flash'); void box.offsetWidth; box.classList.add('pal-flash');
   };
   setTimeout(look, wait ? 150 : 0);
 }

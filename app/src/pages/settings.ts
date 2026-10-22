@@ -5,7 +5,8 @@ import { App, S, cycleDay, el, fmtDate, isoDate, monthRange, nowMonth, num, toda
 import { confirmBox, head, opt, toast } from '../core/dom';
 import { LS, budgetAlert, saveBlob } from '../core/helpers';
 import { logosOn } from '../core/logo';
-import { themeButtons } from '../core/login';
+import { THEMES, themeButtons } from '../core/login';
+import { type Custom, KEY, applyCustom, isHex, lum, readCustom } from '../core/themevars';
 import { type Account, invalidate, isAsset, isLiab, lists, ordinal } from '../core/lists';
 import { VIEWS, route } from '../core/router';
 
@@ -48,11 +49,12 @@ VIEWS.settings = async (r, paint) => {
   const privacy = !!LS.get('privacy', false), compact = !!LS.get('compact', false);
   const look = group('look', 'Appearance', html`
     ${row('Theme', '', html`<div class="themes">${themeButtons()}</div>`)}
+    ${more('theme-custom', 'Customize colors', html`<span class="tc-name">${themeName()}</span>`, html`<div class="theme-custom">${customizer()}</div>`)}
     ${row('Hide amounts', 'Blur every amount. Press P to switch.', html`<input ${SWITCH} aria-label="Hide amounts" data-pref="privacy"${privacy ? ' checked' : ''} data-onchange="App.togglePrivacy()">`)}
     ${row('Compact view', 'Tighter spacing to fit more in', html`<input ${SWITCH} aria-label="Compact view" data-pref="compact"${compact ? ' checked' : ''} data-onchange="App.toggleDensity()">`)}
     ${row('Logos', 'Payees’ and banks’ logos instead of initials', html`<input ${SWITCH} aria-label="Show logos"${logosOn() ? ' checked' : ''} data-onchange="App.toggleLogos(this.checked)">`)}
     ${more('logos', 'About logos', '', html`<p class="sub-s">Your Money server fetches each logo from DuckDuckGo’s icon service by the payee’s website (guessed from its name; change it in the account’s settings) and keeps it, so your browser never contacts another site.</p>`)}`,
-    'Appearance is saved on this device only.');
+    'Theme, hide amounts and compact view are saved on this device only. Your colors for each theme sync like your other settings.');
 
   const syncOff = !!LS.get('syncOff', false), syncAt = LS.get('syncAt', 0);
   const syncStatus = syncOff ? 'Off: this device keeps its own settings.' : S.syncError ? html`<span class="up">Couldn’t sync: ${S.syncError}</span>`
@@ -60,7 +62,7 @@ VIEWS.settings = async (r, paint) => {
   const sync = group('sync', 'Sync', html`
     ${row('Sync between devices', syncStatus, html`<input ${SWITCH} aria-label="Sync this device’s settings"${syncOff ? '' : ' checked'} data-onchange="App.toggleSync(this.checked)">`)}
     ${syncOff ? '' : row('Sync now', '', html`<button class="btn small" type="button" data-onclick="App.syncNow()">Sync now</button>`)}`,
-    'Your Overview layout, month start, drafts, saved reports, dismissed insights, forecast, loan plan and subscription choices are kept in Firefly III, so they follow you to every device.');
+    'Your Overview layout, month start, drafts, saved reports, dismissed insights, forecast, loan plan and subscription choices and theme colors are kept in Firefly III, so they follow you to every device.');
 
   const showAll = r.q.rates === 'all';
   const rateBody = html`${rates && rates.length ? html`<div class="list">${htmlList(rates.slice(0, showAll ? 500 : 6).map(x => { const a = x.attributes; return html`<div class="row"><span class="name">1 ${a.from_currency_code || a.from} = ${num(a.rate)} ${a.to_currency_code || a.to} <span class="sub-s">on ${fmtDate(a.date)}</span></span><button class="link" data-onclick="App.deleteRate('${x.id}')">Remove</button></div>`; }))}</div>${rates.length > 6 ? html`<p style="margin:10px 0 0"><a class="link" href="#/settings${showAll ? '' : '?rates=all'}">${showAll ? 'Show fewer' : 'Show all ' + rates.length + ' rates'}</a></p>` : ''}` : html`<p class="sub-s" style="margin:0">Used to convert foreign amounts in reports. No rates yet.</p>`}<form style="margin-top:14px" data-onsubmit="event.preventDefault();App.addRate(this)"><div class="grid2"><label>From<select name="f">${htmlList(enabled.map(c => opt(c.code, c.code, S.currency)))}</select></label><label>To<select name="t">${htmlList(enabled.map(c => opt(c.code, c.code, (enabled.find(x => x.code !== S.currency) || {}).code)))}</select></label><label>Rate<input type="number" step="any" min="0" name="r" required></label><label>Date<input type="date" name="d" value="${todayIso()}" required></label></div><button class="btn small">Add rate</button></form>`;
@@ -90,6 +92,60 @@ VIEWS.settings = async (r, paint) => {
 
   paint(html`${head('Settings', '', '')}<div class="settings">${months}${look}${sync}${applePayHtml(ingest, cards, L.own.filter(a => isAsset(a) || isLiab(a)))}${cur}${data}${aboutHtml}</div>`);
 };
+/* ---------- Customize colors: your own background, accent and (for Liquid glass) light, tint and blur ---------- */
+const curTheme = () => document.documentElement.getAttribute('data-theme') || 'auto';
+const themeName = () => { const t = THEMES.find(x => x[0] === curTheme()); return t ? t[1] : ''; };
+// The colour the theme shows right now (yours, or its own), as #rrggbb for a colour well
+function shown(v: string) {
+  const x = getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  if (isHex(x)) return x.toLowerCase();
+  const m = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(x);
+  return m ? '#' + m[1] + m[1] + m[2] + m[2] + m[3] + m[3] : '#000000';
+}
+// Text sits right on the background (titles, the month), so warn when the two get too close
+function lowContrast() { const a = lum(shown('--bg')), b = lum(shown('--text')); return (Math.max(a, b) + .05) / (Math.min(a, b) + .05) < 4.5; }
+function customizer() {
+  const t = curTheme();
+  if (t === 'auto') return html`<p class="sub-s" style="margin:4px 0 0">Calm switches between light and dark with your system, so it can’t take your own colors. Pick Calm light, Calm dark or another theme to customize it.</p>`;
+  const c: Custom = readCustom()[t] || {}, num = (v: string) => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(v)) || 0;
+  const frost = num('--glass-tint'), blur = num('--glass-blur');
+  return html`
+    ${row('Background', html`Behind everything<span class="up tc-warn"${lowContrast() ? '' : ' hidden'}>. Text may be hard to read on this color.</span>`,
+      html`<input type="color" aria-label="Background color" value="${shown('--bg')}" data-oninput="App.themeVar('bg', this.value)">`)}
+    ${row('Accent', 'Buttons, switches and highlights', html`<input type="color" aria-label="Accent color" value="${shown('--accent')}" data-oninput="App.themeVar('accent', this.value)">`)}
+    ${t === 'glass' ? html`
+    ${row('Light', 'The three colors glowing behind the glass', html`<input type="color" aria-label="First light color" value="${shown('--glow1')}" data-oninput="App.themeVar('glow1', this.value)"><input type="color" aria-label="Second light color" value="${shown('--glow2')}" data-oninput="App.themeVar('glow2', this.value)"><input type="color" aria-label="Third light color" value="${shown('--glow3')}" data-oninput="App.themeVar('glow3', this.value)">`)}
+    ${row('Glass tint', 'The color of the cards', html`<input type="color" aria-label="Glass tint" value="${shown('--glass-base')}" data-oninput="App.themeVar('tint', this.value)">`)}
+    ${row('Frost', 'Clear to solid', html`<input type="range" min="0" max="90" step="1" aria-label="Frost" value="${frost}" data-oninput="App.themeRange('frost', this)"><output>${frost}%</output>`)}
+    ${row('Blur', 'How much the light softens behind the cards', html`<input type="range" min="0" max="60" step="1" aria-label="Blur" value="${blur}" data-oninput="App.themeRange('blur', this)"><output>${blur}px</output>`)}
+    ${row('Moving light', 'Let the light drift slowly', html`<input ${SWITCH} aria-label="Moving light"${c.motion === false ? '' : ' checked'} data-onchange="App.themeVar('motion', this.checked)">`)}` : ''}
+    ${Object.keys(c).length ? row('', '', html`<button class="btn small" type="button" data-onclick="App.resetThemeCustom()">Reset ${themeName()}</button>`) : ''}`;
+}
+// Redraw after the theme changes (setTheme) or the colors are reset
+function drawThemeCustom() {
+  document.querySelectorAll('.theme-custom').forEach(e => { e.innerHTML = String(customizer()); });
+  document.querySelectorAll('.tc-name').forEach(e => { e.textContent = themeName(); });
+}
+function saveCustom(k: keyof Custom, v: string | number | boolean) {
+  const t = curTheme(), all = readCustom(), had = !!all[t];
+  all[t] = { ...all[t], [k]: v };
+  LS.set(KEY, all); applyCustom(t);
+  if (!had) drawThemeCustom();        // shows the Reset button (the colour well being dragged stays: same value)
+}
+function themeVar(k: keyof Custom, v: string | boolean) {
+  saveCustom(k, v);
+  if (k === 'bg' || k === 'accent') document.querySelectorAll<HTMLElement>('.tc-warn').forEach(e => { e.hidden = !lowContrast(); });
+}
+function themeRange(k: 'frost' | 'blur', input: HTMLInputElement) {
+  const v = +input.value, out = input.nextElementSibling;
+  if (out) out.textContent = v + (k === 'blur' ? 'px' : '%');
+  saveCustom(k, v);
+}
+function resetThemeCustom() {
+  const all = readCustom();
+  delete all[curTheme()];
+  LS.set(KEY, all); applyCustom(); drawThemeCustom();
+}
 // The build stamped into the Docker image by GitHub, e.g. "c78fd51 · 2026-09-30". Empty for a local build or plain files.
 function moneyVersion() {
   const m = document.querySelector<HTMLMetaElement>('meta[name="money-version"]'), v = m ? m.content.trim() : '';
@@ -268,6 +324,10 @@ const methods = {
   addHook,
   toggleHook,
   deleteHook,
+  themeVar,
+  themeRange,
+  resetThemeCustom,
+  drawThemeCustom,
 };
 Object.assign(App, methods);
 type Methods = typeof methods;

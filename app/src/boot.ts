@@ -1,3 +1,5 @@
+import { applyCustom } from './core/themevars';
+
 /* Runs in <head>, before the stylesheet applies, so the first paint already has the right shell and theme. */
 // Inside the iPhone app (or installed to the Home Screen): use the app-style shell.
 (function () {
@@ -7,4 +9,4 @@
   if (native) { d.classList.add('native'); if (window.MONEY_NATIVE_TABS) d.classList.add('native-tabs');
     var m = document.querySelector<HTMLMetaElement>('meta[name=viewport]'); if (m) m.content += ', maximum-scale=1, user-scalable=no'; }
 })();
-(function () { try { var t = localStorage.getItem('moneyTheme'); if (t && t !== 'auto') document.documentElement.setAttribute('data-theme', t); } catch (e) {} })();
+(function () { try { var t = localStorage.getItem('moneyTheme'); if (t && t !== 'auto') document.documentElement.setAttribute('data-theme', t); applyCustom(); } catch (e) {} })();

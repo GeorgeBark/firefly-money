@@ -8,6 +8,7 @@ import { type Account, isAsset, isCard, isLiab, lists } from '../core/lists';
 import { VIEWS } from '../core/router';
 import { DASH_NAMES, tileOpt } from '../features/dashboard';
 import { bindSwipe } from '../features/phone';
+import { drafts } from '../features/txform';
 import { billAmount } from './bills';
 import { type BudgetLimit, budgetLimits } from './budgets';
 import { loanHistory } from './loans';
@@ -123,6 +124,8 @@ function attentionPanel({ uncat, bills, budgets, limits, future }: { uncat: ApiD
   const n = uncat && uncat.meta && uncat.meta.pagination ? uncat.meta.pagination.total : 0;
   const [ny, nm] = nowMonth(), lastMonth = monthRange(ny, nm - 1), cur = monthRange(ny, nm);
   if (!future && !S.all && S.y === ny && S.m === nm && todayIso() < addDays(cur.start, 7)) items.push(html`<a class="row" href="#/recap" data-onclick="event.preventDefault();App.recapLast()"><span class="name">📊 Your ${lastMonth.label} recap is ready</span><span class="neutral">See it →</span></a>`);
+  const nd = drafts().length;
+  if (nd) items.push(html`<a class="row" href="#/transactions"><span class="name">📝 ${nd} draft${nd === 1 ? '' : 's'} to finish</span><span class="neutral">Open →</span></a>`);
   if (n) items.push(html`<a class="row" href="#/inbox"><span class="name">🏷 ${n} expense${n === 1 ? '' : 's'} without a category</span><span class="neutral">Categorize →</span></a>`);
   const week = isoDate(new Date(Date.now() + 7 * 864e5));
   bills.filter(b => b.attributes.active !== false && !(b.attributes.paid_dates || []).length).forEach(b => {

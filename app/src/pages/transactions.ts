@@ -3,6 +3,7 @@ import { api } from '../core/api';
 import { PAGE_SIZE, S, arr, period } from '../core/base';
 import { head, icon, monthNav } from '../core/dom';
 import { normGroup, txRows } from '../core/feed';
+import { draftsPanel } from '../features/txform';
 import { lists } from '../core/lists';
 import { VIEWS, hashWith } from '../core/router';
 
@@ -29,5 +30,5 @@ VIEWS.transactions = async (r, paint) => {
   paint(
     html`${head(scope || 'Transactions', search ? 'Search results across all dates' : total + ' transaction' + (total === 1 ? '' : 's') + (cur.all ? ' in total' : ' in ' + cur.label) +
       (scope ? html` · <a class="link" href="#/transactions">Show all</a>` : ''),
-      html`${search ? '' : monthNav()}<button class="btn primary" data-onclick="App.newTx()">+ New transaction</button>`)}<div class="tabs">${tab('all', 'All')}${tab('withdrawal', 'Expenses')}${tab('deposit', 'Income')}${tab('transfer', 'Transfers')}</div><div class="toolbar"><form class="search" data-onsubmit="event.preventDefault();App.search(this.q.value)">${icon('search')}<input type="search" name="q" placeholder="Search all transactions — try: amazon, category:Gas, amount_more:100" value="${search}"></form>${search ? html`<button class="link" data-onclick="App.search('')">Clear search</button>` : ''}${groups.length ? html`<label class="check selall"><input type="checkbox" data-onchange="App.selAll(this.checked)"> Select all</label>` : ''}</div><div id="bulkbar" class="bulkbar" hidden></div><section class="panel flush">${txRows(groups, { select: true, empty: search ? 'Nothing matches that search.' : (cur.all ? 'No transactions yet.' : 'No transactions this month.') })}${page < pages ? html`<div class="more" id="feedMore"><span class="spin"></span>Loading older transactions…</div>` : ''}</section>`);
+      html`${search ? '' : monthNav()}<button class="btn primary" data-onclick="App.newTx()">+ New transaction</button>`)}<div class="tabs">${tab('all', 'All')}${tab('withdrawal', 'Expenses')}${tab('deposit', 'Income')}${tab('transfer', 'Transfers')}</div><div class="toolbar"><form class="search" data-onsubmit="event.preventDefault();App.search(this.q.value)">${icon('search')}<input type="search" name="q" placeholder="Search all transactions — try: amazon, category:Gas, amount_more:100" value="${search}"></form>${search ? html`<button class="link" data-onclick="App.search('')">Clear search</button>` : ''}${groups.length ? html`<label class="check selall"><input type="checkbox" data-onchange="App.selAll(this.checked)"> Select all</label>` : ''}</div><div id="bulkbar" class="bulkbar" hidden></div>${search || scope || page > 1 ? '' : draftsPanel()}<section class="panel flush">${txRows(groups, { select: true, empty: search ? 'Nothing matches that search.' : (cur.all ? 'No transactions yet.' : 'No transactions this month.') })}${page < pages ? html`<div class="more" id="feedMore"><span class="spin"></span>Loading older transactions…</div>` : ''}</section>`);
 };

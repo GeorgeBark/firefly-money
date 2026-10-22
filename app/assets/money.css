@@ -184,6 +184,14 @@
   .set-more > summary > :first-child { flex: 1; }
   .set-body { padding: 0 0 16px; }
   .set-body > p.sub-s { line-height: 1.45; }
+  /* Customize: colour wells and sliders in the Appearance group */
+  .set-ctl input[type=color] { -webkit-appearance: none; appearance: none; width: 44px; height: 30px; margin: 0; padding: 2px; border: 1px solid var(--line); border-radius: 9px; background: none; cursor: pointer; }
+  .set-ctl input[type=color]::-webkit-color-swatch-wrapper { padding: 0; }
+  .set-ctl input[type=color]::-webkit-color-swatch { border: 0; border-radius: 6px; }
+  .set-ctl input[type=color]::-moz-color-swatch { border: 0; border-radius: 6px; }
+  .set-ctl input[type=range] { width: 150px; margin: 0; accent-color: var(--accent); }
+  .set-ctl output { min-width: 40px; text-align: right; font-variant-numeric: tabular-nums; font-size: 13px; }
+  .theme-custom > * + * { border-top: 1px solid var(--line); }
   .set-inline { display: flex; gap: 8px; } .set-inline select { flex: 1; margin: 0; }
   input.switch { -webkit-appearance: none; appearance: none; flex: none; width: 46px; height: 28px; margin: 0; padding: 0; border: 0; border-radius: 99px; background: var(--line); position: relative; cursor: pointer; transition: background .18s; }
   input.switch::after { content: ''; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .18s; }
@@ -196,6 +204,7 @@
     .set-row:has(.themes) .set-ctl, .set-row:has(.set-key) .set-ctl { max-width: none; width: 100%; }
     .set-ctl .themes { justify-content: flex-start; }
     .set-key input { flex: 1; }
+    .set-ctl input[type=range] { width: 110px; }
   }
   .wide { display: grid; grid-template-columns: 1fr; gap: 20px; }
   @media (min-width: 1700px) { .wide { grid-template-columns: 1fr 1.4fr; } }
@@ -604,22 +613,24 @@
     --hero-grad: linear-gradient(90deg, #37f5ff, #b86bff 50%, #ff4fd8); --shadow: 0 20px 60px rgba(0, 0, 0, .55); --radius: 22px; color-scheme: dark;
     --glass: linear-gradient(150deg, rgba(255,255,255,.11), rgba(255,255,255,.035) 42%, rgba(255,255,255,.06));
     --glass-edge: inset 0 1px 0 rgba(255,255,255,.22), inset 0 -1px 0 rgba(255,255,255,.05), inset 1px 0 0 rgba(255,255,255,.06);
-    background: #07060f; }
+    /* what Settings → Appearance → Customize can change (themevars.ts sets these on <html>) */
+    --glow1: #ff4fd8; --glow2: #37f5ff; --glow3: #8c5cff; --glass-base: #14102a; --glass-tint: 38%; --glass-blur: 26px;
+    background: var(--bg); }
   html[data-theme="glass"] body { background: transparent; }
   /* drifting neon light behind the glass */
   html[data-theme="glass"] body::after { content: ''; position: fixed; inset: -20vmax; z-index: -1; pointer-events: none;
     background:
-      radial-gradient(38vmax 38vmax at 18% 22%, rgba(255, 79, 216, .42), transparent 62%),
-      radial-gradient(42vmax 42vmax at 82% 30%, rgba(55, 245, 255, .30), transparent 60%),
-      radial-gradient(46vmax 46vmax at 55% 88%, rgba(140, 92, 255, .40), transparent 62%),
-      radial-gradient(30vmax 30vmax at 90% 85%, rgba(61, 255, 181, .16), transparent 60%);
-    filter: saturate(130%); animation: glassDrift 38s ease-in-out infinite alternate; will-change: transform; }
+      radial-gradient(38vmax 38vmax at 18% 22%, color-mix(in srgb, var(--glow1) 42%, transparent), transparent 62%),
+      radial-gradient(42vmax 42vmax at 82% 30%, color-mix(in srgb, var(--glow2) 30%, transparent), transparent 60%),
+      radial-gradient(46vmax 46vmax at 55% 88%, color-mix(in srgb, var(--glow3) 40%, transparent), transparent 62%),
+      radial-gradient(30vmax 30vmax at 90% 85%, color-mix(in srgb, var(--good) 16%, transparent), transparent 60%);
+    filter: saturate(130%); animation: glassDrift 38s ease-in-out infinite alternate; animation-play-state: var(--glass-motion, running); will-change: transform; }
   @keyframes glassDrift { 0% { transform: translate3d(0, 0, 0) rotate(0deg); } 50% { transform: translate3d(4vmax, -3vmax, 0) rotate(8deg); } 100% { transform: translate3d(-3vmax, 3vmax, 0) rotate(-6deg); } }
   /* frosted surfaces */
   html[data-theme="glass"] :is(.panel, .kpi, .insight, .extra, .split, .login form, .dash-bar) {
-    background: var(--glass), rgba(20, 16, 42, .38); border: 1px solid rgba(255, 255, 255, .14);
+    background: var(--glass), color-mix(in srgb, var(--glass-base) var(--glass-tint), transparent); border: 1px solid rgba(255, 255, 255, .14);
     box-shadow: var(--glass-edge), 0 12px 40px rgba(0, 0, 0, .35);
-    -webkit-backdrop-filter: blur(26px) saturate(170%); backdrop-filter: blur(26px) saturate(170%); }
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(170%); backdrop-filter: blur(var(--glass-blur)) saturate(170%); }
   html[data-theme="glass"] :is(.drawer, dialog, .calpop, .pickpop, .palette-box, .bulkbar) {
     background: var(--glass), rgba(14, 11, 30, .72); border-color: rgba(255, 255, 255, .16);
     -webkit-backdrop-filter: blur(34px) saturate(180%); backdrop-filter: blur(34px) saturate(180%); }
@@ -630,7 +641,7 @@
   html[data-theme="glass"] :is(input[type=text], input[type=number], input[type=date], input[type=password], input[type=search], select, textarea, .btn, .round, .wctl button) {
     background: rgba(255, 255, 255, .06); border-color: rgba(255, 255, 255, .15); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08); }
   html[data-theme="glass"] select option { background: #16122e; }
-  html[data-theme="glass"] :is(input, select, textarea):focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(55, 245, 255, .18), 0 0 18px rgba(55, 245, 255, .25); }
+  html[data-theme="glass"] :is(input, select, textarea):focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent), 0 0 18px color-mix(in srgb, var(--accent) 25%, transparent); }
   html[data-theme="glass"] .seg { background: rgba(255, 255, 255, .06); }
   html[data-theme="glass"] .seg button.on { background: rgba(255, 255, 255, .14); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .2); }
   html[data-theme="glass"] .tbl.feed tr.dayhead div { background: rgba(20, 16, 42, .55); }
@@ -638,7 +649,7 @@
   html[data-theme="glass"] .side { border-right-color: rgba(255, 255, 255, .08); background: rgba(10, 8, 22, .35); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
   /* neon glow */
   html[data-theme="glass"] .btn.primary, html[data-theme="glass"] .fab, html[data-theme="glass"] .tabbar .plus {
-    background: linear-gradient(135deg, #37f5ff, #8b5cff); border-color: transparent; color: #05101a; box-shadow: 0 0 22px rgba(55, 245, 255, .45), inset 0 1px 0 rgba(255, 255, 255, .5); }
+    background: linear-gradient(135deg, var(--accent), var(--glow3)); border-color: transparent; color: var(--on-accent); box-shadow: 0 0 22px color-mix(in srgb, var(--accent) 45%, transparent), inset 0 1px 0 rgba(255, 255, 255, .5); }
   html[data-theme="glass"] .nav a.on { background: rgba(255, 255, 255, .08); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12), 0 0 0 1px rgba(255, 255, 255, .1); }
   html[data-theme="glass"] .nav a.on svg, html[data-theme="glass"] .tabbar a.on svg { filter: drop-shadow(0 0 6px var(--accent)); }
   html[data-theme="glass"] .fill { box-shadow: 0 0 12px color-mix(in srgb, var(--spend) 70%, transparent); }
@@ -649,7 +660,7 @@
   html[data-theme="glass"] .neg, html[data-theme="glass"] .up { text-shadow: 0 0 12px color-mix(in srgb, var(--spend) 40%, transparent); }
   html[data-theme="glass"] .chart rect { filter: drop-shadow(0 0 6px currentColor); }
   html[data-theme="glass"] .sankey .lk { fill-opacity: .32; }
-  html[data-theme="glass"] .tabs a.on { text-shadow: 0 0 12px rgba(55, 245, 255, .6); }
+  html[data-theme="glass"] .tabs a.on { text-shadow: 0 0 12px color-mix(in srgb, var(--accent) 60%, transparent); }
   html[data-theme="glass"] .tabs { border-bottom-color: rgba(255, 255, 255, .1); }
   html[data-theme="glass"] .hm-cell[style*="--p"] { box-shadow: 0 0 10px color-mix(in srgb, var(--spend) calc(var(--p) * .6), transparent); }
   html[data-theme="glass"] .av { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .15), 0 0 0 1px color-mix(in oklab, var(--c) 35%, transparent), 0 0 14px color-mix(in oklab, var(--c) 30%, transparent); }
@@ -660,7 +671,7 @@
      and use a lighter blur on phones, so scrolling stays smooth. */
   html.scrolling[data-theme="glass"] body::after { animation-play-state: paused; }
   @media (max-width: 900px) {
-    html[data-theme="glass"] :is(.panel, .kpi, .insight, .extra, .split, .dash-bar) { -webkit-backdrop-filter: blur(14px) saturate(160%); backdrop-filter: blur(14px) saturate(160%); }
+    html[data-theme="glass"] :is(.panel, .kpi, .insight, .extra, .split, .dash-bar) { -webkit-backdrop-filter: blur(calc(var(--glass-blur) * .54)) saturate(160%); backdrop-filter: blur(calc(var(--glass-blur) * .54)) saturate(160%); }
   }
   /* ---------- iPhone: notch / home bar, no accidental zoom, native-app shell ---------- */
   body { touch-action: manipulation; }

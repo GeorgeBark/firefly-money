@@ -1,10 +1,11 @@
 import { html, htmlList } from './html';
-import { AuthError, CACHE, PDB, api } from './api';
+import { AuthError, CACHE, PAGES, PDB, api } from './api';
 import { migrateSavedPassword, rememberedSignIn, showLogin, signIn, signOut } from './auth';
 import { App, S, el, nowMonth } from './base';
 import { closeDrawer, vt } from './dom';
 import { lists } from './lists';
 import { hashWith, route } from './router';
+import { applyCustom } from './themevars';
 import { blankSplit, collectTx, newTx, renderTxForm } from '../features/txform';
 
 /* ================= Login / boot ================= */
@@ -38,7 +39,11 @@ export function setTheme(k: string) {
   if (k === currentTheme()) return;
   const apply = () => {
     if (k === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', k);
+    applyCustom(k);
     drawThemes();
+    // a Settings page kept for going back would still show the old theme's picker
+    [...PAGES.keys()].forEach(p => { if (p.startsWith('settings/')) PAGES.delete(p); });
+    if (App.drawThemeCustom) App.drawThemeCustom();
   };
   try { localStorage.setItem('moneyTheme', k); } catch (e) { /* storage blocked */ }
   const t = vt('theme', apply);

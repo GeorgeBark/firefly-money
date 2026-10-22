@@ -28,6 +28,7 @@ const SETTINGS: [string, string, string][] = [
   ['Month start day (payday)', 'cycle pay period month starts budget period', '#set-months'],
   ['Budget warning', 'alert warn threshold 80% percent budget full', '#set-months'],
   ['Appearance', 'theme dark light color look', '#set-look'],
+  ['Customize theme colors', 'theme color colour background accent liquid glass blur tint frost glow light custom', 'theme-custom'],
   ['Payee and bank logos', 'logos icons images duckduckgo merchant', '#set-look'],
   ['About logos', 'logos duckduckgo privacy', 'logos'],
   ['Sync between devices', 'sync iphone ipad devices cloud preferences sync now', '#set-sync'],

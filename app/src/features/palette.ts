@@ -54,7 +54,7 @@ async function extras() {
   return items;
 }
 function baseItems(): PalItem[] {
-  const items: PalItem[] = NAV.map(([r, label]) => ({ label, kind: 'Page', keys: PAGE_KEYS[r], go: '#/' + r }));
+  const items: PalItem[] = [...NAV, ['inbox', 'Categorize']].map(([r, label]) => ({ label, kind: 'Page', keys: PAGE_KEYS[r], go: '#/' + r }));
   items.push({ label: 'New transaction', kind: 'Action', keys: 'add expense income create', run: () => App.quickAdd() }, { label: 'New rule', kind: 'Action', run: () => { location.hash = '#/rules'; setTimeout(() => App.ruleForm(), 400); } },
     { label: 'New recurring transaction', kind: 'Action', run: () => { location.hash = '#/recurring'; setTimeout(() => App.recurForm(), 400); } },
     { label: 'Reconcile an account', kind: 'Action', go: '#/accounts' },

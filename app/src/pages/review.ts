@@ -2,7 +2,7 @@ import { html, htmlList } from '../core/html';
 import { api, getAll } from '../core/api';
 import { withAuth } from '../core/auth';
 import { App, S, fmtDay, money, todayIso, type ApiData } from '../core/base';
-import { confirmBox, head, toast } from '../core/dom';
+import { confirmBox, head, toast, todoTabs } from '../core/dom';
 import { type Group, avatarHtml, normGroup, payeeOf, signed } from '../core/feed';
 import { LS, addDays, daysBetween } from '../core/helpers';
 import { invalidate, lists } from '../core/lists';
@@ -70,7 +70,7 @@ VIEWS.review = async (r, paint) => {
     const what = g.type === 'transfer' ? 'Transfer' : cats.length ? cats.join(', ') : html`<span class="chip warn">Uncategorized</span>`;
     return html`<div class="review-row" data-gid="${g.id}"><button type="button" class="review-main" data-onclick="App.editTx('${g.id}')">${avatarHtml(g)}<span class="txt"><span class="desc">${g.splits.length > 1 ? g.title || f.description : f.description}</span><span class="sub-s">${fmtDay(g.date)} · ${payeeOf(g).name} · ${what}${f.budget_name ? ' · ' + f.budget_name : ''}</span></span><span class="num ${v < 0 ? 'neg' : v > 0 ? 'pos' : 'neutral'}">${v > 0 ? '+' : ''}${money(g.type === 'transfer' ? g.total : v)}</span></button><button type="button" class="btn small" title="Looks right" data-onclick="App.reviewDone('${g.id}')">✓ Looks right</button></div>`;
   }));
-  paint(html`${head('Review', queue.length ? queue.length + ' new transaction' + (queue.length === 1 ? '' : 's') + ' to look over' : 'Nothing new to look over', queue.length ? html`<button class="btn" data-onclick="App.reviewAll()">Mark all reviewed</button>` : '')}${pairsPanel(pairs)}<section class="panel">${rows ? html`<div class="review-list">${rows}</div>` : html`<div class="center-empty" style="padding:60px 20px"><div style="font-size:40px">✓</div><h2 style="font-size:18px;margin:10px 0 4px">All reviewed</h2>New transactions show up here as Firefly gets them, from imports, rules or other apps.</div>`}</section><p class="sub-s" style="margin-top:14px">Open a transaction to fix its category, budget or amount, then tick it off. Transactions added since ${fmtDay(since().slice(0, 10))} show here.</p>`);
+  paint(html`${head('To do', queue.length ? queue.length + ' new transaction' + (queue.length === 1 ? '' : 's') + ' to look over' : 'Nothing new to look over', queue.length ? html`<button class="btn" data-onclick="App.reviewAll()">Mark all reviewed</button>` : '')}${todoTabs('review')}${pairsPanel(pairs)}<section class="panel">${rows ? html`<div class="review-list">${rows}</div>` : html`<div class="center-empty" style="padding:60px 20px"><div style="font-size:40px">✓</div><h2 style="font-size:18px;margin:10px 0 4px">All reviewed</h2>New transactions show up here as Firefly gets them, from imports, rules or other apps.</div>`}</section><p class="sub-s" style="margin-top:14px">Open a transaction to fix its category, budget or amount, then tick it off. Transactions added since ${fmtDay(since().slice(0, 10))} show here.</p>`);
 };
 function reviewDone(id: string) {
   LS.set('reviewed', [...new Set([...LS.get('reviewed', []), String(id)])]);

@@ -85,7 +85,7 @@ document.addEventListener('keydown', e => {
   if (el('app').hidden || typing(e) || e.metaKey || e.ctrlKey || e.altKey) return;
   if (el('drawer').classList.contains('open') || !el('palette').hidden || el<HTMLDialogElement>('confirm').open) return;
   if (e.key === 'n' || e.key === 'N') { e.preventDefault(); quickAdd(); }
-  if (e.key === '/') { const s = document.querySelector<HTMLInputElement>('#view .search input'); if (s) { e.preventDefault(); s.focus(); } }
+  if (e.key === '/') { e.preventDefault(); const s = document.querySelector<HTMLInputElement>('#view .search input'); if (s) s.focus(); else openPalette(); }
 });
 
 /* ---------- Payee memory: fill category/budget from the last time ---------- */

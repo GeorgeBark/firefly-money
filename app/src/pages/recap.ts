@@ -1,6 +1,6 @@
 import { Html, html, htmlList } from '../core/html';
 import { api, getAll } from '../core/api';
-import { App, S, absDiff, arr, fmtDay, money, money0, monthRange, sumDiff, today, todayIso } from '../core/base';
+import { App, S, absDiff, arr, fmtDay, money, money0, monthRange, nowMonth, sumDiff, todayIso } from '../core/base';
 import { head, monthNav } from '../core/dom';
 import { nameAvatar, normGroup } from '../core/feed';
 import { addDays } from '../core/helpers';
@@ -24,7 +24,7 @@ async function netOn(date: string) {
   return [...byId.values()].filter(a => a.active && a.netWorth && (isAsset(a) || isLiab(a))).reduce((s, a) => s + a.balance, 0);
 }
 // Open the recap of the month before the one picked (from the Overview in the first days of a month)
-function recapLast() { S.all = false; const d = new Date(today.getFullYear(), today.getMonth() - 1, 1); S.y = d.getFullYear(); S.m = d.getMonth(); location.hash = '#/recap'; }
+function recapLast() { S.all = false; const [y, m] = nowMonth(), d = new Date(y, m - 1, 1); S.y = d.getFullYear(); S.m = d.getMonth(); location.hash = '#/recap'; }
 // The methods markup handlers call (see events.ts), added to App and to its type
 const methods = { recapLast };
 Object.assign(App, methods);
@@ -34,7 +34,7 @@ declare module '../core/base' { interface AppApi extends Methods {} }
 VIEWS.recap = async (r, paint) => {
   await lists();
   // All time has no single month to recap, so it shows this month
-  const cur = S.all ? monthRange(today.getFullYear(), today.getMonth()) : monthRange(S.y, S.m), t = todayIso();
+  const cur = S.all ? monthRange(...nowMonth()) : monthRange(S.y, S.m), t = todayIso();
   if (cur.start > t) return paint(html`${head('Recap', cur.label, monthNav())}<section class="panel"><div class="center-empty">${cur.label} hasn’t started yet. Come back at the end of the month.</div></section>`);
   const soFar = cur.end >= t, end = soFar ? t : cur.end;
   const p = { start: cur.start, end }, before = { start: monthRange(cur.y, cur.m - 3).start, end: monthRange(cur.y, cur.m - 1).end };

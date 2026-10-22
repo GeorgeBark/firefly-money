@@ -1,6 +1,6 @@
 import { html, htmlList, raw } from '../core/html';
 import { api } from '../core/api';
-import { absDiff, arr, fmtDate, fmtDay, isoDate, money, money0, monthRange, num, sumDiff, todayIso, type ApiData } from '../core/base';
+import { absDiff, arr, fmtDate, fmtDay, money, money0, monthOf, monthRange, nowMonth, num, sumDiff, todayIso, type ApiData } from '../core/base';
 import { head } from '../core/dom';
 import { addDays } from '../core/helpers';
 import { isAsset, isLiab, lists } from '../core/lists';
@@ -9,7 +9,7 @@ import { cashFlow } from './overview';
 
 /* ================= Reports ================= */
 function reportRange(q: Record<string, string>) {
-  const t = new Date(), y = t.getFullYear(), m = t.getMonth();
+  const [y, m] = nowMonth();
   const P: Record<string, string[]> = {
     'this-month': [monthRange(y, m).start, monthRange(y, m).end], 'last-month': [monthRange(y, m - 1).start, monthRange(y, m - 1).end],
     'last-3': [monthRange(y, m - 2).start, monthRange(y, m).end], 'this-year': [y + '-01-01', y + '-12-31'],
@@ -32,9 +32,8 @@ VIEWS.reports = async (r, paint) => {
   const L = await lists();
   const R = reportRange(r.q), p = { start: R.start, end: R.end };
   const months: { start: string, end: string, label: string }[] = [];
-  for (let d = new Date(R.start + 'T12:00:00'); isoDate(d) <= R.end && months.length < 36; d = new Date(d.getFullYear(), d.getMonth() + 1, 1, 12)) {
-    const mr = monthRange(d.getFullYear(), d.getMonth());
-    months.push({ start: mr.start < R.start ? R.start : mr.start, end: mr.end > R.end ? R.end : mr.end, label: mr.short + (months.length === 0 || d.getMonth() === 0 ? ' ’' + String(d.getFullYear()).slice(2) : '') });
+  for (let [yy, mm] = monthOf(new Date(R.start + 'T12:00:00')), mr = monthRange(yy, mm); mr.start <= R.end && months.length < 36; mr = monthRange(mr.y, mr.m + 1)) {
+    months.push({ start: mr.start < R.start ? R.start : mr.start, end: mr.end > R.end ? R.end : mr.end, label: mr.short + (months.length === 0 || mr.m === 0 ? ' ’' + String(mr.y).slice(2) : '') });
   }
   const own = L.accounts.filter(a => (isAsset(a) || isLiab(a)) && a.active);
   const g = (path: string) => api(path, { params: p }).catch(() => []);

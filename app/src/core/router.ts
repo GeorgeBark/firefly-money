@@ -1,7 +1,7 @@
 import { type Html, html, htmlList } from './html';
 import { AuthError, CACHE, INFLIGHT, PAGES, PDB } from './api';
 import { showLogin } from './auth';
-import { App, S, type State, el, setToday, today } from './base';
+import { App, S, type State, el, monthOf, setToday, today } from './base';
 import { VT_OK, drawNav, toast, vt, vtName } from './dom';
 import { lists } from './lists';
 
@@ -45,7 +45,8 @@ function stashPage(feed: State['feed']) {
 function syncToday() {
   const now = new Date();
   if (now.getFullYear() === today.getFullYear() && now.getMonth() === today.getMonth() && now.getDate() === today.getDate()) return;
-  if (S.y === today.getFullYear() && S.m === today.getMonth()) { S.y = now.getFullYear(); S.m = now.getMonth(); }
+  const was = monthOf(today);
+  if (S.y === was[0] && S.m === was[1]) [S.y, S.m] = monthOf(now);
   setToday(now); S.freshAfter = Date.now(); PAGES.clear();
 }
 export async function route(opts: { nav?: boolean, quiet?: boolean, instant?: boolean } = {}) {

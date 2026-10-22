@@ -85,6 +85,7 @@
   .head .actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .month { display: flex; align-items: center; gap: 4px; }
   .month span { min-width: 132px; text-align: center; font-weight: 500; }
+  .month span small.cycle { display: block; font-size: 11px; font-weight: 400; color: var(--muted); line-height: 1.2; }
   .round { width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--line); background: var(--panel); cursor: pointer; font-size: 15px; line-height: 1; }
   .round:disabled { opacity: .35; cursor: default; }
 
@@ -154,6 +155,7 @@
   .track { position: relative; height: 6px; background: var(--faint); border-radius: 99px; margin: 7px 0 4px; }
   .fill { position: absolute; inset: 0 auto 0 0; background: var(--spend); border-radius: 99px; opacity: .85; max-width: 100%; }
   .fill.good { background: var(--good); } .fill.over { background: var(--spend); opacity: 1; }
+  .fill.warn { background: var(--warn, #d9a13b); } .track.pace .today { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--text); opacity: .45; border-radius: 2px; }
   .tick { position: absolute; top: -4px; width: 2px; height: 14px; background: var(--text); opacity: .35; border-radius: 1px; }
   .cat { margin-bottom: 16px; } .cat:last-child { margin-bottom: 0; }
   .cat .sub { font-size: 12px; color: var(--muted); }

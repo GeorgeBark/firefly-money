@@ -5,6 +5,7 @@ import { App, S, cycleDay, el, fmtDate, isoDate, monthRange, nowMonth, num, toda
 import { confirmBox, head, opt, toast } from '../core/dom';
 import { LS, budgetAlert, saveBlob } from '../core/helpers';
 import { logosOn } from '../core/logo';
+import { themeButtons } from '../core/login';
 import { type Account, invalidate, isAsset, isLiab, lists, ordinal } from '../core/lists';
 import { VIEWS, route } from '../core/router';
 
@@ -46,7 +47,7 @@ VIEWS.settings = async (r, paint) => {
 
   const privacy = !!LS.get('privacy', false), compact = !!LS.get('compact', false);
   const look = group('look', 'Appearance', html`
-    ${row('Theme', '', html`<div class="themes copy">${raw(el('themes').innerHTML)}</div>`)}
+    ${row('Theme', '', html`<div class="themes">${themeButtons()}</div>`)}
     ${row('Hide amounts', 'Blur every amount. Press P to switch.', html`<input ${SWITCH} aria-label="Hide amounts" data-pref="privacy"${privacy ? ' checked' : ''} data-onchange="App.togglePrivacy()">`)}
     ${row('Compact view', 'Tighter spacing to fit more in', html`<input ${SWITCH} aria-label="Compact view" data-pref="compact"${compact ? ' checked' : ''} data-onchange="App.toggleDensity()">`)}
     ${row('Logos', 'Payees’ and banks’ logos instead of initials', html`<input ${SWITCH} aria-label="Show logos"${logosOn() ? ' checked' : ''} data-onchange="App.toggleLogos(this.checked)">`)}

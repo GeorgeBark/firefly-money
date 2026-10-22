@@ -29,14 +29,16 @@ export const THEMES = [
 ];
 function currentTheme() { return document.documentElement.getAttribute('data-theme') || 'auto'; }
 // border-box origin: otherwise the gradient tiles under the 2px border and a sliver of the opposite colour shows at the edge
-function drawThemes() {
-  el('themes').innerHTML = String(htmlList(THEMES.map(([k, label, sw]) => html`<button type="button" title="${label}" aria-label="${label} theme" class="${k === currentTheme() ? 'on' : ''}" style="background:${sw};background-origin:border-box" data-onclick="App.setTheme('${k}')"></button>`)));
+export function themeButtons() {
+  return htmlList(THEMES.map(([k, label, sw]) => html`<button type="button" title="${label}" aria-label="${label} theme" class="${k === currentTheme() ? 'on' : ''}" style="background:${sw};background-origin:border-box" data-onclick="App.setTheme('${k}')"></button>`));
 }
+// The theme picker on the Settings page
+function drawThemes() { document.querySelectorAll('.themes').forEach(t => { t.innerHTML = String(themeButtons()); }); }
 export function setTheme(k: string) {
   if (k === currentTheme()) return;
   const apply = () => {
     if (k === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', k);
-    drawThemes(); document.querySelectorAll('.themes.copy').forEach(t => { t.innerHTML = el('themes').innerHTML; });
+    drawThemes();
   };
   try { localStorage.setItem('moneyTheme', k); } catch (e) { /* storage blocked */ }
   const t = vt('theme', apply);
@@ -54,7 +56,6 @@ document.addEventListener('click', e => {
   const node = src && src.querySelector('.name, .nm');
   S.vtFrom = node ? { node, t: Date.now() } : null;
 }, true);
-drawThemes();
 (function initFireflyLink() {
   const a = el('ffLink'), href = a.getAttribute('href') || '';
   if (!/^https?:\/\//.test(href)) a.hidden = true;

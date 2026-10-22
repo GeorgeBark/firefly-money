@@ -1,6 +1,6 @@
 import { html, htmlList } from '../core/html';
 import { App, el } from '../core/base';
-import { NAV, icon, openDrawer } from '../core/dom';
+import { NAV_GROUPS, icon, navItem, openDrawer } from '../core/dom';
 
 /* ---------- Phone: tab bar, More sheet, swipe to delete ---------- */
 function drawTabbar(active: string) {
@@ -9,8 +9,11 @@ function drawTabbar(active: string) {
   tb.innerHTML = String(html`${t('', 'Home', 'overview')}${t('transactions', 'Activity', 'transactions')}<button type="button" class="plus" data-onclick="App.quickAdd()" aria-label="Add transaction"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>${t('budgets', 'Budgets', 'budgets')}<button type="button" data-onclick="App.moreSheet()">${icon('categories')}<span>More</span></button>`);
 }
 export function moreSheet() {
-  openDrawer('Menu', html`<div class="list">${htmlList(NAV.map(([r, label, ic]) => html`<a class="row" href="#/${r}" data-onclick="App.closeDrawer()" style="padding:14px 0;align-items:center"><span class="name" style="display:flex;gap:12px;align-items:center"><span style="width:20px;display:inline-flex">${icon(ic)}</span>${label}</span><span class="neutral">›</span></a>`))}</div><div class="eyebrow" style="margin-top:22px">Theme</div><div class="themes copy" id="themes2" style="padding:6px 0 0"></div><div class="toggles sheet"><button type="button" class="btn" data-tg="privacy" data-onclick="App.togglePrivacy()"></button><button type="button" class="btn" data-tg="compact" data-onclick="App.toggleDensity()"></button></div><div style="margin-top:22px;display:flex;gap:10px;flex-wrap:wrap"><button class="btn" data-onclick="App.openPalette()">Search everything</button><button class="btn" data-onclick="App.closeDrawer();App.recalcAll()">Recalculate everything</button>${el('ffLink').hidden ? '' : html`<a class="btn" href="${el('ffLink').getAttribute('href')}" target="_blank" rel="noopener">Open Firefly III ↗</a>`}${window.MONEY_NATIVE ? html`<button class="btn" data-onclick="App.nativeSettings()">App settings</button>` : ''}<button class="btn" data-onclick="App.signOut()">Sign out</button></div>`);
-  el('themes2').innerHTML = el('themes').innerHTML; if (App.drawToggles) App.drawToggles();
+  const link = (r: string) => { const [, label, ic] = navItem(r); return html`<a class="row" href="#/${r}" data-onclick="App.closeDrawer()"><span class="name"><span class="ic">${icon(ic)}</span>${label}</span><span class="neutral">›</span></a>`; };
+  // the tab bar already has Home, Activity and Budgets
+  const groups = NAV_GROUPS.concat([['', ['settings']]]).map(([t, rs]) => [t, rs.filter(r => !['', 'transactions', 'budgets'].includes(r))] as const).filter(g => g[1].length);
+  openDrawer('Menu', html`${htmlList(groups.map(([t, rs]) => html`${t ? html`<div class="eyebrow menu-h">${t}</div>` : ''}<div class="list menu">${htmlList(rs.map(link))}</div>`))}<div class="toggles sheet"><button type="button" class="btn" data-tg="privacy" data-onclick="App.togglePrivacy()"></button></div><div style="margin-top:22px;display:flex;gap:10px;flex-wrap:wrap"><button class="btn" data-onclick="App.openPalette()">Search everything</button><button class="btn" data-onclick="App.closeDrawer();App.recalcAll()">Recalculate everything</button>${el('ffLink').hidden ? '' : html`<a class="btn" href="${el('ffLink').getAttribute('href')}" target="_blank" rel="noopener">Open Firefly III ↗</a>`}${window.MONEY_NATIVE ? html`<button class="btn" data-onclick="App.nativeSettings()">App settings</button>` : ''}<button class="btn" data-onclick="App.signOut()">Sign out</button></div>`);
+  if (App.drawToggles) App.drawToggles();
 }
 export function bindSwipe() {
   if (!('ontouchstart' in window)) return;

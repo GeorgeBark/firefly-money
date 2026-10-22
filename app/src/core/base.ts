@@ -24,6 +24,7 @@ export interface State {
   currency: string,
   lists: Lists | null, listsAt?: number,
   freshAfter: number, dirtyAt: number,                   // cached responses older than freshAfter are fetched again; older than dirtyAt are out of date (api.ts)
+  settledAfter?: number,                                 // the same for responses about months that have ended (api.ts)
   tok: number, staleTok?: number,                        // bumped on every navigation, so late responses for an old page are dropped
   form: FormState | null,
   // Pages and navigation

@@ -96,7 +96,7 @@
   .side .spacer { flex: 1; }
   .side .foot a, .side .foot button { display: block; width: 100%; text-align: left; background: none; border: 0; padding: 7px 12px; color: var(--muted); font-size: 13px; text-decoration: none; cursor: pointer; border-radius: 8px; }
   .side .foot a:hover, .side .foot button:hover { background: var(--faint); color: var(--text); }
-  main { padding: 34px 44px 72px; max-width: 1900px; width: 100%; }
+  main { padding: 34px 44px 72px; width: 100%; }
 
   /* ---------- Page head ---------- */
   .head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 28px; flex-wrap: wrap; }
@@ -158,11 +158,22 @@
   .grid { display: grid; grid-template-columns: 1.25fr 1fr; gap: 20px; }
   .stack { display: grid; gap: 20px; align-content: start; }
   .full { grid-column: 1 / -1; }
-  /* Overview cards: flow into as many ~380px columns as fit (max 3), balanced automatically */
+  /* Overview cards: flow into as many ~380px columns as fit, balanced automatically */
   .cards { columns: 3 380px; column-gap: 20px; margin-bottom: 20px; }
   .cards > .panel { break-inside: avoid; display: inline-block; width: 100%; margin-bottom: 20px; }
   /* Settings: named groups of rows in one column, with rarely used forms folded away */
   .settings { max-width: 720px; }
+  /* Wide screens: the sections flow into columns, with a list of them on the left that stays in place */
+  .set-nav { display: none; }
+  @media (min-width: 1100px) {
+    .set-layout { display: grid; grid-template-columns: 184px minmax(0, 1fr); gap: 36px; align-items: start; }
+    .set-nav { display: flex; flex-direction: column; gap: 2px; position: sticky; top: 24px; }
+    .set-nav button { text-align: left; padding: 8px 12px; border: 0; border-radius: 9px; background: none; color: var(--muted); font: inherit; font-size: 14px; cursor: pointer; }
+    .set-nav button:hover { background: var(--faint); color: var(--text); }
+    .set-nav button.on { color: var(--text); font-weight: 600; }
+    .settings { max-width: none; columns: 3 440px; column-gap: 24px; }
+    .settings .set-group { break-inside: avoid; display: inline-block; width: 100%; }
+  }
   .set-group { margin-bottom: 28px; }
   .set-h { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 8px 4px; }
   .set-panel { padding: 0 20px; }

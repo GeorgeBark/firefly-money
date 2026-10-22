@@ -160,7 +160,7 @@ export async function refreshAll(opts: { visible?: boolean } = {}) {
   S.refreshing = (async () => {
     S.freshAfter = Date.now(); S.lastRefresh = Date.now(); S.listsAt = 0; PAGES.clear();
     try {
-      if (opts.visible) { await route({ quiet: true }); return; }
+      if (opts.visible) { S.settledAfter = Date.now(); await route({ quiet: true }); return; }
       const r = parseHash(), key = S.pageKey, tok = S.tok;
       let markup: Html | string | null = null;
       try { await (VIEWS[r.name] || VIEWS[''])(r, h => { markup = h; }); }

@@ -1,11 +1,21 @@
 import { html, htmlList, raw } from '../core/html';
-import { api } from '../core/api';
+import { api, getAll } from '../core/api';
 import { App, absDiff, el, arr, fmtDate, fmtDay, money, money0, monthOf, monthRange, nowMonth, num, sumDiff, todayIso, type ApiData } from '../core/base';
 import { head, opt, toast } from '../core/dom';
 import { LS, addDays, daysBetween, saveBlob } from '../core/helpers';
-import { isAsset, isLiab, lists } from '../core/lists';
+import { type Account, isAsset, isLiab, lists } from '../core/lists';
 import { VIEWS, hashWith, route } from '../core/router';
 import { cashFlow } from './overview';
+
+// Each account's balance on one day, from two list requests (assets, liabilities) rather than one per account.
+// The net worth chart asks for the same lists, so they're often already saved.
+async function balancesOn(own: Account[], date: string): Promise<(number | null)[]> {
+  try {
+    const [as, ls] = await Promise.all([getAll('/accounts', { type: 'asset', date }), getAll('/accounts', { type: 'liabilities', date })]);
+    const by = new Map([...as, ...ls].map(x => [String(x.id), num(x.attributes.current_balance)]));
+    return own.map(a => by.get(String(a.id)) ?? null);
+  } catch (e) { return own.map(() => null); }
+}
 
 /* ================= Reports ================= */
 function reportRange(q: Record<string, string>) {
@@ -92,8 +102,7 @@ VIEWS.reports = async (r, paint) => {
     g('/insight/expense/budget'), g('/insight/expense/no-budget'), g('/insight/expense/tag'), g('/insight/expense/expense'), g('/insight/income/revenue'), g('/insight/income/category'),
     Promise.all(months.map(mo => Promise.all([api('/insight/income/total', { params: mo }).catch(() => []), api('/insight/expense/total', { params: mo }).catch(() => [])])
       .then(([i, e]) => ({ label: mo.label, income: sumDiff(i), spend: sumDiff(e), go: 'report:' + mo.start + ':' + mo.end })))),
-    Promise.all(own.map(a => api('/accounts/' + a.id, { params: { date: addDays(R.start, -1) } }).then(x => num(x.data.attributes.current_balance)).catch(() => null))),
-    Promise.all(own.map(a => api('/accounts/' + a.id, { params: { date: R.end > todayIso() ? todayIso() : R.end } }).then(x => num(x.data.attributes.current_balance)).catch(() => null))),
+    balancesOn(own, addDays(R.start, -1)), balancesOn(own, R.end > todayIso() ? todayIso() : R.end),
   ]);
   // The comparison period's totals and breakdowns, by name
   const gc = (path: string) => C ? api(path, { params: C }).catch(() => []) : Promise.resolve(null);

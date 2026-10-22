@@ -1,4 +1,4 @@
-import { type ApiData, S, arr } from './base';
+import { type ApiData, S, arr, todayIso } from './base';
 
 /* ================= API ================= */
 export class AuthError extends Error {}
@@ -48,13 +48,22 @@ export type ApiOpts = {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE', body?: unknown, raw?: BodyInit, contentType?: string,
   as?: 'blob' | 'text', fresh?: boolean, keepCache?: boolean,
 };
+// Numbers for months that have ended (a balance on Sep 30, September's spending) only change when someone edits
+// old transactions. So when the app opens or refreshes, those saved answers are kept for a day instead of being
+// fetched again: a change made here still marks them out of date (S.dirtyAt), pull to refresh fetches them again
+// (S.settledAfter), and Settings → Recalculate everything throws them away.
+const SETTLED_FOR = 864e5;
+function settled(u: URL) {
+  const q = u.searchParams, end = q.get('end') || q.get('date');
+  return !!end && /^\d{4}-\d{2}-\d{2}$/.test(end) && end < todayIso().slice(0, 8) + '01' && !q.has('query');
+}
 export async function api(path: string, opt: ApiOpts = {}): Promise<ApiData> {
   const u = new URL('/api/v1' + path, location.origin);
   for (const [k, v] of Object.entries(opt.params || {})) if (v !== undefined && v !== null && v !== '') u.searchParams.set(k, String(v));
   const method = opt.method || 'GET';
   if (method === 'GET' && !opt.as && !opt.fresh) {
     const key = u.toString(), hit = CACHE.get(key);
-    if (hit && hit.t >= S.freshAfter) {
+    if (hit && (hit.t >= S.freshAfter || (hit.t >= (S.settledAfter || 0) && Date.now() - hit.t < SETTLED_FOR && settled(u)))) {
       if (hit.t >= S.dirtyAt) return hit.v;
       if (S.swr && !S.swrOff) { S.staleTok = S.tok; return hit.v; }      // out of date: show it now, update after
     }

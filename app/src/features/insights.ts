@@ -17,8 +17,8 @@ const INS_ICON: Record<string, Html> = {
   spark: html`<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z"/>`,
   check: html`<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9.5"/>`,
 };
-type InsightArgs = { cur: Period, future: boolean, budgets: ApiData[], limits: Record<string, ApiData>, cards: Account[], trend: { label: string, income: number, spend: number }[] };
-async function insightCards({ cur: period, future, budgets, limits, cards, trend }: InsightArgs) {
+type InsightArgs = { cur: Period, future: boolean, budgets: ApiData[], limits: Record<string, ApiData>, cards: Account[], trend: { label: string, income: number, spend: number }[], max?: number };
+async function insightCards({ cur: period, future, budgets, limits, cards, trend, max }: InsightArgs) {
   if (future) return '';
   const cur = period as Period & { y: number, m: number };     // always one month here: not shown for all time or the future
   const now = new Date(), [ny, nm] = nowMonth(), isCur = cur.y === ny && cur.m === nm;
@@ -105,7 +105,7 @@ async function insightCards({ cur: period, future, budgets, limits, cards, trend
   }
 
   const hidden = LS.get('insightsHidden', {});
-  const shown = out.filter(x => !hidden[x.id]).sort((a, b) => b.score - a.score).slice(0, 4);
+  const shown = out.filter(x => !hidden[x.id]).sort((a, b) => b.score - a.score).slice(0, max || 4);
   if (!shown.length) return '';
   return html`<div class="insights" id="insights" aria-label="Insights">${htmlList(shown.map(x =>
     html`<div class="insight t-${x.tone}" role="link" tabindex="0" data-ins="${x.id}" data-onclick="App.go('${x.href}')" data-onkeydown="App.enterClick(event,this)"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${INS_ICON[x.ic]}</svg></span><span><div class="t">${x.title}</div><div class="d">${x.detail}</div></span><button class="x" type="button" aria-label="Dismiss" title="Hide this" data-onclick="event.stopPropagation();App.hideInsight(this)">×</button></div>`))}</div>`;

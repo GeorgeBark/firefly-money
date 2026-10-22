@@ -6,7 +6,7 @@ import { route } from '../core/router';
 /* ---------- Settings that follow you between devices ----------
    The Overview layout and the choices below are kept in one Firefly user preference, so every device signed in to
    the same Firefly sees them. Theme, hide amounts and density stay with each device. The latest change wins. */
-export const SYNCED = ['dash', 'insightsHidden', 'fcExclude', 'fcBuffer', 'fcDays', 'fcAccount', 'fcWhatIf', 'loanPlan', 'subsHidden', 'nwYears', 'logos', 'logoSites', 'reviewedAt', 'reviewed', 'cycleDay', 'budgetAlert', 'drafts', 'fcLog'];
+export const SYNCED = ['dash', 'insightsHidden', 'fcExclude', 'fcBuffer', 'fcDays', 'fcAccount', 'fcWhatIf', 'loanPlan', 'subsHidden', 'nwYears', 'logos', 'logoSites', 'reviewedAt', 'reviewed', 'cycleDay', 'budgetAlert', 'drafts', 'fcLog', 'savedReports'];
 const PREF = 'money_settings';
 let timer: any = 0, applying = false, pulledAt = 0;
 const syncOn = () => S.signedIn && !LS.get('syncOff', false);

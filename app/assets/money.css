@@ -170,6 +170,7 @@
   .error { background: var(--faint); border-radius: 14px; padding: 16px 18px; color: var(--text); }
   .chip { display: inline-block; font-size: 11.5px; padding: 1px 8px; border-radius: 99px; background: var(--faint); color: var(--muted); margin-right: 4px; white-space: nowrap; }
   .chip.good { color: var(--good); } .chip.warn { color: var(--warn); } .chip.bad { color: var(--spend); }
+  .saved-reports { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 0 0 16px; } .saved-reports .chip { font-size: 13px; padding: 3px 4px 3px 10px; display: inline-flex; gap: 4px; align-items: center; margin: 0; } .saved-reports .chip a { color: inherit; text-decoration: none; } .saved-reports .chip.on { color: var(--text); box-shadow: inset 0 0 0 1px var(--line); } .saved-reports .chip button { border: 0; background: none; color: inherit; cursor: pointer; font-size: 14px; padding: 0 4px; } .save-report { display: inline-flex; gap: 6px; } .save-report input { width: 190px; padding: 4px 10px; font-size: 13px; }
   .tagcloud { display: flex; flex-wrap: wrap; gap: 8px; }
   .tagcloud .chip { font-size: 13px; padding: 4px 6px 4px 12px; display: inline-flex; gap: 6px; align-items: center; }
   .tagcloud .chip a { text-decoration: none; color: var(--text); }

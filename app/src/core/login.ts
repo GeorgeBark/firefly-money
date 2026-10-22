@@ -97,7 +97,7 @@ const methods = {
   nlKey: (e: KeyboardEvent, input: HTMLInputElement) => { if (e.key === 'Enter') { e.preventDefault(); App.nlParse(input.value, true); } },
   linkKey: (e: KeyboardEvent) => { if (e.key === 'Enter') { e.preventDefault(); App.findLink(); } },
   rulesSearch: (f: HTMLFormElement & { q: HTMLInputElement }) => { const q = f.q.value.trim(); location.hash = '#/rules' + (q ? '?q=' + encodeURIComponent(q) : ''); },
-  reportsRange: (f: HTMLFormElement & { s: HTMLInputElement, e: HTMLInputElement }) => { location.hash = '#/reports?start=' + f.s.value + '&end=' + f.e.value; },
+  reportsRange: (f: HTMLFormElement & { s: HTMLInputElement, e: HTMLInputElement }) => { location.hash = hashWith({ start: f.s.value, end: f.e.value, preset: '' }); },
   nativeSettings: () => window.webkit.messageHandlers.native.postMessage('settings'),
 };
 Object.assign(App, methods);

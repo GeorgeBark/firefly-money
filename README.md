@@ -28,6 +28,28 @@ It's a small static web app (TypeScript bundled into one script) served by a sma
 
 *Screenshots use the built-in demo data (all names and amounts are made up), shown in the Liquid glass neon theme and, bottom right, Calm light.*
 
+<details>
+<summary><b>Themes:</b> 11 built-in themes, and you can tweak each one's colors in Settings → Appearance</summary>
+
+Liquid glass neon and Calm light are shown above. Calm can also follow your system's light or dark mode.
+
+<p>
+  <img src="docs/screenshots/theme-dark.png" width="32%" alt="Overview in the Calm dark theme" title="Calm dark">
+  <img src="docs/screenshots/theme-carbon.png" width="32%" alt="Overview in the Carbon neon theme" title="Carbon neon">
+  <img src="docs/screenshots/theme-midnight.png" width="32%" alt="Overview in the Midnight theme" title="Midnight">
+</p>
+<p>
+  <img src="docs/screenshots/theme-neon.png" width="32%" alt="Overview in the Neon theme" title="Neon">
+  <img src="docs/screenshots/theme-ocean.png" width="32%" alt="Overview in the Ocean theme" title="Ocean">
+  <img src="docs/screenshots/theme-sunrise.png" width="32%" alt="Overview in the Sunrise theme" title="Sunrise">
+</p>
+<p>
+  <img src="docs/screenshots/theme-forest.png" width="32%" alt="Overview in the Forest theme" title="Forest">
+  <img src="docs/screenshots/theme-nord.png" width="32%" alt="Overview in the Nord theme" title="Nord">
+  <img src="docs/screenshots/theme-rose.png" width="32%" alt="Overview in the Rosé theme" title="Rosé">
+</p>
+</details>
+
 ## Why Money?
 
 Firefly III is a great engine for your finances. Money is a faster, friendlier way to use it every day:

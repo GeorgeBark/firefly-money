@@ -36,6 +36,7 @@ acc(4, 'Cashback Card', 'asset', -240.10, 'ccAsset', monthly_payment_date='2026-
 acc(5, 'Car loan', 'liability', -9020, None, liability_type='loan', current_debt='9020', interest='5.9', interest_period='yearly')
 acc(6, 'Acme Corp', 'revenue')
 acc(130, 'Online transfer', 'expense'); acc(131, 'Transfer from Everyday', 'revenue')   # see the pair below
+acc(140, 'Old Gym Membership', 'expense'); acc(141, 'Garage sale', 'revenue')   # nothing uses these (for Clean up)
 PAYEES = [  # name, category, budget, typical amount, per-month count
     ('Green Grocer', 'Groceries', 'Food', 64, 5), ('Corner Market', 'Groceries', 'Food', 48, 4), ('SQ *BEAN THERE COFFEE', 'Dining', 'Food', 7, 6),
     ('Burrito Bar', 'Dining', 'Food', 14, 3), ('Taco Stand', 'Dining', 'Food', 22, 2), ('Fuel Stop', 'Gas', None, 42, 3), ('Online Store', 'Shopping', None, 38, 3),
@@ -45,7 +46,7 @@ PAYEES = [  # name, category, budget, typical amount, per-month count
 PID = {}
 for i, p in enumerate(PAYEES):
     PID[p[0]] = str(100 + i); acc(100 + i, p[0], 'expense')
-CATS = sorted({p[1] for p in PAYEES} | {'Salary', 'Travel'})
+CATS = sorted({p[1] for p in PAYEES} | {'Salary', 'Travel'}) + ['Hobbies']   # Hobbies: unused (for Clean up)
 CAT_ID = {c: str(i + 1) for i, c in enumerate(CATS)}
 BUDGETS = {'Food': '1', 'Fun': '2'}
 
@@ -165,6 +166,13 @@ class NotFound(Exception): pass
 
 def handle(path, q, method, body=None):
     body = body or {}
+    m = re.match(r'/(accounts|categories|budgets)/(\d+)$', path)
+    if m and method == 'DELETE':       # Clean up
+        kind, i = m.groups()
+        if kind == 'accounts': ACC[:] = [a for a in ACC if a['id'] != i]; ACC_BY.pop(i, None)
+        if kind == 'categories': CATS[:] = [c for c in CATS if CAT_ID[c] != i]
+        if kind == 'budgets': [BUDGETS.pop(n) for n, b in list(BUDGETS.items()) if b == i]
+        return None
     if path == '/about': return {'data': {'version': '6.2.0'}}
     if path == '/accounts': return page([balance_on(a, q['date']) for a in ACC] if q.get('date') else ACC, q)
     m = re.match(r'/preferences/([\w.-]+)$', path)

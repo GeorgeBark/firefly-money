@@ -49,6 +49,7 @@ export function createMockApi(now = new Date()) {
   acc(5, 'Car loan', 'liability', -9020, null, { liability_type: 'loan', current_debt: '9020', interest: '5.9', interest_period: 'yearly' });
   acc(6, 'Acme Corp', 'revenue');
   acc(130, 'Online transfer', 'expense'); acc(131, 'Transfer from Everyday', 'revenue');   // see the pair below
+  acc(140, 'Old Gym Membership', 'expense'); acc(141, 'Garage sale', 'revenue');   // nothing uses these (for Clean up)
   const PAYEES: [string, string, string | null, number, number][] = [  // name, category, budget, typical amount, per-month count
     ['Green Grocer', 'Groceries', 'Food', 64, 5], ['Corner Market', 'Groceries', 'Food', 48, 4], ['SQ *BEAN THERE COFFEE', 'Dining', 'Food', 7, 6],
     ['Burrito Bar', 'Dining', 'Food', 14, 3], ['Taco Stand', 'Dining', 'Food', 22, 2], ['Fuel Stop', 'Gas', null, 42, 3], ['Online Store', 'Shopping', null, 38, 3],
@@ -57,7 +58,7 @@ export function createMockApi(now = new Date()) {
   ];
   const PID: Record<string, string> = {};
   PAYEES.forEach((p, i) => { PID[p[0]] = String(100 + i); acc(100 + i, p[0], 'expense'); });
-  const CATS = [...new Set([...PAYEES.map(p => p[1]), 'Salary', 'Travel'])].sort();
+  const CATS = [...[...new Set([...PAYEES.map(p => p[1]), 'Salary', 'Travel'])].sort(), 'Hobbies'];   // Hobbies: unused (for Clean up)
   const CAT_ID = Object.fromEntries(CATS.map((c, i) => [c, String(i + 1)]));
   const BUDGETS: Record<string, string> = { Food: '1', Fun: '2' };
   const ACC_BY = Object.fromEntries(ACC.map(a => [a.id, a]));
@@ -183,6 +184,13 @@ export function createMockApi(now = new Date()) {
   return function handle(path: string, q: Record<string, string>, method = 'GET', body: any = {}) {
     let m: RegExpMatchArray | null;
     body = body || {};
+    if ((m = path.match(/^\/(accounts|categories|budgets)\/(\d+)$/)) && method === 'DELETE') {   // Clean up
+      const [, kind, i] = m, drop = <T>(xs: T[], f: (x: T) => boolean) => { const j = xs.findIndex(f); if (j >= 0) xs.splice(j, 1); };
+      if (kind === 'accounts') { drop(ACC, a => a.id === i); delete ACC_BY[i]; }
+      if (kind === 'categories') drop(CATS, c => CAT_ID[c] === i);
+      if (kind === 'budgets') Object.keys(BUDGETS).forEach(n => { if (BUDGETS[n] === i) delete BUDGETS[n]; });
+      return null;
+    }
     if (path === '/about') return { data: { version: '6.2.0' } };
     if (path === '/accounts') return page(q.date ? ACC.map(a => balanceOn(a, q.date)) : ACC, q);
     if ((m = path.match(/^\/preferences\/([\w.-]+)$/))) {

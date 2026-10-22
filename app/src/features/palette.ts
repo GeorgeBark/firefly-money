@@ -58,6 +58,7 @@ function baseItems(): PalItem[] {
   items.push({ label: 'New transaction', kind: 'Action', keys: 'add expense income create', run: () => App.quickAdd() }, { label: 'New rule', kind: 'Action', run: () => { location.hash = '#/rules'; setTimeout(() => App.ruleForm(), 400); } },
     { label: 'New recurring transaction', kind: 'Action', run: () => { location.hash = '#/recurring'; setTimeout(() => App.recurForm(), 400); } },
     { label: 'Reconcile an account', kind: 'Action', go: '#/accounts' },
+    { label: 'Clean up unused payees, categories and tags', kind: 'Action', keys: 'delete remove tidy unused empty zero transactions budgets income sources', go: '#/cleanup' },
     { label: 'Recalculate everything (fetch all numbers fresh)', kind: 'Action', run: () => App.recalcAll() });
   SETTINGS.forEach(([label, keys, focus]) => items.push({ label, kind: 'Setting', keys: 'settings ' + keys, go: '#/settings', focus }));
   items.push({ label: 'Hide amounts (privacy)', kind: 'Setting', keys: 'settings privacy blur hide numbers', run: () => App.togglePrivacy() },

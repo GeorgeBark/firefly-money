@@ -78,6 +78,7 @@ VIEWS.settings = async (r, paint) => {
   const data = group('data', 'Data', html`
     ${more('export', 'Export to CSV', '', html`<p class="sub-s" style="margin:0 0 12px">Files you can open in Excel or Numbers.</p>${exp}`)}
     ${hooks === null ? '' : more('hooks', 'Webhooks', hooks.length ? hooks.filter(x => x.attributes.active).length + ' on' : '', hookBody)}
+    ${row('Clean up', 'Payees, categories, tags and budgets that nothing uses', html`<a class="btn small" href="#/cleanup">Review</a>`)}
     ${row('Recalculate everything', 'If a total looks wrong: fetch every number fresh from Firefly III. Your data there isn’t changed.', html`<button class="btn small" type="button" data-onclick="App.recalcAll(this)">Recalculate</button>`)}`);
 
   const ab = (about && about.data) || {};

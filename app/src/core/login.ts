@@ -36,7 +36,7 @@ export function setTheme(k: string) {
   if (k === currentTheme()) return;
   const apply = () => {
     if (k === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', k);
-    drawThemes(); if (el('themes2')) el('themes2').innerHTML = el('themes').innerHTML;
+    drawThemes(); document.querySelectorAll('.themes.copy').forEach(t => { t.innerHTML = el('themes').innerHTML; });
   };
   try { localStorage.setItem('moneyTheme', k); } catch (e) { /* storage blocked */ }
   const t = vt('theme', apply);

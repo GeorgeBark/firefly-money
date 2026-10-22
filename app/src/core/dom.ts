@@ -31,8 +31,15 @@ export const NAV = [['', 'Overview', 'overview'], ['forecast', 'Forecast', 'fore
   ['accounts', 'Accounts', 'accounts'], ['loans', 'Loan planner', 'loans'],
   ['budgets', 'Budgets', 'budgets'], ['categories', 'Categories & tags', 'categories'], ['bills', 'Bills', 'bills'], ['recurring', 'Recurring', 'recurring'],
   ['piggy', 'Piggy banks', 'piggy'], ['rules', 'Rules', 'rules'], ['recap', 'Monthly recap', 'recap'], ['ask', 'Ask', 'spark'], ['map', 'Map', 'map'], ['reports', 'Reports', 'reports'], ['settings', 'Settings', 'settings']];
+// How the sidebar and the phone's More menu group the pages (Settings sits at the bottom of the sidebar)
+export const NAV_GROUPS: [string, string[]][] = [['', ['', 'transactions', 'inbox', 'review']],
+  ['Plan', ['budgets', 'bills', 'recurring', 'piggy', 'forecast', 'loans']], ['Insights', ['reports', 'recap', 'ask', 'map']],
+  ['Manage', ['accounts', 'categories', 'rules']]];
+export const navItem = (r: string) => NAV.find(n => n[0] === r)!;
 export function drawNav(active: string) {
-  el('nav').innerHTML = String(htmlList(NAV.map(([r, label, ic]) => html`<a href="#/${r}" class="${r === active ? 'on' : ''}" data-onmouseenter="App.prefetch('${r}')">${icon(ic)}<span>${label}</span></a>`)));
+  const a = (r: string) => { const [, label, ic] = navItem(r); return html`<a href="#/${r}" class="${r === active ? 'on' : ''}" data-onmouseenter="App.prefetch('${r}')">${icon(ic)}<span>${label}</span></a>`; };
+  el('nav').innerHTML = String(htmlList(NAV_GROUPS.map(([title, rs]) => html`${title ? html`<div class="nav-h">${title}</div>` : ''}${htmlList(rs.map(a))}`)));
+  el('navFoot').innerHTML = String(a('settings'));
   if (window.App && App.drawTabbar) App.drawTabbar(active);
 }
 let toastTimer: ReturnType<typeof setTimeout> | undefined;

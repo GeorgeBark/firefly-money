@@ -9,7 +9,7 @@ from playwright.async_api import async_playwright
 
 BASE = os.environ.get('BASE', 'http://127.0.0.1:8765/')   # e.g. a flaky demo server: BASE=http://127.0.0.1:8766/
 PAGES = ['', 'forecast', 'transactions', 'inbox', 'review', 'accounts', 'account/1', 'account/3?range=all', 'account/102', 'loans', 'budgets', 'categories',
-         'bills', 'recurring', 'piggy', 'rules', 'reports', 'reports?preset=last-3&cmp=year', 'recap', 'map', 'settings',
+         'bills', 'recurring', 'piggy', 'rules', 'reports', 'reports?preset=last-3&cmp=year', 'recap', 'map', 'settings', 'cleanup',
          'forecast?days=365', 'ask', 'ask?q=why%20did%20I%20spend%20more%20this%20month', 'ask?q=which%20bills%20are%20due%20before%20payday', 'ask?q=biggest%20expense%20last%20month']
 # The markup's event handlers (data-onclick="App.x(…)") in the page and the TypeScript sources (not the minified
 # bundle), with the JS concatenations ' + … + ' and template values ${…} filled in with 1
@@ -192,6 +192,16 @@ async def check(pw, width, height, mobile):
         await page.locator('.nav a[href="#/review"]').click(); await page.wait_for_function(PAINTED, timeout=15000)
         await page.locator('#view .tabs a[href="#/inbox"]').click(); await page.wait_for_function(PAINTED, timeout=15000)
         if not await page.locator('.nav a.on[href="#/review"]').count(): errors.append('To do is not highlighted in the sidebar on the Categorize tab')
+        # Clean up: the demo's unused payee, income source, category and budget are found, and deleting one takes it away
+        await goto(page, 'cleanup'); await page.wait_for_selector('#view .cleanup')
+        names = await page.locator('#view .cleanup .name').all_inner_texts()
+        for n in ('Old Gym Membership', 'Garage sale', 'Hobbies', 'Fun'):
+            if n not in names: errors.append(f'Clean up did not find the unused {n!r}')
+        if 'Green Grocer' in names: errors.append('Clean up offered a payee that has transactions')
+        await page.locator('#view .cleanup label', has_text='Old Gym Membership').click()
+        await page.locator('#view .cleanup form[data-kind="payees"] > .btn').click(); await page.locator('#confirm .btn.primary').click()
+        await page.wait_for_function(PAINTED, timeout=15000); await page.wait_for_timeout(600)
+        if await page.locator('#view .cleanup .name', has_text='Old Gym Membership').count(): errors.append('a payee deleted in Clean up is still listed')
         # Review: ticking one off takes it out of the queue
         await goto(page, 'review'); await page.wait_for_selector('#view .review-row')
         n = await page.locator('#view .review-row').count()
@@ -200,8 +210,10 @@ async def check(pw, width, height, mobile):
         # Forecast what-if: adding one puts it in the list of what's coming
         await goto(page, 'forecast'); await page.wait_for_selector('form.whatif')
         await page.fill('form.whatif input[name=label]', 'Smoke test laptop'); await page.fill('form.whatif input[name=amount]', '900')
-        await page.locator('form.whatif button').click(); await page.wait_for_function(PAINTED, timeout=15000); await page.wait_for_timeout(400)
-        if not await page.locator('#view .tbl .desc', has_text='Smoke test laptop').count(): errors.append('a forecast what-if did not show up')
+        await page.locator('form.whatif button').click()
+        # The forecast redraws after the click; wait for the row instead of a fixed pause (slow CI runners missed it)
+        try: await page.locator('#view .tbl .desc', has_text='Smoke test laptop').first.wait_for(timeout=10000)
+        except Exception: errors.append('a forecast what-if did not show up')
         await goto(page, ''); await page.wait_for_selector('#dash [data-w="payees"] .cat', timeout=15000)
         await page.evaluate('App.dashEdit(true)'); await page.wait_for_selector('#dashCols')
         # A tile's own settings: fewer recent transactions

@@ -36,6 +36,7 @@ import './pages/reports';
 import './pages/recap';
 import './pages/map';
 import './pages/settings';
+import './pages/cleanup';
 import './features/palette';
 import './features/polish';
 import './features/datepicker';

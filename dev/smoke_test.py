@@ -9,7 +9,8 @@ from playwright.async_api import async_playwright
 
 BASE = os.environ.get('BASE', 'http://127.0.0.1:8765/')   # e.g. a flaky demo server: BASE=http://127.0.0.1:8766/
 PAGES = ['', 'forecast', 'transactions', 'inbox', 'review', 'accounts', 'account/1', 'account/3?range=all', 'account/102', 'loans', 'budgets', 'categories',
-         'bills', 'recurring', 'piggy', 'rules', 'reports', 'recap', 'map', 'settings']
+         'bills', 'recurring', 'piggy', 'rules', 'reports', 'reports?preset=last-3&cmp=year', 'recap', 'map', 'settings',
+         'forecast?days=365', 'ask', 'ask?q=why%20did%20I%20spend%20more%20this%20month', 'ask?q=which%20bills%20are%20due%20before%20payday', 'ask?q=biggest%20expense%20last%20month']
 # The markup's event handlers (data-onclick="App.x(…)") in the page and the TypeScript sources (not the minified
 # bundle), with the JS concatenations ' + … + ' and template values ${…} filled in with 1
 _root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'app')
@@ -80,6 +81,23 @@ async def check(pw, width, height, mobile):
     if await page.evaluate('S.form.splits[0].amount') != '4.50':
         errors.append('quick add did not parse the amount')
     await page.keyboard.press('Escape'); await page.wait_for_timeout(400)
+    # Duplicate a transaction, keep a draft, and months that start on the 15th
+    await page.locator('tr[data-gid]').first.click(); await page.wait_for_function('() => S.form && S.form.id && el("txForm")')
+    await page.evaluate('App.duplicateTx()'); await page.wait_for_timeout(300)
+    if await page.evaluate("S.form.id + '|' + S.form.splits.map(s => s.jid).join('')") != '|':
+        errors.append('duplicate kept the original transaction ids')
+    await page.evaluate('App.saveDraft()'); await goto(page, 'transactions')
+    if not await page.locator('#view .panel.drafts .row').count():
+        errors.append('a saved draft is not listed on Transactions')
+    await page.evaluate("App.deleteDraft(JSON.parse(localStorage.getItem('money.drafts'))[0].id)"); await page.wait_for_timeout(400)
+    await page.evaluate("App.setCycleDay('15')"); await goto(page, 'budgets')
+    if not await page.locator('#view .month small.cycle').count():
+        errors.append('months starting on the 15th do not show their dates')
+    await page.evaluate("App.setCycleDay('1')"); await goto(page, 'transactions')
+    await goto(page, 'review')
+    if await page.locator('#view .xfer-pair').count() != 1:
+        errors.append('the transfer imported as an expense and an income is not offered as a match')
+    await goto(page, 'transactions'); await page.wait_for_selector('tr[data-gid]')
     # a background refresh must not drop what you're in the middle of
     if not mobile:
         await page.evaluate("App.selAll(false)")

@@ -1,13 +1,14 @@
 import { type Html, html, htmlList, raw } from '../core/html';
 import { api, getAll, sleep } from '../core/api';
-import { App, S, absDiff, arr, el, fmtDate, fmtDay, isoDate, money, money0, monthRange, num, period, sumDiff, today, todayIso, type ApiData, type Period } from '../core/base';
+import { App, S, absDiff, arr, el, fmtDate, fmtDay, isoDate, money, money0, monthRange, nowMonth, num, period, sumDiff, todayIso, type ApiData, type Period } from '../core/base';
 import { head, monthNav } from '../core/dom';
 import { normGroup, txRows } from '../core/feed';
-import { addDays } from '../core/helpers';
+import { addDays, budgetAlert } from '../core/helpers';
 import { type Account, isAsset, isCard, isLiab, lists } from '../core/lists';
 import { VIEWS } from '../core/router';
 import { DASH_NAMES, tileOpt } from '../features/dashboard';
 import { bindSwipe } from '../features/phone';
+import { drafts } from '../features/txform';
 import { billAmount } from './bills';
 import { type BudgetLimit, budgetLimits } from './budgets';
 import { loanHistory } from './loans';
@@ -21,9 +22,9 @@ VIEWS[''] = async (r, paint) => {
   const cur = period(), all = !!cur.all, prev = monthRange(S.y, S.m - 1);
   // The cash-flow chart's months (six unless its settings say otherwise), up to today in All time
   const nMonths = tileOpt('cashflow', 'months');
-  const months = [...Array(nMonths)].map((_, i) => all ? monthRange(today.getFullYear(), today.getMonth() - nMonths + 1 + i) : monthRange(S.y, S.m - nMonths + 1 + i));
+  const [ny, nm] = nowMonth(), months = [...Array(nMonths)].map((_, i) => all ? monthRange(ny, nm - nMonths + 1 + i) : monthRange(S.y, S.m - nMonths + 1 + i));
   const p = (x: Period) => ({ start: x.start, end: x.end });
-  const future = !all && (S.y > today.getFullYear() || (S.y === today.getFullYear() && S.m > today.getMonth()));
+  const future = !all && (S.y > ny || (S.y === ny && S.m > nm));
   const monthOnly = future || all;   // cards that only make sense for one month (insights, the day heatmap)
   const uncatQ = 'has_no_category:true transaction_type:withdrawal date_after:' + cur.start + ' date_before:' + cur.end;
   const own = L.accounts.filter(a => a.active);
@@ -121,8 +122,10 @@ function skeletonPanel(k: string) {
 function attentionPanel({ uncat, bills, budgets, limits, future }: { uncat: ApiData, uncatQ: string, bills: ApiData[], budgets: ApiData[], limits: Record<string, BudgetLimit>, future: boolean }) {
   const items: Html[] = [];
   const n = uncat && uncat.meta && uncat.meta.pagination ? uncat.meta.pagination.total : 0;
-  const now = new Date(), lastMonth = monthRange(now.getFullYear(), now.getMonth() - 1);
-  if (!future && !S.all && S.y === now.getFullYear() && S.m === now.getMonth() && now.getDate() <= 7) items.push(html`<a class="row" href="#/recap" data-onclick="event.preventDefault();App.recapLast()"><span class="name">📊 Your ${lastMonth.label} recap is ready</span><span class="neutral">See it →</span></a>`);
+  const [ny, nm] = nowMonth(), lastMonth = monthRange(ny, nm - 1), cur = monthRange(ny, nm);
+  if (!future && !S.all && S.y === ny && S.m === nm && todayIso() < addDays(cur.start, 7)) items.push(html`<a class="row" href="#/recap" data-onclick="event.preventDefault();App.recapLast()"><span class="name">📊 Your ${lastMonth.label} recap is ready</span><span class="neutral">See it →</span></a>`);
+  const nd = drafts().length;
+  if (nd) items.push(html`<a class="row" href="#/transactions"><span class="name">📝 ${nd} draft${nd === 1 ? '' : 's'} to finish</span><span class="neutral">Open →</span></a>`);
   if (n) items.push(html`<a class="row" href="#/inbox"><span class="name">🏷 ${n} expense${n === 1 ? '' : 's'} without a category</span><span class="neutral">Categorize →</span></a>`);
   const week = isoDate(new Date(Date.now() + 7 * 864e5));
   bills.filter(b => b.attributes.active !== false && !(b.attributes.paid_dates || []).length).forEach(b => {
@@ -132,7 +135,7 @@ function attentionPanel({ uncat, bills, budgets, limits, future }: { uncat: ApiD
   if (!future) budgets.forEach(b => {
     const lim = limits[String(b.id)], spent = Math.abs((b.attributes.spent || []).reduce((s: number, x: ApiData) => s + num(x.sum), 0));
     if (lim && lim.amount && spent > lim.amount) items.push(html`<a class="row" href="#/transactions?budget=${b.id}"><span class="name">⚠️ ${b.attributes.name} is over budget</span><span class="num up">${money0(spent - lim.amount)} over</span></a>`);
-    else if (lim && lim.amount && spent > lim.amount * .85) items.push(html`<a class="row" href="#/transactions?budget=${b.id}"><span class="name">◔ ${b.attributes.name} is at ${Math.round(spent / lim.amount * 100)}%</span><span class="num">${money0(lim.amount - spent)} left</span></a>`);
+    else if (lim && lim.amount && spent >= lim.amount * budgetAlert() / 100) items.push(html`<a class="row" href="#/transactions?budget=${b.id}"><span class="name">◔ ${b.attributes.name} is at ${Math.round(spent / lim.amount * 100)}%</span><span class="num">${money0(lim.amount - spent)} left</span></a>`);
   });
   if (!items.length) return '';
   return html`<section class="panel attention"><h2>Needs attention</h2><p class="lead">Quick things to tidy up</p><div class="list">${htmlList(items)}</div></section>`;

@@ -98,6 +98,7 @@
   .head .actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .month { display: flex; align-items: center; gap: 4px; }
   .month span { min-width: 132px; text-align: center; font-weight: 500; }
+  .month span small.cycle { display: block; font-size: 11px; font-weight: 400; color: var(--muted); line-height: 1.2; }
   .round { width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--line); background: var(--panel); cursor: pointer; font-size: 15px; line-height: 1; }
   .round:disabled { opacity: .35; cursor: default; }
 
@@ -167,6 +168,8 @@
   .track { position: relative; height: 6px; background: var(--faint); border-radius: 99px; margin: 7px 0 4px; }
   .fill { position: absolute; inset: 0 auto 0 0; background: var(--spend); border-radius: 99px; opacity: .85; max-width: 100%; }
   .fill.good { background: var(--good); } .fill.over { background: var(--spend); opacity: 1; }
+  .fill.warn { background: var(--warn, #d9a13b); } .track.pace .today { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--text); opacity: .45; border-radius: 2px; }
+  .panel.drafts { margin-bottom: 16px; } .panel.drafts .row .name { font: inherit; color: inherit; }
   .tick { position: absolute; top: -4px; width: 2px; height: 14px; background: var(--text); opacity: .35; border-radius: 1px; }
   .cat { margin-bottom: 16px; } .cat:last-child { margin-bottom: 0; }
   .cat .sub { font-size: 12px; color: var(--muted); }
@@ -180,6 +183,7 @@
   .error { background: var(--faint); border-radius: 14px; padding: 16px 18px; color: var(--text); }
   .chip { display: inline-block; font-size: 11.5px; padding: 1px 8px; border-radius: 99px; background: var(--faint); color: var(--muted); margin-right: 4px; white-space: nowrap; }
   .chip.good { color: var(--good); } .chip.warn { color: var(--warn); } .chip.bad { color: var(--spend); }
+  .saved-reports { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 0 0 16px; } .saved-reports .chip { font-size: 13px; padding: 3px 4px 3px 10px; display: inline-flex; gap: 4px; align-items: center; margin: 0; } .saved-reports .chip a { color: inherit; text-decoration: none; } .saved-reports .chip.on { color: var(--text); box-shadow: inset 0 0 0 1px var(--line); } .saved-reports .chip button { border: 0; background: none; color: inherit; cursor: pointer; font-size: 14px; padding: 0 4px; } .save-report { display: inline-flex; gap: 6px; } .save-report input { width: 190px; padding: 4px 10px; font-size: 13px; }
   .tagcloud { display: flex; flex-wrap: wrap; gap: 8px; }
   .tagcloud .chip { font-size: 13px; padding: 4px 6px 4px 12px; display: inline-flex; gap: 6px; align-items: center; }
   .tagcloud .chip a { text-decoration: none; color: var(--text); }
@@ -795,3 +799,11 @@
   .leaflet-marker-icon.map-pin { border-radius: 50%; border: 2px solid #fff; background: var(--spend, #e5484d); color: #fff; font-size: 12px; font-weight: 600; line-height: 1;
     display: grid; place-items: center; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,.3); box-sizing: border-box; }
   .leaflet-marker-icon.map-pin.on { background: var(--accent); color: var(--on-accent); }
+  form.ask { display: flex; align-items: center; gap: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 6px 14px; margin-bottom: 16px; }
+  form.ask svg { width: 18px; height: 18px; color: var(--muted); flex: none; }
+  form.ask input { border: 0; background: none; flex: 1; font-size: 16px; padding: 8px 0; outline: none; box-shadow: none; }
+  .ask-answer .ask-title { font-size: 18px; line-height: 1.45; margin: 6px 0 12px; }
+  .ask-answer .list button.row { width: 100%; text-align: left; font: inherit; color: inherit; background: none; border: 0; border-top: 1px solid var(--line); border-radius: 0; padding-left: 0; padding-right: 0; cursor: pointer; }
+  .ask-answer { margin-bottom: 16px; }
+  .ask-examples { display: flex; flex-wrap: wrap; gap: 8px; }
+  .ask-examples .chip { font-size: 13px; padding: 5px 12px; border: 0; cursor: pointer; white-space: normal; text-align: left; }

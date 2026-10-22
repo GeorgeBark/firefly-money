@@ -1,5 +1,5 @@
 import { type Html, html, htmlList } from './html';
-import { App, S, type State, el, fmtDate, monthRange, today } from './base';
+import { App, S, type State, el, fmtDate, fmtDay, monthRange, nowMonth } from './base';
 
 /* ================= UI plumbing ================= */
 const ICONS: Record<string, Html> = {
@@ -30,7 +30,7 @@ export const icon = (k: string) => html`<svg viewBox="0 0 24 24" fill="none" str
 export const NAV = [['', 'Overview', 'overview'], ['forecast', 'Forecast', 'forecast'], ['transactions', 'Transactions', 'transactions'], ['inbox', 'Categorize', 'inbox'], ['review', 'Review', 'review'],
   ['accounts', 'Accounts', 'accounts'], ['loans', 'Loan planner', 'loans'],
   ['budgets', 'Budgets', 'budgets'], ['categories', 'Categories & tags', 'categories'], ['bills', 'Bills', 'bills'], ['recurring', 'Recurring', 'recurring'],
-  ['piggy', 'Piggy banks', 'piggy'], ['rules', 'Rules', 'rules'], ['recap', 'Monthly recap', 'recap'], ['map', 'Map', 'map'], ['reports', 'Reports', 'reports'], ['settings', 'Settings', 'settings']];
+  ['piggy', 'Piggy banks', 'piggy'], ['rules', 'Rules', 'rules'], ['recap', 'Monthly recap', 'recap'], ['ask', 'Ask', 'spark'], ['map', 'Map', 'map'], ['reports', 'Reports', 'reports'], ['settings', 'Settings', 'settings']];
 export function drawNav(active: string) {
   el('nav').innerHTML = String(htmlList(NAV.map(([r, label, ic]) => html`<a href="#/${r}" class="${r === active ? 'on' : ''}" data-onmouseenter="App.prefetch('${r}')">${icon(ic)}<span>${label}</span></a>`)));
   if (window.App && App.drawTabbar) App.drawTabbar(active);
@@ -117,10 +117,10 @@ export function formError(msg: string) {
 }
 export function monthNav() {
   if (S.all) return html`<div class="month"><span>All time</span><button class="btn small" style="margin-left:6px" data-onclick="App.thisMonth()">By month</button></div>`;
-  const r = monthRange(S.y, S.m);
-  const ahead = (S.y - today.getFullYear()) * 12 + (S.m - today.getMonth());
+  const r = monthRange(S.y, S.m), [ny, nm] = nowMonth();
+  const ahead = (S.y - ny) * 12 + (S.m - nm);
   const isNow = ahead >= 12;   // allow planning up to a year ahead
-  return html`<div class="month"><button class="round" data-onclick="App.shiftMonth(-1)" aria-label="Previous month">‹</button><span>${r.label}</span><button class="round" data-onclick="App.shiftMonth(1)" aria-label="Next month"${isNow ? ' disabled' : ''}>›</button>${ahead !== 0 ? html`<button class="btn small" style="margin-left:6px" data-onclick="App.thisMonth()">Today</button>` : ''}<button class="btn small" style="margin-left:6px" data-onclick="App.allTime()">All time</button></div>`;
+  return html`<div class="month"><button class="round" data-onclick="App.shiftMonth(-1)" aria-label="Previous month">‹</button><span title="${fmtDate(r.start)} – ${fmtDate(r.end)}">${r.label}${r.start.endsWith('-01') ? '' : html`<small class="cycle">${fmtDay(r.start)} – ${fmtDay(r.end)}</small>`}</span><button class="round" data-onclick="App.shiftMonth(1)" aria-label="Next month"${isNow ? ' disabled' : ''}>›</button>${ahead !== 0 ? html`<button class="btn small" style="margin-left:6px" data-onclick="App.thisMonth()">Today</button>` : ''}<button class="btn small" style="margin-left:6px" data-onclick="App.allTime()">All time</button></div>`;
 }
 export function head(title: string | Html, sub: string | Html, actions?: string | Html) {
   return html`<div class="head"><div><h1>${title}</h1>${sub ? html`<p class="sub">${sub}</p>` : ''}</div><div class="actions">${actions || ''}</div></div>`;

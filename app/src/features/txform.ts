@@ -1,7 +1,8 @@
 import { type Html, html, htmlList } from '../core/html';
 import { AuthError, api } from '../core/api';
 import { showLogin } from '../core/auth';
-import { type ApiData, App, S, el, fmtDate, money, num, sameName, todayIso, type AppApi, type Field } from '../core/base';
+import { type ApiData, App, S, el, fmtDate, fmtDay, money, num, sameName, todayIso, type AppApi, type Field } from '../core/base';
+import { LS } from '../core/helpers';
 import { closeDrawer, formError, icon, openDrawer, opt, toast, vt, vtName } from '../core/dom';
 import { avatarHtml, normGroup, payeeOf, signed } from '../core/feed';
 import { type Account, invalidate, isAsset, isCard, isLiab, lists } from '../core/lists';
@@ -12,7 +13,8 @@ import { route } from '../core/router';
 export type SplitForm = { jid: string, description: string, amount: string, counter: string, category: string, budget: string, bill: string,
   tags: string, notes: string, fa: string, fc: string, orig: Partial<Record<string, string>> };
 export type TxForm = { id: string, type: string, date: string, title: string, main: string, src: string, dst: string, rules: boolean, splits: SplitForm[],
-  nlBase?: ApiData, nl?: string, nlChips?: Html | '' };   // quick add: what was typed and the chips it was read as
+  nlBase?: ApiData, nl?: string, nlChips?: Html | '',   // quick add: what was typed and the chips it was read as
+  draft?: string };                                    // the draft this form was opened from (see drafts below)
 export function blankSplit(): SplitForm { return { jid: '', description: '', amount: '', counter: '', category: '', budget: '', bill: '', tags: '', notes: '', fa: '', fc: '', orig: {} }; }
 export function newTx(preset: { type?: string, date?: string, account?: string, description?: string, amount?: string } = {}) {
   const L = S.lists!; S.drawerHero = null;
@@ -77,10 +79,10 @@ export function renderTxForm() {
     html`<div class="split" data-i="${i}">${multi ? html`<div class="split-head"><span>Split ${i + 1}</span><button type="button" class="link" data-onclick="App.removeSplit(${i})">Remove</button></div>` : ''}<label>Description<input type="text" data-k="description" value="${s.description}" required></label><div class="grid2"><label>Amount<input type="number" data-k="amount" value="${s.amount}" step="0.01" min="0.01" inputmode="decimal" required></label>${f.type !== 'transfer' ? html`<label>${f.type === 'withdrawal' ? 'Paid to' : 'Received from'}<input type="text" data-k="counter" list="dl-counter" value="${s.counter}" placeholder="Name" data-onchange="App.payeeFill(${i}, this.value)"></label>` : html`<span></span>`}</div><div class="grid2"><label>Category<input type="text" data-k="category" list="dl-cat" value="${s.category}" placeholder="None"></label>${f.type === 'withdrawal' ? html`<label>Budget<select data-k="budget">${opt('', 'None', s.budget)}${htmlList(L.budgets.filter(b => b.active || b.id === s.budget).map(b => opt(b.id, b.name, s.budget)))}</select></label>` : html`<span></span>`}</div><div class="grid2">${f.type === 'withdrawal' ? html`<label>Bill<select data-k="bill">${opt('', 'None', s.bill)}${htmlList(L.bills.map(b => opt(b.id, b.name, s.bill)))}</select></label>` : html`<span></span>`}<label>Tags<input type="text" data-k="tags" list="dl-tags" value="${s.tags}" placeholder="Comma separated"></label></div>${L.foreign.length ? html`<div class="grid2"><label>Foreign amount (optional)<input type="number" data-k="fa" step="0.01" min="0" value="${s.fa}"></label><label>Foreign currency<select data-k="fc">${opt('', 'None', s.fc)}${htmlList(L.foreign.map(c => opt(c.code, c.code + ' · ' + c.name, s.fc)))}</select></label></div>` : ''}<label>Notes<textarea data-k="notes" rows="2">${s.notes}</textarea></label></div>`));
   const body =
     html`<form id="txForm" data-onsubmit="event.preventDefault();App.saveTx(this)">${f.id ? '' : html`<div class="nlq">${icon('spark')}<input type="text" id="nlq" value="${f.nl || ''}" placeholder="Describe it — e.g. starbucks 5.40 amex yesterday" autocomplete="off" enterkeyhint="done" data-oninput="App.nlParse(this.value)" data-onkeydown="App.nlKey(event,this)"><div id="nlChips" class="nlchips">${f.nlChips || ''}</div></div>`}<div class="seg">${typeBtn('withdrawal', 'Expense')}${typeBtn('deposit', 'Income')}${typeBtn('transfer', 'Transfer')}</div><label>Date<input type="date" id="f-date" value="${f.date}" required></label>${accountsHtml}${multi ? html`<label>Title for the whole transaction<input type="text" id="f-title" value="${f.title}" required></label>` : ''}${splitHtml}<button type="button" class="btn small" data-onclick="App.addSplit()" style="margin-bottom:18px">+ Split into another part</button><label class="check"><input type="checkbox" id="f-rules"${f.rules ? ' checked' : ''}> Run my Firefly rules on this transaction</label><datalist id="dl-counter">${htmlList(counterList.map(a => html`<option value="${a.name}">`))}</datalist><datalist id="dl-cat">${htmlList(L.categories.map(c => html`<option value="${c.name}">`))}</datalist><datalist id="dl-tags">${htmlList(L.tags.map(t => html`<option value="${t.name}">`))}</datalist><button type="submit" hidden></button></form>${f.id ? html`<div id="txExtras"><p class="sub-s">Loading attachments and links…</p></div>` : ''}`;
-  const foot = html`${f.id ? html`<button class="btn danger" type="button" data-onclick="App.deleteTx()">Delete</button>` : ''}<span class="grow"></span><button class="btn" type="button" data-onclick="App.closeDrawer()">Cancel</button><button class="btn primary" type="button" id="txSave" data-onclick="App.submit('txForm')">${f.id ? 'Save changes' : 'Add transaction'}</button>`;
+  const foot = html`${f.id ? html`<button class="btn danger" type="button" data-onclick="App.deleteTx()">Delete</button><button class="btn" type="button" data-onclick="App.duplicateTx()" title="A new transaction with the same details, dated today">Duplicate</button>` : html`<button class="btn" type="button" data-onclick="App.saveDraft()" title="Keep it on this list to finish later; nothing goes to Firefly yet">${f.draft ? 'Update draft' : 'Save as draft'}</button>`}<span class="grow"></span><button class="btn" type="button" data-onclick="App.closeDrawer()">Cancel</button><button class="btn primary" type="button" id="txSave" data-onclick="App.submit('txForm')">${f.id ? 'Save changes' : 'Add transaction'}</button>`;
   const wasOpen = el('drawer').classList.contains('open') && el('txForm');
   const scroll = wasOpen ? el('drawerBody').scrollTop : 0;
-  openDrawer(f.id ? 'Edit transaction' : 'New transaction', body, foot);
+  openDrawer(f.id ? 'Edit transaction' : f.draft ? 'Draft' : 'New transaction', body, foot);
   if (wasOpen) el('drawerBody').scrollTop = scroll;
   if (f.id && (window.App as Partial<AppApi>).loadTxExtras) App.loadTxExtras(f.id, f.splits.map(s => s.jid).filter(Boolean));
 }
@@ -158,6 +160,7 @@ async function saveTx(formEl: HTMLFormElement) {
   try {
     if (f.id) await api('/transactions/' + f.id, { method: 'PUT', body });
     else await api('/transactions', { method: 'POST', body });
+    if (f.draft) dropDraft(f.draft);
     invalidate(); toast(f.id ? 'Transaction updated' : 'Transaction added'); route();
   } catch (e) {
     if (e instanceof AuthError) return showLogin(e.message);
@@ -171,8 +174,46 @@ async function deleteTx() {
   App.softDeleteTx([f.id]);
 }
 
+/* ---------- Duplicate ---------- */
+// The open transaction, splits and all, as a new one dated today
+export function copyForm(f: TxForm, date: string): TxForm {
+  return { ...f, id: '', date, rules: true, draft: undefined, nl: '', nlChips: '', splits: f.splits.map(s => ({ ...s, jid: '', orig: {} })) };
+}
+function duplicateTx() {
+  collectTx(); if (!S.form) return;
+  S.drawerHero = null; S.form = copyForm(S.form, todayIso()); renderTxForm();
+  toast('Copy ready · change anything, then add it');
+}
+
+/* ---------- Drafts: a new transaction kept on this list (synced like other settings) until it's added ---------- */
+export type Draft = { id: string, t: number, form: TxForm };
+export const drafts = (): Draft[] => (LS.get('drafts', []) as Draft[]).filter(d => d && d.form && d.form.splits);
+const draftTotal = (f: TxForm) => f.splits.reduce((s, x) => s + Math.abs(num(x.amount)), 0);
+export const draftLabel = (d: Draft) => d.form.title || d.form.splits.map(s => s.description).filter(Boolean).join(', ') || 'Untitled';
+function saveDraft() {
+  collectTx(); const f: TxForm | null = S.form; if (!f) return;
+  const id = f.draft || 'd' + Date.now().toString(36), form: TxForm = { ...f, draft: id, nlBase: undefined, nlChips: '' };
+  LS.set('drafts', [...drafts().filter(d => d.id !== id), { id, t: Date.now(), form }]);
+  closeDrawer(); toast(f.draft ? 'Draft updated' : 'Saved as a draft · find it at the top of Transactions'); route();
+}
+function dropDraft(id: string) { LS.set('drafts', drafts().filter(d => d.id !== id)); }
+function openDraft(id: string) {
+  const d = drafts().find(x => x.id === id); if (!d) return;
+  S.drawerHero = null; S.form = { ...d.form, draft: id }; renderTxForm();
+}
+function deleteDraft(id: string) { dropDraft(id); toast('Draft deleted'); route(); }
+export function draftsPanel() {
+  const list = drafts().sort((a, b) => b.t - a.t);
+  if (!list.length) return '';
+  return html`<section class="panel drafts"><div class="panel-head"><h2>Drafts</h2><span class="neutral">${list.length} to finish</span></div><div class="list">${htmlList(list.map(d => html`<div class="row"><button type="button" class="link name" data-onclick="App.openDraft('${d.id}')" style="text-align:left">${draftLabel(d)}<span class="sub-s" style="display:block">${d.form.date ? fmtDay(d.form.date) + ' · ' : ''}saved ${fmtDay(new Date(d.t).toISOString())}</span></button><span style="display:flex;gap:10px;align-items:center"><span class="num">${draftTotal(d.form) ? money(draftTotal(d.form)) : ''}</span><button type="button" class="link" data-onclick="App.deleteDraft('${d.id}')" aria-label="Delete draft">Delete</button></span></div>`))}</div></section>`;
+}
+
 // The methods markup handlers call (see events.ts), added to App and to its type
 const methods = {
+  duplicateTx,
+  saveDraft,
+  openDraft,
+  deleteDraft,
   editTx,
   saveTx,
   deleteTx,

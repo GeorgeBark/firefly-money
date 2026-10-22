@@ -44,7 +44,7 @@ export interface State {
   rec?: ApiData, inbox?: ApiData, inboxHist?: { t: number, v: ApiData } | null, loanModel?: ApiData,
   dashEdit?: boolean, dashOptsOpen?: string | null, syncError?: string,
 }
-export const S: State = { y: today.getFullYear(), m: today.getMonth(), signedIn: false, lists: null, tok: 0, form: null, currency: 'USD',
+export const S: State = { y: 0, m: 0, signedIn: false, lists: null, tok: 0, form: null, currency: 'USD',
   freshAfter: 0, dirtyAt: 0, txMeta: {}, pendingDel: new Set() };
 // An element by id, for ids the page is known to have; pass the element type when it matters: el<HTMLInputElement>('q')
 export const el = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -53,11 +53,22 @@ export const pad = (n: number) => String(n).padStart(2, '0');
 export const isoDate = (d: Date) => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
 export const todayIso = () => isoDate(new Date());
 export type Period = { start: string, end: string, label: string, short: string, y?: number, m?: number, all?: boolean };
+/* A "month" can start on any day (Settings → Month starts on, e.g. payday). Month m then runs from that day of m
+   to the day before it in m + 1, clamped to short months; the 1st gives calendar months. */
+export function cycleDay() { try { const v = +(localStorage.getItem('money.cycleDay') || 1); return v >= 1 && v <= 28 ? Math.floor(v) : 1; } catch (e) { return 1; } }
+const cycleStart = (y: number, m: number, day: number) => new Date(y, m, Math.min(day, new Date(y, m + 1, 0).getDate()), 12);
+// The month (year, month index) a date falls in
+export function monthOf(d: Date): [number, number] {
+  const day = cycleDay(), s = cycleStart(d.getFullYear(), d.getMonth(), day);
+  const x = d.getDate() >= s.getDate() ? new Date(d.getFullYear(), d.getMonth(), 1) : new Date(d.getFullYear(), d.getMonth() - 1, 1);
+  return [x.getFullYear(), x.getMonth()];
+}
+export const nowMonth = () => monthOf(new Date());
 export function monthRange(y: number, m: number) {
-  const d = new Date(y, m, 1), yy = d.getFullYear(), mm = d.getMonth();
+  const d = new Date(y, m, 1), yy = d.getFullYear(), mm = d.getMonth(), day = cycleDay();
+  const s = cycleStart(yy, mm, day), e = cycleStart(yy, mm + 1, day); e.setDate(e.getDate() - 1);
   return {
-    start: yy + '-' + pad(mm + 1) + '-01',
-    end: yy + '-' + pad(mm + 1) + '-' + pad(new Date(yy, mm + 1, 0).getDate()),
+    start: isoDate(s), end: isoDate(e),
     label: d.toLocaleString('en-US', { month: 'long', year: 'numeric' }),
     short: d.toLocaleString('en-US', { month: 'short' }), y: yy, m: mm,
   };
@@ -78,4 +89,5 @@ export const money0 = (n: number) => money(n, 0);
 const DAY_FMT = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }), DATE_FMT = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 export const fmtDay = (s: string | null | undefined) => s ? DAY_FMT.format(new Date(String(s).slice(0, 10) + 'T12:00:00')) : '';
 export const fmtDate = (s: string | null | undefined) => s ? DATE_FMT.format(new Date(String(s).slice(0, 10) + 'T12:00:00')) : '';
+[S.y, S.m] = nowMonth();
 export const sameName = (a: string | null | undefined, b: string | null | undefined) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();

@@ -1,11 +1,11 @@
 import { html, htmlList } from '../core/html';
-import { AuthError, api, getAll, type ApiError } from '../core/api';
+import { AuthError, PAGES, api, getAll, type ApiError } from '../core/api';
 import { withAuth } from '../core/auth';
-import { App, S, el, fmtDate, isoDate, num, todayIso } from '../core/base';
+import { App, S, cycleDay, el, fmtDate, isoDate, monthRange, nowMonth, num, todayIso } from '../core/base';
 import { confirmBox, head, opt, toast } from '../core/dom';
-import { LS, saveBlob } from '../core/helpers';
+import { LS, budgetAlert, saveBlob } from '../core/helpers';
 import { logosOn } from '../core/logo';
-import { type Account, invalidate, isAsset, isLiab, lists } from '../core/lists';
+import { type Account, invalidate, isAsset, isLiab, lists, ordinal } from '../core/lists';
 import { VIEWS, route } from '../core/router';
 
 /* ================= Settings ================= */
@@ -31,9 +31,11 @@ VIEWS.settings = async (r, paint) => {
   const aboutHtml = html`<section class="panel"><h2>About</h2><div class="list"><div class="row"><span class="name">Money version</span><span>${moneyVersion() || 'Not stamped (local build or plain files)'}</span></div><div class="row"><span class="name">Firefly III version</span><span>${ab.version || '—'}</span></div><div class="row"><span class="name">API version</span><span>${ab.api_version || '—'}</span></div><div class="row"><span class="name">Main currency</span><span>${S.currency}</span></div></div><p class="sub-s" style="margin-top:14px">Your Firefly profile, password, two-factor login, API tokens and user administration aren’t available through Firefly’s API, so change those in Firefly III itself.</p></section>`;
   const recalcHtml = html`<section class="panel"><h2>Recalculate</h2><p class="lead">If a total looks wrong, throw away everything this app has saved and fetch every number fresh from Firefly III. Your data in Firefly isn’t changed.</p><button class="btn" type="button" data-onclick="App.recalcAll(this)">Recalculate everything</button></section>`;
   const syncOff = !!LS.get('syncOff', false), syncAt = LS.get('syncAt', 0);
-  const syncHtml = html`<section class="panel"><h2>Sync between devices</h2><p class="lead">Your Overview layout, dismissed insights, forecast, loan plan and subscription choices are saved in Firefly III, so they follow you to every device. Theme, hidden amounts and density stay with each device.</p><label class="check"><input type="checkbox"${syncOff ? '' : ' checked'} data-onchange="App.toggleSync(this.checked)"> Sync this device’s settings</label><p class="sub-s">${syncOff ? 'Off: this device keeps its own settings.' : S.syncError ? html`<span class="up">Couldn’t sync: ${S.syncError}</span>` : syncAt ? 'Last synced ' + fmtDate(isoDate(new Date(syncAt))) + ' at ' + new Date(syncAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) + '.' : 'Nothing synced yet.'}</p>${syncOff ? '' : html`<button class="btn small" type="button" data-onclick="App.syncNow()">Sync now</button>`}</section>`;
+  const syncHtml = html`<section class="panel"><h2>Sync between devices</h2><p class="lead">Your Overview layout, month start day, drafts, saved reports, dismissed insights, forecast, loan plan and subscription choices are saved in Firefly III, so they follow you to every device. Theme, hidden amounts and density stay with each device.</p><label class="check"><input type="checkbox"${syncOff ? '' : ' checked'} data-onchange="App.toggleSync(this.checked)"> Sync this device’s settings</label><p class="sub-s">${syncOff ? 'Off: this device keeps its own settings.' : S.syncError ? html`<span class="up">Couldn’t sync: ${S.syncError}</span>` : syncAt ? 'Last synced ' + fmtDate(isoDate(new Date(syncAt))) + ' at ' + new Date(syncAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) + '.' : 'Nothing synced yet.'}</p>${syncOff ? '' : html`<button class="btn small" type="button" data-onclick="App.syncNow()">Sync now</button>`}</section>`;
   const logoHtml = html`<section class="panel"><h2>Logos</h2><p class="lead">Show payees’ and banks’ logos instead of their initials. Your Money server fetches each logo from DuckDuckGo’s icon service by the payee’s website (guessed from its name; change it in the account’s settings) and keeps it, so your browser never contacts another site.</p><label class="check"><input type="checkbox"${logosOn() ? ' checked' : ''} data-onchange="App.toggleLogos(this.checked)"> Show logos</label></section>`;
-  paint(html`${head('Settings', '', '')}<div class="cards">${recalcHtml}${syncHtml}${logoHtml}${applePayHtml(ingest, cards, L.own.filter(a => isAsset(a) || isLiab(a)))}${cur}${rateHtml}${exp}${hookHtml}${aboutHtml}</div>`);
+  const day = cycleDay(), alertPct = budgetAlert(), ex = monthRange(...nowMonth());
+  const monthHtml = html`<section class="panel"><h2>Months & budgets</h2><p class="lead">Start each month on your payday if you like. Budgets, the Overview, recaps and reports then run from that day to the day before it next month.</p><div class="grid2"><label>Month starts on<select data-onchange="App.setCycleDay(this.value)">${htmlList([...Array(28)].map((_, i) => opt(i + 1, 'the ' + ordinal(i + 1), day)))}</select></label><label>Warn when a budget reaches<select data-onchange="App.setBudgetAlert(this.value)">${htmlList([50, 60, 70, 75, 80, 85, 90, 95].map(p => opt(p, p + '%', alertPct)))}</select></label></div><p class="sub-s">This month: ${fmtDate(ex.start)} – ${fmtDate(ex.end)}.${day > 1 ? ' Firefly’s own pages still use calendar months, and auto-budgets still reset on the 1st.' : ''}</p></section>`;
+  paint(html`${head('Settings', '', '')}<div class="cards">${monthHtml}${recalcHtml}${syncHtml}${logoHtml}${applePayHtml(ingest, cards, L.own.filter(a => isAsset(a) || isLiab(a)))}${cur}${rateHtml}${exp}${hookHtml}${aboutHtml}</div>`);
 };
 // The build stamped into the Docker image by GitHub, e.g. "c78fd51 · 2026-09-30". Empty for a local build or plain files.
 function moneyVersion() {
@@ -185,11 +187,16 @@ function showKey(btn: HTMLElement | null) {
 }
 
 function toggleLogos(on: boolean) { LS.set('logos', !!on); toast(on ? 'Logos on' : 'Logos off'); }
+// The month start day: stay on the current month, and redraw every page with the new ranges
+function setCycleDay(v: string) { LS.set('cycleDay', Math.min(28, Math.max(1, Math.floor(num(v)) || 1))); S.all = false; [S.y, S.m] = nowMonth(); PAGES.clear(); toast('Months now start on the ' + ordinal(cycleDay())); route(); }
+function setBudgetAlert(v: string) { LS.set('budgetAlert', num(v)); PAGES.clear(); toast('Budget warnings at ' + budgetAlert() + '%'); }
 
 // The methods markup handlers call (see events.ts), added to App and to its type
 const methods = {
   currency,
   toggleLogos,
+  setCycleDay,
+  setBudgetAlert,
   copyText,
   selectKey,
   showKey,

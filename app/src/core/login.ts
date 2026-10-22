@@ -1,7 +1,7 @@
 import { html, htmlList } from './html';
 import { AuthError, CACHE, PDB, api } from './api';
 import { migrateSavedPassword, rememberedSignIn, showLogin, signIn, signOut } from './auth';
-import { App, S, el, today } from './base';
+import { App, S, el, nowMonth } from './base';
 import { closeDrawer, vt } from './dom';
 import { lists } from './lists';
 import { hashWith, route } from './router';
@@ -85,7 +85,7 @@ const methods = {
   allTime: () => { S.all = true; route({ nav: true }); },
   // An account's range buttons; "Month" also leaves All time in the month selector
   pickRange: (h: string) => { if (h.includes('range=month')) S.all = false; if (location.hash === h) route(); else location.hash = h; },
-  thisMonth: () => { if (S.all) { S.all = false; return route({ nav: true }); } S.vtDir = (S.y - today.getFullYear()) * 12 + S.m - today.getMonth() > 0 ? 'prev' : 'next'; S.y = today.getFullYear(); S.m = today.getMonth(); route(); },
+  thisMonth: () => { if (S.all) { S.all = false; return route({ nav: true }); } const [y, m] = nowMonth(); S.vtDir = (S.y - y) * 12 + S.m - m > 0 ? 'prev' : 'next'; S.y = y; S.m = m; route(); },
   shiftMonth: (d: number) => { S.vtDir = d > 0 ? 'next' : 'prev'; S.m += d; const x = new Date(S.y, S.m, 1); S.y = x.getFullYear(); S.m = x.getMonth(); route({ nav: true }); },
   setTheme,
   signOut: () => { signOut(); showLogin(); },
@@ -99,7 +99,7 @@ const methods = {
   nlKey: (e: KeyboardEvent, input: HTMLInputElement) => { if (e.key === 'Enter') { e.preventDefault(); App.nlParse(input.value, true); } },
   linkKey: (e: KeyboardEvent) => { if (e.key === 'Enter') { e.preventDefault(); App.findLink(); } },
   rulesSearch: (f: HTMLFormElement & { q: HTMLInputElement }) => { const q = f.q.value.trim(); location.hash = '#/rules' + (q ? '?q=' + encodeURIComponent(q) : ''); },
-  reportsRange: (f: HTMLFormElement & { s: HTMLInputElement, e: HTMLInputElement }) => { location.hash = '#/reports?start=' + f.s.value + '&end=' + f.e.value; },
+  reportsRange: (f: HTMLFormElement & { s: HTMLInputElement, e: HTMLInputElement }) => { location.hash = hashWith({ start: f.s.value, end: f.e.value, preset: '' }); },
   nativeSettings: () => window.webkit.messageHandlers.native.postMessage('settings'),
 };
 Object.assign(App, methods);

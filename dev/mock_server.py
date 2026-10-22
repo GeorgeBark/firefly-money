@@ -35,6 +35,7 @@ acc(3, 'Rewards Card', 'asset', -612.40, 'ccAsset', monthly_payment_date='2026-0
 acc(4, 'Cashback Card', 'asset', -240.10, 'ccAsset', monthly_payment_date='2026-01-31')
 acc(5, 'Car loan', 'liability', -9020, None, liability_type='loan', current_debt='9020', interest='5.9', interest_period='yearly')
 acc(6, 'Acme Corp', 'revenue')
+acc(130, 'Online transfer', 'expense'); acc(131, 'Transfer from Everyday', 'revenue')   # see the pair below
 PAYEES = [  # name, category, budget, typical amount, per-month count
     ('Green Grocer', 'Groceries', 'Food', 64, 5), ('Corner Market', 'Groceries', 'Food', 48, 4), ('SQ *BEAN THERE COFFEE', 'Dining', 'Food', 7, 6),
     ('Burrito Bar', 'Dining', 'Food', 14, 3), ('Taco Stand', 'Dining', 'Food', 22, 2), ('Fuel Stop', 'Gas', None, 42, 3), ('Online Store', 'Shopping', None, 38, 3),
@@ -97,6 +98,9 @@ while d <= TODAY:
         add_tx(d, 'transfer', 400, 'Rewards Card payment', '1', '3')
     d += timedelta(days=1)
 add_tx(TODAY - timedelta(days=min(9, TODAY.day - 1)), 'withdrawal', 312.40, 'Airline tickets', '3', PID['Online Store'], 'Travel')
+# One move to savings that came in from two banks' imports as an expense and an income (Review -> Transfers to match)
+add_tx(TODAY - timedelta(days=5), 'withdrawal', 250, 'Online transfer to savings', '1', '130')
+add_tx(TODAY - timedelta(days=4), 'deposit', 250, 'Transfer from Everyday Checking', '131', '2')
 TX.sort(key=lambda g: g['attributes']['transactions'][0]['date'], reverse=True)
 
 def jd(g): return g['attributes']['transactions'][0]

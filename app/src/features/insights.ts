@@ -1,8 +1,8 @@
 import { type Html, html, htmlList } from '../core/html';
 import { api } from '../core/api';
-import { type ApiData, App, type Period, absDiff, arr, el, fmtDay, isoDate, money, money0, monthRange, num, pad, sumDiff } from '../core/base';
+import { type ApiData, App, type Period, absDiff, arr, el, fmtDay, isoDate, money, money0, monthRange, nowMonth, num, sumDiff, todayIso } from '../core/base';
 import { vt, vtName } from '../core/dom';
-import { LS } from '../core/helpers';
+import { LS, addDays, budgetAlert, daysBetween } from '../core/helpers';
 import { type Account, ordinal } from '../core/lists';
 
 /* =====================================================================
@@ -21,9 +21,10 @@ type InsightArgs = { cur: Period, future: boolean, budgets: ApiData[], limits: R
 async function insightCards({ cur: period, future, budgets, limits, cards, trend }: InsightArgs) {
   if (future) return '';
   const cur = period as Period & { y: number, m: number };     // always one month here: not shown for all time or the future
-  const now = new Date(), isCur = cur.y === now.getFullYear() && cur.m === now.getMonth();
-  const dim = new Date(cur.y, cur.m + 1, 0).getDate(), N = isCur ? now.getDate() : dim;
-  const win = (mr: Period & { y: number, m: number }) => { const d = new Date(mr.y, mr.m + 1, 0).getDate(); return { start: mr.start, end: mr.start.slice(0, 8) + pad(Math.min(N, d)) }; };
+  const now = new Date(), [ny, nm] = nowMonth(), isCur = cur.y === ny && cur.m === nm;
+  // dim: days in this month (or pay cycle), N: days of it so far
+  const dim = daysBetween(cur.start, cur.end) + 1, N = isCur ? daysBetween(cur.start, todayIso()) + 1 : dim;
+  const win = (mr: Period & { y: number, m: number }) => { const e = addDays(mr.start, N - 1); return { start: mr.start, end: e < mr.end ? e : mr.end }; };
   const pull = async (w: { start: string, end: string }) => {
     const [c, u] = await Promise.all([api('/insight/expense/category', { params: w }), api('/insight/expense/no-category', { params: w }).catch(() => [])]);
     const m = new Map<string, { id: string, amt: number }>(); arr(c).forEach(x => m.set(x.name, { id: x.id, amt: (m.get(x.name) || { amt: 0 }).amt + absDiff(x) }));
@@ -35,8 +36,8 @@ async function insightCards({ cur: period, future, budgets, limits, cards, trend
   if (!used.length) return '';
   // Compare against last month at the same point; fall back to the 3-month average when last month has no data.
   const prevM = monthRange(cur.y, cur.m - 1), last = hist[0], useLast = last.total > 0;
-  const lastBy = isCur ? 'by the ' + ordinal(Math.min(N, new Date(prevM.y, prevM.m + 1, 0).getDate())) + ' of ' + prevM.short : 'in ' + prevM.short;
-  const byLabel = isCur ? 'by the ' + ordinal(N) : 'in ' + cur.short;
+  const lastBy = isCur ? (cur.start.endsWith('-01') ? 'by the ' + ordinal(Math.min(N, new Date(prevM.y, prevM.m + 1, 0).getDate())) + ' of ' + prevM.short : 'by ' + fmtDay(past[0].end)) : 'in ' + prevM.short;
+  const byLabel = isCur ? (cur.start.endsWith('-01') ? 'by the ' + ordinal(N) : 'by day ' + N) : 'in ' + cur.short;
   const vsWord = useLast ? (isCur ? 'last month' : prevM.short) : 'usual';
   const vsText = (amt: number) => useLast ? money0(amt) + ' ' + lastBy : 'about ' + money0(amt) + ' ' + byLabel + ' in a typical month';
   const out: { id: string, tone: string, ic: string, title: string, detail: string, href: string, score: number }[] = [];
@@ -76,17 +77,17 @@ async function insightCards({ cur: period, future, budgets, limits, cards, trend
     // 3. Budgets on pace to run out before the month ends (ones already near/over the limit show in "Needs attention")
     budgets.filter(b => b.attributes.active !== false).forEach(b => {
       const lim = limits[String(b.id)], spent = Math.abs((b.attributes.spent || []).reduce((s: number, x: ApiData) => s + num(x.sum), 0));
-      if (!lim || !lim.amount || spent >= lim.amount * .85 || N < 5) return;
+      if (!lim || !lim.amount || spent >= lim.amount * budgetAlert() / 100 || N < 5) return;
       const perDay = spent / N, runDay = perDay > 0 ? Math.ceil(lim.amount / perDay) : Infinity;
       if (runDay >= dim) return;
-      add('bud:' + b.id, 'warn', 'budget', b.attributes.name + ' may run out around ' + fmtDay(cur.start.slice(0, 8) + pad(runDay)),
+      add('bud:' + b.id, 'warn', 'budget', b.attributes.name + ' may run out around ' + fmtDay(addDays(cur.start, runDay - 1)),
         money0(spent) + ' of ' + money0(lim.amount) + ' used · about ' + money0(perDay) + '/day so far', '#/transactions?budget=' + b.id, 38 + (dim - runDay));
     });
     // 4. Credit card payments coming up
     cards.forEach(a => {
       const owed = Math.max(0, -a.balance), day = +String(a.paymentDate || '').slice(8, 10);
       if (!owed || !day) return;
-      let due = new Date(now.getFullYear(), now.getMonth(), Math.min(day, dim), 12);
+      let due = new Date(now.getFullYear(), now.getMonth(), Math.min(day, new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()), 12);
       if (due < new Date(now.getFullYear(), now.getMonth(), now.getDate())) due = new Date(now.getFullYear(), now.getMonth() + 1, day, 12);
       const days = Math.round((+due - +new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12)) / 864e5);
       if (days > 7) return;

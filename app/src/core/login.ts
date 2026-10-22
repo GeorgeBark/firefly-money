@@ -24,6 +24,8 @@ export const THEMES = [
   ['midnight', 'Midnight', 'linear-gradient(135deg,#7c5cff,#38bdf8)'], ['neon', 'Neon', 'linear-gradient(135deg,#ff2e97,#00e0ff)'],
   ['glass', 'Liquid glass neon', 'radial-gradient(circle at 30% 30%,#ffffffcc 0 12%,transparent 13%),linear-gradient(135deg,#37f5ff,#b86bff 50%,#ff4fd8)'],
   ['ocean', 'Ocean', 'linear-gradient(135deg,#14b8a6,#3b9eff)'], ['sunrise', 'Sunrise', 'linear-gradient(135deg,#e8452c,#f59e0b)'],
+  ['forest', 'Forest', 'linear-gradient(135deg,#15211b 45%,#6fcf97 45%,#f2c94c)'], ['nord', 'Nord', 'linear-gradient(135deg,#2e3440 45%,#88c0d0 45%,#b48ead)'],
+  ['rose', 'Rosé', 'linear-gradient(135deg,#d6456e,#9b6bdf)'],
 ];
 function currentTheme() { return document.documentElement.getAttribute('data-theme') || 'auto'; }
 // border-box origin: otherwise the gradient tiles under the 2px border and a sliver of the opposite colour shows at the edge

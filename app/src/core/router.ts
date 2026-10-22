@@ -124,7 +124,8 @@ export async function route(opts: { nav?: boolean, quiet?: boolean, instant?: bo
     if (opts.quiet && S.pageLive && !onError) { toast('Couldn’t refresh: ' + (e as Error).message); return; }
     if ((e as ApiError).network) {
       paint(html`<div class="error"><strong>Couldn’t load this page.</strong><br>${(e as Error).message}<br>Trying again by itself…<br><br><button class="btn small" data-onclick="App.reload()">Try again now</button></div>`);
-      return retryWhenBack(S.tok);
+      if (tok === S.tok) retryWhenBack(tok);
+      return;
     }
     paint(html`<div class="error"><strong>Couldn’t load this page.</strong><br>${(e as Error).message}<br><br><button class="btn small" data-onclick="App.reload()">Try again</button></div>`);
   }

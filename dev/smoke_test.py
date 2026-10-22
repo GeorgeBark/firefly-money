@@ -72,6 +72,17 @@ async def check(pw, width, height, mobile):
                 errors.append(f'#{p}: button {i} did not open a form')
             await page.keyboard.press('Escape')
             await page.wait_for_timeout(500)
+    # Universal search: from the search button on phones and ⌘K on computers, finds settings and transactions
+    await goto(page, '')
+    if mobile: await page.click('#searchBtn')
+    else: await page.keyboard.press('Control+k')
+    await page.wait_for_selector('#palette:not([hidden])')
+    await page.locator('#palQ').press_sequentially('acme'); await page.wait_for_selector('#palList .pal-item .num', timeout=5000)
+    await page.locator('#palList .pal-item:has(.num)').first.click(); await page.wait_for_selector('#txForm')
+    await page.keyboard.press('Escape'); await page.wait_for_timeout(500)
+    await page.evaluate('App.openPalette()'); await page.locator('#palQ').press_sequentially('csv backup')
+    await page.wait_for_selector('#palList .pal-item.on .pal-l:text-is("Export data (CSV)")')
+    await page.keyboard.press('Enter'); await page.wait_for_selector('#view .panel.pal-flash h2:text-is("Export data")', timeout=8000)
     # a few interactions
     await goto(page, 'transactions'); await page.wait_for_selector('tr[data-gid]')
     await page.locator('tr[data-gid]').first.click(); await page.wait_for_selector('#txForm')

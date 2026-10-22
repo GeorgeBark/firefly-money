@@ -113,6 +113,18 @@ function gridKeep(d: HTMLElement) {
   });
   L.free = free; LS.set('dash', L);
 }
+// A phone shows the first few cards (in your order: Customize to change which) and folds the rest under Show more
+const PHONE_CARDS = 6;
+function phoneCards(cards: unknown[]) {
+  if (cards.length <= PHONE_CARDS + 1) return htmlList(cards);
+  const more = cards.length - PHONE_CARDS;
+  return html`${htmlList(cards.slice(0, PHONE_CARDS))}<div class="dash-rest" id="dashRest"${S.dashMore ? '' : ' hidden'}>${htmlList(cards.slice(PHONE_CARDS))}</div><button type="button" class="btn dash-more" data-more="${more}" data-onclick="App.dashMore(this)">${S.dashMore ? 'Show fewer' : 'Show ' + more + ' more'}</button>`;
+}
+function dashMore(b: HTMLElement) {
+  S.dashMore = !S.dashMore; el('dashRest').hidden = !S.dashMore;
+  b.textContent = S.dashMore ? 'Show fewer' : 'Show ' + b.dataset.more + ' more';
+  if (!S.dashMore) el('dash').scrollIntoView({ block: 'start' });
+}
 function dashButton() { return S.dashEdit ? '' : html`<button class="btn small" data-onclick="App.dashEdit(true)" title="Move, resize or hide cards">Customize</button>`; }
 // top: the insight strip, which shares the cards' column grid so its cards line up with the columns below
 function dashboard(W: [string, unknown][], top: Html | string = '') {
@@ -142,7 +154,7 @@ function dashboard(W: [string, unknown][], top: Html | string = '') {
     if (grid) return html`<div class="w${off ? ' off' : ''}" data-w="${k}" data-gx="${g.x}" data-gy="${g.y}" data-gw="${g.w}"${g.float ? html` data-float="1"` : ''} style="grid-column:${g.x + 1} / span ${g.w};grid-row:${g.y + 1} / span ${g.h}">${edit ? html`<div class="wctl"><span class="grip" title="Drag to move" aria-hidden="true">⠿</span><strong>${DASH_NAMES[k] || k}</strong><span class="grow"></span><button type="button" data-onclick="App.dashNudge('${k}',-1,0)" aria-label="Move left">←</button><button type="button" data-onclick="App.dashNudge('${k}',1,0)" aria-label="Move right">→</button><button type="button" data-onclick="App.dashNudge('${k}',0,-1)" aria-label="Move up">↑</button><button type="button" data-onclick="App.dashNudge('${k}',0,1)" aria-label="Move down">↓</button>${optsButton(k)}<button type="button" class="wbtn" data-onclick="App.dashWide('${k}')">${g.w === GRID ? 'Narrow' : 'Wide'}</button><button type="button" class="hbtn" data-onclick="App.dashHide('${k}')">${off ? 'Show' : 'Hide'}</button></div>${tileOptsPanel(k)}<span class="rsz" title="Drag to resize" aria-hidden="true"></span>` : ''}${body}</div>`;
     return html`<div class="w${isWide ? ' wide' : ''}${off ? ' off' : ''}" data-w="${k}">${edit ? html`<div class="wctl"><span class="grip" title="Drag to move" aria-hidden="true">⠿</span><strong>${DASH_NAMES[k] || k}</strong><span class="grow"></span>${n > 1 && !isWide ? html`<button type="button" data-onclick="App.dashShift('${k}',-1)" aria-label="Move left">←</button><button type="button" data-onclick="App.dashShift('${k}',1)" aria-label="Move right">→</button>` : ''}<button type="button" data-onclick="App.dashMove('${k}',-1)" aria-label="Move up">↑</button><button type="button" data-onclick="App.dashMove('${k}',1)" aria-label="Move down">↓</button>${optsButton(k)}<button type="button" class="wbtn" data-onclick="App.dashWide('${k}')">${isWide ? 'Narrow' : 'Wide'}</button><button type="button" class="hbtn" data-onclick="App.dashHide('${k}')">${off ? 'Show' : 'Hide'}</button></div>${tileOptsPanel(k)}` : ''}${body}</div>`;
   };
-  const body = grid ? htmlList(keys.map(card)) : htmlList(blocks.map(blk => {
+  const body = grid ? htmlList(keys.map(card)) : !edit && n === 1 ? phoneCards(blocks.flatMap(b => typeof b === 'string' ? [b] : b.flat()).map(card).filter(Boolean)) : htmlList(blocks.map(blk => {
     if (typeof blk === 'string') return card(blk);
     const cols = blk.map(c => htmlList(c.map(card)));
     return !edit && cols.every(c => !c) ? '' : html`<div class="band">${htmlList(cols.map(c => html`<div class="dcol">${c}</div>`))}</div>`;
@@ -474,6 +486,7 @@ function bindGrid(d: HTMLElement) {
 const methods = {
   dashboard,
   dashButton,
+  dashMore,
   dashEdit,
   dashOpts,
   dashOpt,

@@ -243,8 +243,12 @@ Developed and tested in Chromium-based browsers (Chrome, Edge) on desktop and ph
 
 This is an independent project. It is not affiliated with or endorsed by Firefly III or its author. "Firefly III" is used only to describe what this app works with. Use it at your own risk and keep backups of your Firefly database.
 
+## Questions and feedback
+
+Have a question, an idea, or want to show off your setup? Start a thread in [Discussions](https://github.com/Muffy0906/firefly-money/discussions). Use [Issues](https://github.com/Muffy0906/firefly-money/issues) for bugs and concrete feature requests.
+
 ## License
 
 [MIT](LICENSE): you may use, change, share and sell Money freely, as long as the copyright notice stays with it. It comes with no warranty.
 
-Contributions are welcome. Please open an issue first for anything big.
+Contributions are welcome. Please open an issue or start a [discussion](https://github.com/Muffy0906/firefly-money/discussions) first for anything big.

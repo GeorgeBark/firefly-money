@@ -35,6 +35,7 @@
 <div id="app" class="app" hidden>
   <aside class="side">
     <div class="brand">Money</div>
+    <button type="button" class="side-search" data-onclick="App.openPalette()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><span>Search</span><kbd>⌘K</kbd></button>
     <nav class="nav" id="nav"></nav>
     <div class="spacer"></div>
     <div class="foot">
@@ -49,9 +50,10 @@
 
 <button id="fab" class="fab" type="button" data-onclick="App.quickAdd()" aria-label="Add transaction (N)" title="Add transaction (N)" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
 <nav id="tabbar" class="tabbar" hidden></nav>
+<button id="searchBtn" class="search-btn" type="button" data-onclick="App.openPalette()" aria-label="Search everything" title="Search everything (⌘K)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg></button>
 <div id="palette" class="palette" hidden data-onclick="App.palBackdrop(event,this)">
-  <div class="palette-box"><input id="palQ" type="text" placeholder="Jump to a page, account, budget… or type to search transactions" autocomplete="off"
-    data-oninput="App.palFilter()" data-onkeydown="App.palKey(event)"><div id="palList" class="pal-list"></div>
+  <div class="palette-box" role="dialog" aria-label="Search everything"><div class="pal-top"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="palQ" type="search" enterkeyhint="go" placeholder="Search transactions, accounts, budgets, settings…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-controls="palList"
+    data-oninput="App.palFilter()" data-onkeydown="App.palKey(event)"><button type="button" class="link pal-cancel" data-onclick="App.closePalette()">Cancel</button></div><div id="palList" class="pal-list" role="listbox"></div>
     <div class="pal-foot"><span>↑↓ to move</span><span>Enter to open</span><span>Esc to close</span></div></div>
 </div>
 <div id="undo" class="undo" role="status" aria-live="polite" hidden></div>

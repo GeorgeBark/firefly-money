@@ -19,14 +19,25 @@ function reportRange(q: Record<string, string>) {
   const p = q.preset || 'this-month';
   return { start: P[p][0], end: P[p][1], preset: p };
 }
-// The period to compare with: the same number of days just before, or the same dates a year earlier
+// The period to compare with: the months (or the same number of days) just before, or the same dates a year earlier
 export function compareRange(start: string, end: string, kind: string) {
-  if (kind === 'prev') { const n = daysBetween(start, end) + 1; return { start: addDays(start, -n), end: addDays(start, -1) }; }
+  if (kind === 'prev') {
+    const k = monthSpan(start, end);
+    if (k) { const [y, m] = monthOf(new Date(start + 'T12:00:00')); return { start: monthRange(y, m - k).start, end: monthRange(y, m - 1).end }; }
+    const n = daysBetween(start, end) + 1; return { start: addDays(start, -n), end: addDays(start, -1) };
+  }
   if (kind === 'year') {
     const back = (d: string) => { const y = +d.slice(0, 4) - 1, md = d.slice(5) === '02-29' ? '02-28' : d.slice(5); return y + '-' + md; };
     return { start: back(start), end: back(end) };
   }
   return null;
+}
+// How many whole months (as Settings sets them) start..end covers, or 0 if it doesn't line up with months
+export function monthSpan(start: string, end: string) {
+  const [y, m] = monthOf(new Date(start + 'T12:00:00'));
+  if (monthRange(y, m).start !== start) return 0;
+  for (let k = 1; k <= 36; k++) { const e = monthRange(y, m + k - 1).end; if (e === end) return k; if (e > end) return 0; }
+  return 0;
 }
 const pctChange = (now: number, was: number) => was ? Math.round((now - was) / was * 100) : null;
 // "vs $1,200 · +12%": tone says whether going up is good (income) or not (spending)

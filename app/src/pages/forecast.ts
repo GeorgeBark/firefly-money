@@ -48,7 +48,7 @@ function incomeDates(inc: Income, from: string, to: string) {
 // A planned purchase, raise or subscription on the Forecast page (money.fcWhatIf)
 type WhatIf = { id: string, label: string, amount: number, date: string, repeat: string };
 type FcEvent = { date: string, label: string, kind: string, amount: number, key: string, off?: boolean, after?: number };
-async function forecastModel(sel: string, horizon: number, withWhatIfs = false) {
+export async function forecastModel(sel: string, horizon: number, withWhatIfs = false) {
   const L = await lists();
   const banks = L.own.filter(a => isAsset(a) && !isCard(a));
   const from = todayIso(), to = addDays(from, horizon);

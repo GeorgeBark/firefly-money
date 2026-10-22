@@ -785,3 +785,11 @@
   .leaflet-marker-icon.map-pin { border-radius: 50%; border: 2px solid #fff; background: var(--spend, #e5484d); color: #fff; font-size: 12px; font-weight: 600; line-height: 1;
     display: grid; place-items: center; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,.3); box-sizing: border-box; }
   .leaflet-marker-icon.map-pin.on { background: var(--accent); color: var(--on-accent); }
+  form.ask { display: flex; align-items: center; gap: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 6px 14px; margin-bottom: 16px; }
+  form.ask svg { width: 18px; height: 18px; color: var(--muted); flex: none; }
+  form.ask input { border: 0; background: none; flex: 1; font-size: 16px; padding: 8px 0; outline: none; box-shadow: none; }
+  .ask-answer .ask-title { font-size: 18px; line-height: 1.45; margin: 6px 0 12px; }
+  .ask-answer .list button.row { width: 100%; text-align: left; font: inherit; color: inherit; background: none; border: 0; border-top: 1px solid var(--line); border-radius: 0; padding-left: 0; padding-right: 0; cursor: pointer; }
+  .ask-answer { margin-bottom: 16px; }
+  .ask-examples { display: flex; flex-wrap: wrap; gap: 8px; }
+  .ask-examples .chip { font-size: 13px; padding: 5px 12px; border: 0; cursor: pointer; white-space: normal; text-align: left; }

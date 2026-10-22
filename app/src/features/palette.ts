@@ -40,6 +40,8 @@ function palFilter() {
   const q = el<HTMLInputElement>('palQ').value.trim().toLowerCase();
   palShown = palItems.map(it => ({ it, s: score(it.label, q) - (it.low && q.length < 2 ? 50 : 0) })).filter(x => x.s > 0)
     .sort((a, b) => b.s - a.s).slice(0, 40).map(x => x.it);
+  const typed = el<HTMLInputElement>('palQ').value.trim();
+  if (q.includes(' ') && q.length > 6) palShown.unshift({ label: 'Ask: ' + typed, kind: 'Ask', go: '#/ask?q=' + encodeURIComponent(typed) });
   if (q) palShown.push({ label: 'Search transactions for “' + el<HTMLInputElement>('palQ').value.trim() + '”', kind: 'Search', go: '#/transactions?search=' + encodeURIComponent(el<HTMLInputElement>('palQ').value.trim()) });
   palIdx = 0; drawPal();
 }

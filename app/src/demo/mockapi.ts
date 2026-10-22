@@ -48,6 +48,7 @@ export function createMockApi(now = new Date()) {
   acc(4, 'Cashback Card', 'asset', -240.10, 'ccAsset', { monthly_payment_date: '2026-01-31' });
   acc(5, 'Car loan', 'liability', -9020, null, { liability_type: 'loan', current_debt: '9020', interest: '5.9', interest_period: 'yearly' });
   acc(6, 'Acme Corp', 'revenue');
+  acc(130, 'Online transfer', 'expense'); acc(131, 'Transfer from Everyday', 'revenue');   // see the pair below
   const PAYEES: [string, string, string | null, number, number][] = [  // name, category, budget, typical amount, per-month count
     ['Green Grocer', 'Groceries', 'Food', 64, 5], ['Corner Market', 'Groceries', 'Food', 48, 4], ['SQ *BEAN THERE COFFEE', 'Dining', 'Food', 7, 6],
     ['Burrito Bar', 'Dining', 'Food', 14, 3], ['Taco Stand', 'Dining', 'Food', 22, 2], ['Fuel Stop', 'Gas', null, 42, 3], ['Online Store', 'Shopping', null, 38, 3],
@@ -114,6 +115,9 @@ export function createMockApi(now = new Date()) {
     if (day === 3) addTx(d, 'transfer', 400, 'Rewards Card payment', '1', '3');
   }
   addTx(TODAY - Math.min(9, td - 1) * DAY, 'withdrawal', 312.40, 'Airline tickets', '3', PID['Online Store'], 'Travel');
+  // One move to savings that came in from two banks' imports as an expense and an income (Review → Transfers to match)
+  addTx(TODAY - 5 * DAY, 'withdrawal', 250, 'Online transfer to savings', '1', '130');
+  addTx(TODAY - 4 * DAY, 'deposit', 250, 'Transfer from Everyday Checking', '131', '2');
   TX.sort((a, b) => (jd(b).date > jd(a).date ? 1 : jd(b).date < jd(a).date ? -1 : 0));
 
   function jd(g: MockGroup) { return g.attributes.transactions[0]; }

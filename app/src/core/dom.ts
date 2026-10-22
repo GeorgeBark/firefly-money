@@ -27,15 +27,17 @@ const ICONS: Record<string, Html> = {
   density: html`<path d="M4 6h16M4 10h16M4 14h16M4 18h16"/>`,
 };
 export const icon = (k: string) => html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ICONS[k]}</svg>`;
-export const NAV = [['', 'Overview', 'overview'], ['forecast', 'Forecast', 'forecast'], ['transactions', 'Transactions', 'transactions'], ['inbox', 'Categorize', 'inbox'], ['review', 'Review', 'review'],
+export const NAV = [['', 'Overview', 'overview'], ['forecast', 'Forecast', 'forecast'], ['transactions', 'Transactions', 'transactions'], ['review', 'To do', 'review'],
   ['accounts', 'Accounts', 'accounts'], ['loans', 'Loan planner', 'loans'],
   ['budgets', 'Budgets', 'budgets'], ['categories', 'Categories & tags', 'categories'], ['bills', 'Bills', 'bills'], ['recurring', 'Recurring', 'recurring'],
   ['piggy', 'Piggy banks', 'piggy'], ['rules', 'Rules', 'rules'], ['recap', 'Monthly recap', 'recap'], ['ask', 'Ask', 'spark'], ['map', 'Map', 'map'], ['reports', 'Reports', 'reports'], ['settings', 'Settings', 'settings']];
 // How the sidebar and the phone's More menu group the pages (Settings sits at the bottom of the sidebar)
-export const NAV_GROUPS: [string, string[]][] = [['', ['', 'transactions', 'inbox', 'review']],
+export const NAV_GROUPS: [string, string[]][] = [['', ['', 'transactions', 'review']],
   ['Plan', ['budgets', 'bills', 'recurring', 'piggy', 'forecast', 'loans']], ['Insights', ['reports', 'recap', 'ask', 'map']],
   ['Manage', ['accounts', 'categories', 'rules']]];
 export const navItem = (r: string) => NAV.find(n => n[0] === r)!;
+// To do: Review (new transactions to look over) and Categorize (ones without a category), as two tabs of one page
+export const todoTabs = (on: string) => html`<div class="tabs"><a href="#/review" class="${on === 'review' ? 'on' : ''}">Review new</a><a href="#/inbox" class="${on === 'inbox' ? 'on' : ''}">Categorize</a></div>`;
 export function drawNav(active: string) {
   const a = (r: string) => { const [, label, ic] = navItem(r); return html`<a href="#/${r}" class="${r === active ? 'on' : ''}" data-onmouseenter="App.prefetch('${r}')">${icon(ic)}<span>${label}</span></a>`; };
   el('nav').innerHTML = String(htmlList(NAV_GROUPS.map(([title, rs]) => html`${title ? html`<div class="nav-h">${title}</div>` : ''}${htmlList(rs.map(a))}`)));

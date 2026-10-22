@@ -11,7 +11,7 @@ export async function openPalette() {
   closeDrawer();
   el('palette').hidden = false; el<HTMLInputElement>('palQ').value = ''; el<HTMLInputElement>('palQ').focus();
   const L = await lists().catch(() => null);
-  const items: PalItem[] = NAV.map(([r, label, ic]) => ({ label, kind: 'Page', go: '#/' + r }));
+  const items: PalItem[] = [...NAV, ['inbox', 'Categorize']].map(([r, label]) => ({ label, kind: 'Page', go: '#/' + r }));
   items.push({ label: 'New transaction', kind: 'Action', run: () => App.quickAdd() }, { label: 'New rule', kind: 'Action', run: () => { location.hash = '#/rules'; setTimeout(() => App.ruleForm(), 400); } },
     { label: 'New recurring transaction', kind: 'Action', run: () => { location.hash = '#/recurring'; setTimeout(() => App.recurForm(), 400); } },
     { label: 'Reconcile an account', kind: 'Action', go: '#/accounts' },

@@ -109,7 +109,7 @@ async def check(pw, width, height, mobile):
         await page.evaluate('App.selAll(false)')
         # switching between a cached page and one that isn't cached must not stack pages on top of each other
         for p in ['inbox', 'transactions', 'inbox', 'transactions']:
-            await page.locator('.nav a[href="#/' + p + '"]').click(); await page.wait_for_function(PAINTED, timeout=15000); await page.wait_for_timeout(300)
+            await page.evaluate('p => { location.hash = "#/" + p; }', p); await page.wait_for_function(PAINTED, timeout=15000); await page.wait_for_timeout(300)
         if await page.locator('#view .head h1').count() != 1:
             errors.append('pages stacked up: ' + ', '.join(await page.locator('#view .head h1').all_inner_texts()))
         await goto(page, 'inbox')
@@ -177,6 +177,10 @@ async def check(pw, width, height, mobile):
         # Bills calendar: the demo's monthly bills sit on their days
         await goto(page, 'bills?view=calendar'); await page.wait_for_selector('#view .bcal-grid')
         if await page.locator('#view .bcal .bpill').count() < 3: errors.append('the bills calendar shows fewer than 3 bills')
+        # To do: the nav's To do opens Review, and its tabs switch to Categorize and back
+        await page.locator('.nav a[href="#/review"]').click(); await page.wait_for_function(PAINTED, timeout=15000)
+        await page.locator('#view .tabs a[href="#/inbox"]').click(); await page.wait_for_function(PAINTED, timeout=15000)
+        if not await page.locator('.nav a.on[href="#/review"]').count(): errors.append('To do is not highlighted in the sidebar on the Categorize tab')
         # Review: ticking one off takes it out of the queue
         await goto(page, 'review'); await page.wait_for_selector('#view .review-row')
         n = await page.locator('#view .review-row').count()

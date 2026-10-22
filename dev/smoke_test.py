@@ -210,8 +210,10 @@ async def check(pw, width, height, mobile):
         # Forecast what-if: adding one puts it in the list of what's coming
         await goto(page, 'forecast'); await page.wait_for_selector('form.whatif')
         await page.fill('form.whatif input[name=label]', 'Smoke test laptop'); await page.fill('form.whatif input[name=amount]', '900')
-        await page.locator('form.whatif button').click(); await page.wait_for_function(PAINTED, timeout=15000); await page.wait_for_timeout(400)
-        if not await page.locator('#view .tbl .desc', has_text='Smoke test laptop').count(): errors.append('a forecast what-if did not show up')
+        await page.locator('form.whatif button').click()
+        # The forecast redraws after the click; wait for the row instead of a fixed pause (slow CI runners missed it)
+        try: await page.locator('#view .tbl .desc', has_text='Smoke test laptop').first.wait_for(timeout=10000)
+        except Exception: errors.append('a forecast what-if did not show up')
         await goto(page, ''); await page.wait_for_selector('#dash [data-w="payees"] .cat', timeout=15000)
         await page.evaluate('App.dashEdit(true)'); await page.wait_for_selector('#dashCols')
         # A tile's own settings: fewer recent transactions

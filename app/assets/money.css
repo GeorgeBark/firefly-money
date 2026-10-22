@@ -128,6 +128,12 @@
   .tabs a { padding: 0 0 11px; text-decoration: none; color: var(--muted); font-weight: 500; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
   .tabs a.on { color: var(--text); border-color: var(--accent); }
   .toolbar { display: flex; gap: 12px; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; }
+  .report-empty { margin: -4px 4px 20px; }
+  /* Reports: what it went on (categories, budgets, tags) on the left, who it went to or came from on the right */
+  .report-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start; margin-bottom: 20px; }
+  .report-cols > div { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+  .report-cols > div:empty { display: none; }
+  @media (max-width: 900px) { .report-cols { grid-template-columns: minmax(0, 1fr); } }
   .search { position: relative; flex: 1; max-width: 420px; }
   .search input { width: 100%; padding-left: 36px; }
   .search svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--muted); }

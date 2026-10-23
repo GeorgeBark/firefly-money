@@ -1,5 +1,5 @@
 import { type Html, html, htmlList } from './html';
-import { AuthError, CACHE, INFLIGHT, PAGES, PDB } from './api';
+import { type ApiError, AuthError, CACHE, INFLIGHT, PAGES, PDB } from './api';
 import { showLogin } from './auth';
 import { App, S, type State, el, monthOf, setToday, today } from './base';
 import { VT_OK, drawNav, toast, vt, vtName } from './dom';
@@ -116,12 +116,32 @@ export async function route(opts: { nav?: boolean, quiet?: boolean, instant?: bo
   paint.live = true;
   try {
     await (VIEWS[r.name] || VIEWS[''])(r, paint);
+    netFails = 0;
     if (S.staleTok === tok && tok === S.tok) setTimeout(revalidate, 50);
   } catch (e) {
     if (e instanceof AuthError) return showLogin(e.message);
-    if (opts.quiet && S.pageLive) { toast('Couldn’t refresh: ' + (e as Error).message); return; }
+    const onError = !!v.querySelector(':scope > .error');
+    if (opts.quiet && S.pageLive && !onError) { toast('Couldn’t refresh: ' + (e as Error).message); return; }
+    if ((e as ApiError).network) {
+      paint(html`<div class="error"><strong>Couldn’t load this page.</strong><br>${(e as Error).message}<br>Trying again by itself…<br><br><button class="btn small" data-onclick="App.reload()">Try again now</button></div>`);
+      if (tok === S.tok) retryWhenBack(tok);
+      return;
+    }
     paint(html`<div class="error"><strong>Couldn’t load this page.</strong><br>${(e as Error).message}<br><br><button class="btn small" data-onclick="App.reload()">Try again</button></div>`);
   }
+}
+// The server couldn't be reached: try the page again after a short wait (longer each time, up to 30 s),
+// or straight away when the device comes back online or the tab is shown again. Stops once you go elsewhere.
+let netFails = 0, netTimer: ReturnType<typeof setTimeout> | undefined;
+function retryWhenBack(tok: number) {
+  const go = () => {
+    clearTimeout(netTimer); removeEventListener('online', go); document.removeEventListener('visibilitychange', vis);
+    if (tok === S.tok) route({ quiet: true });
+  };
+  const vis = () => { if (document.visibilityState === 'visible') go(); };
+  clearTimeout(netTimer);
+  netTimer = setTimeout(go, Math.min(30000, 2000 * 2 ** netFails++));
+  addEventListener('online', go); document.addEventListener('visibilitychange', vis);
 }
 // The page on screen was drawn from out-of-date data: fetch what it needs again and redraw only if it changed.
 async function revalidate() {
@@ -140,7 +160,7 @@ export async function refreshAll(opts: { visible?: boolean } = {}) {
   S.refreshing = (async () => {
     S.freshAfter = Date.now(); S.lastRefresh = Date.now(); S.listsAt = 0; PAGES.clear();
     try {
-      if (opts.visible) { await route({ quiet: true }); return; }
+      if (opts.visible) { S.settledAfter = Date.now(); await route({ quiet: true }); return; }
       const r = parseHash(), key = S.pageKey, tok = S.tok;
       let markup: Html | string | null = null;
       try { await (VIEWS[r.name] || VIEWS[''])(r, h => { markup = h; }); }

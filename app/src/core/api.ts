@@ -1,9 +1,9 @@
-import { type ApiData, S, arr } from './base';
+import { type ApiData, S, arr, todayIso } from './base';
 
 /* ================= API ================= */
 export class AuthError extends Error {}
 // What api() throws for a failed response: the message to show, and the HTTP status.
-export type ApiError = Error & { status?: number };
+export type ApiError = Error & { status?: number, network?: boolean };
 // Responses are kept until something changes (your edits), you pull to refresh, or the app comes back
 // after a while; they're also saved on the device so the app opens instantly with your last data.
 export type CacheEntry = { t: number, v: ApiData };
@@ -48,13 +48,22 @@ export type ApiOpts = {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE', body?: unknown, raw?: BodyInit, contentType?: string,
   as?: 'blob' | 'text', fresh?: boolean, keepCache?: boolean,
 };
+// Numbers for months that have ended (a balance on Sep 30, September's spending) only change when someone edits
+// old transactions. So when the app opens or refreshes, those saved answers are kept for a day instead of being
+// fetched again: a change made here still marks them out of date (S.dirtyAt), pull to refresh fetches them again
+// (S.settledAfter), and Settings → Recalculate everything throws them away.
+const SETTLED_FOR = 864e5;
+function settled(u: URL) {
+  const q = u.searchParams, end = q.get('end') || q.get('date');
+  return !!end && /^\d{4}-\d{2}-\d{2}$/.test(end) && end < todayIso().slice(0, 8) + '01' && !q.has('query');
+}
 export async function api(path: string, opt: ApiOpts = {}): Promise<ApiData> {
   const u = new URL('/api/v1' + path, location.origin);
   for (const [k, v] of Object.entries(opt.params || {})) if (v !== undefined && v !== null && v !== '') u.searchParams.set(k, String(v));
   const method = opt.method || 'GET';
   if (method === 'GET' && !opt.as && !opt.fresh) {
     const key = u.toString(), hit = CACHE.get(key);
-    if (hit && hit.t >= S.freshAfter) {
+    if (hit && (hit.t >= S.freshAfter || (hit.t >= (S.settledAfter || 0) && Date.now() - hit.t < SETTLED_FOR && settled(u)))) {
       if (hit.t >= S.dirtyAt) return hit.v;
       if (S.swr && !S.swrOff) { S.staleTok = S.tok; return hit.v; }      // out of date: show it now, update after
     }
@@ -80,13 +89,19 @@ async function netSlot<T>(fn: () => Promise<T>): Promise<T> {
   try { return await fn(); } finally { netActive--; const next = netQueue.shift(); if (next) next(); }
 }
 export const sleep = (ms: number) => new Promise(res => setTimeout(res, ms));
+// The browser couldn't reach this server at all (connection dropped, laptop waking up, app restarting):
+// fetch only says "Failed to fetch", so say what that means and mark it so the page can retry by itself.
+function unreachable(e: unknown): unknown {
+  if (!(e instanceof TypeError)) return e;
+  const err: ApiError = new Error('Couldn’t reach Money. The connection dropped or the app is restarting.'); err.network = true; return err;
+}
 // Returns { r, body }: the slot is held until the whole response has arrived, not just its headers.
 async function netFetch(u: URL, init: RequestInit, blob: boolean): Promise<{ r: Response, body: string | Blob }> {
   const read = init.method === 'GET';
   for (let attempt = 0; ; attempt++) {
     let res: { r: Response, body: string | Blob } | null = null, r: Response | null = null, wait = NET_RETRY[attempt];
     try { res = await netSlot(async () => { const x = await fetch(u, init); return { r: x, body: await (blob && x.ok ? x.blob() : x.text()) }; }); r = res.r; }
-    catch (e) { if (!read || wait === undefined || !navigator.onLine) throw e; }
+    catch (e) { if (!read || wait === undefined || !navigator.onLine) throw unreachable(e); }
     if (r && !((read && NET_BUSY.has(r.status) || r.status === 429) && wait !== undefined && navigator.onLine)) return res!;
     const ra = r ? +(r.headers.get('Retry-After') as string) : 0;
     if (ra > 0) wait = Math.min(10000, ra * 1000);

@@ -6,7 +6,7 @@ import { normGroup, txRows } from '../core/feed';
 import { addDays, budgetAlert } from '../core/helpers';
 import { type Account, isAsset, isCard, isLiab, lists } from '../core/lists';
 import { VIEWS } from '../core/router';
-import { DASH_NAMES, tileOpt } from '../features/dashboard';
+import { DASH_NAMES, dashColumns, tileOpt } from '../features/dashboard';
 import { bindSwipe } from '../features/phone';
 import { drafts } from '../features/txform';
 import { billAmount } from './bills';
@@ -49,7 +49,7 @@ VIEWS[''] = async (r, paint) => {
       .then(([i, e]) => ({ income: sumDiff(i), spend: sumDiff(e) })) : null,
   ]);
   const slowP = Promise.all([loanHistory(loansShown), App.safeCard(),
-    coreP.then(c => App.insightCards({ cur, future: monthOnly, budgets: arr(c[7]), limits: c[8], cards, trend: c[5] })).catch(() => ''),
+    coreP.then(c => App.insightCards({ cur, future: monthOnly, budgets: arr(c[7]), limits: c[8], cards, trend: c[5], max: Math.max(4, dashColumns()) })).catch(() => ''),
     App.balanceSparks([...cashShown, ...cardsShown]).catch(() => ({})),
     monthOnly ? [] : getAll('/transactions', { start: cur.start, end: cur.end, type: 'withdrawal' }).catch(() => []),
     api('/insight/income/revenue', { params: p(cur) }).catch(() => []),

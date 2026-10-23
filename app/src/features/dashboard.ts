@@ -49,7 +49,7 @@ function tileOptsPanel(k: string) {
   }))}</div>`;
 }
 const optsButton = (k: string) => TILE_OPTS[k] ? html`<button type="button" class="obtn" data-onclick="App.dashOpts('${k}')" aria-label="Settings for this tile" title="Settings">⚙</button>` : '';
-const DASH_COLS: (number | '')[] = ['', 1, 2, 3, 4];      // '' = as many ~380px columns as fit (max 3)
+const DASH_COLS: (number | '')[] = ['', 1, 2, 3, 4, 6];      // '' = as many ~340px columns as fit (max 6)
 // hidden also holds the parts above the cards ('hero', 'insights'); cols is the chosen column count; place[n] the arrangement;
 // free the freeform spots {tile: [x, y, w]}; opts each tile's settings
 type Block = string | string[][];
@@ -59,9 +59,12 @@ const dashLayout = (): DashLayout => ({ order: [], hidden: [], wide: null, cols:
 const dashShows = (part: string) => !dashLayout().hidden.includes(part);
 // How many columns fit right now: the chosen count is a maximum, narrow windows get fewer
 function dashCount(L: DashLayout) {
-  const v = el('view'), w = (v && v.clientWidth) || innerWidth, min = L.cols ? 260 : 380;
-  return Math.max(1, Math.min(L.cols || 3, Math.floor((w + 20) / (min + 20))));
+  const v = el('view'), w = (v && v.clientWidth) || innerWidth, min = L.cols ? 260 : 340;
+  const n = Math.max(1, Math.min(L.cols || 6, Math.floor((w + 20) / (min + 20))));
+  return gridMode() ? [6, 4, 3, 2, 1].find(c => c <= n)! : n;     // the freeform grid is 24 wide, so 5 columns become 4
 }
+// How many columns the Overview has right now (the insight strip shows one card per column, at least 4)
+export const dashColumns = () => dashCount(dashLayout());
 // The arrangement for n columns: a list of blocks, each a wide card's key or a band of n columns of keys.
 // Cards that are gone are dropped; new ones (and ones that changed between wide and narrow) are dealt in at the end.
 function dashPlace(L: DashLayout, keys: string[], n: number, wide: string[], est: (k: string) => number) {
@@ -129,7 +132,7 @@ function dashButton() { return S.dashEdit ? '' : html`<button class="btn small" 
 // top: the insight strip, which shares the cards' column grid so its cards line up with the columns below
 function dashboard(W: [string, unknown][], top: Html | string = '') {
   const L = dashLayout(), keys = W.map(w => w[0]), map = Object.fromEntries(W), wide = L.wide || DASH_WIDE, edit = !!S.dashEdit, n = dashCount(L);
-  const grid = gridMode(), blocks = dashPlace(L, keys, grid ? Math.min(n, 4) : n, wide, k => map[k] ? (DASH_EST[k] || 250) + 20 : 0);
+  const grid = gridMode(), blocks = dashPlace(L, keys, n, wide, k => map[k] ? (DASH_EST[k] || 250) + 20 : 0);
   // Freeform: each tile's spot, either saved or (for tiles you haven't placed) dealt from the column arrangement
   const spot: any = {};
   if (grid) {

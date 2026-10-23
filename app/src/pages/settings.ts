@@ -90,8 +90,29 @@ VIEWS.settings = async (r, paint) => {
     ${row('API', '', ab.api_version || '—')}`,
     'Your Firefly profile, password, two-factor login, API tokens and user administration aren’t available through Firefly’s API, so change those in Firefly III itself.');
 
-  paint(html`${head('Settings', '', '')}<div class="settings">${months}${look}${sync}${applePayHtml(ingest, cards, L.own.filter(a => isAsset(a) || isLiab(a)))}${cur}${data}${aboutHtml}</div>`);
+  const body = html`${months}${look}${sync}${applePayHtml(ingest, cards, L.own.filter(a => isAsset(a) || isLiab(a)))}${cur}${data}${aboutHtml}`, has = String(body);
+  const nav = htmlList(SET_SECTIONS.filter(([id]) => has.includes('id="set-' + id + '"')).map(([id, t]) => html`<button type="button" data-k="${id}" data-onclick="App.setJump('${id}')">${t}</button>`));
+  paint(html`${head('Settings', '', '')}<div class="set-layout"><nav class="set-nav" id="setNav" aria-label="Settings sections">${nav}</nav><div class="settings">${body}</div></div>`);
+  requestAnimationFrame(setSpy);
 };
+/* ---------- Wide screens: a list of the sections beside them, marking the ones on screen ---------- */
+const SET_SECTIONS: [string, string][] = [['months', 'Months & budgets'], ['look', 'Appearance'], ['sync', 'Sync'], ['applepay', 'Apple Pay'], ['currencies', 'Currencies'], ['data', 'Data'], ['about', 'About']];
+function setJump(id: string) {
+  const g = el('set-' + id); if (!g) return;
+  g.classList.remove('pal-flash'); void g.offsetWidth; g.classList.add('pal-flash');
+  g.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+}
+let spyQueued = false;
+function setSpy() {
+  spyQueued = false;
+  const nav = el('setNav'); if (!nav || !nav.offsetParent) return;
+  nav.querySelectorAll<HTMLElement>('button').forEach(b => {
+    const r = el('set-' + b.dataset.k)?.getBoundingClientRect();
+    b.classList.toggle('on', !!r && r.bottom > 80 && r.top < innerHeight - 80);
+  });
+}
+addEventListener('scroll', () => { if (!spyQueued && el('setNav')) { spyQueued = true; requestAnimationFrame(setSpy); } }, { passive: true });
+addEventListener('resize', () => { if (el('setNav')) requestAnimationFrame(setSpy); });
 /* ---------- Customize colors: your own background, accent and (for Liquid glass) light, tint and blur ---------- */
 const curTheme = () => document.documentElement.getAttribute('data-theme') || 'auto';
 const themeName = () => { const t = THEMES.find(x => x[0] === curTheme()); return t ? t[1] : ''; };
@@ -212,10 +233,13 @@ async function deleteHook(id: string) {
 
 // Apple Pay auto-logging (app/ingest.js): the address and key the iPhone Shortcut sends each payment to.
 // Null when this server doesn't have it (an older image, or the plain-files setup without nginx).
+// The key doesn't change while the server runs, so it's asked for once.
+let ingestKeyMemo: string | null = null;
 async function ingestKey(): Promise<string | null> {
+  if (ingestKeyMemo) return ingestKeyMemo;
   try {
     const r = await fetch('/api/money-ingest', { cache: 'no-store', headers: { 'X-Money': '1' } });
-    return r.ok ? (await r.json()).key || null : null;
+    return ingestKeyMemo = r.ok ? (await r.json()).key || null : null;
   } catch (e) { return null; }
 }
 // Which account each Wallet card goes to, when its name doesn't say (app/ingest.js reads the same preference).
@@ -223,7 +247,13 @@ async function ingestKey(): Promise<string | null> {
 type Cards = { exists: boolean, cards: Record<string, string>, unmatched: string[] };
 const CARD_PREF = 'money_cards';
 let cardState: Cards = { exists: false, cards: {}, unmatched: [] }, cardNames: string[] = [];
+// Kept until the next refresh (S.freshAfter), so redrawing Settings doesn't ask Firefly again; saving updates it.
+let cardsMemo: { t: number, v: Cards } | null = null;
 async function loadCards(): Promise<Cards> {
+  if (cardsMemo && cardsMemo.t >= S.freshAfter) return cardsMemo.v;
+  const v = await fetchCards(); cardsMemo = { t: Date.now(), v }; return v;
+}
+async function fetchCards(): Promise<Cards> {
   try {
     const r = await api('/preferences/' + CARD_PREF, { fresh: true }), d = r && r.data && r.data.attributes ? r.data.attributes.data : null;
     const v = typeof d === 'string' ? JSON.parse(d) : d;
@@ -235,6 +265,7 @@ async function saveCards() {
   await withAuth(async () => {
     if (cardState.exists) await api('/preferences/' + CARD_PREF, { method: 'PUT', body: { data }, keepCache: true });
     else { await api('/preferences', { method: 'POST', body: { name: CARD_PREF, data }, keepCache: true }); cardState.exists = true; }
+    cardsMemo = { t: Date.now(), v: cardState };
     toast('Saved');
   });
 }
@@ -328,6 +359,7 @@ const methods = {
   themeRange,
   resetThemeCustom,
   drawThemeCustom,
+  setJump,
 };
 Object.assign(App, methods);
 type Methods = typeof methods;

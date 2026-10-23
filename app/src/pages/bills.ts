@@ -1,7 +1,7 @@
 import { Html, html, htmlList } from '../core/html';
 import { api, getAll } from '../core/api';
 import { busy } from '../core/auth';
-import { App, S, el, fmtDate, fmtDay, money, money0, monthRange, nowMonth, num, todayIso, type ApiData, type Field, type Period } from '../core/base';
+import { App, S, el, fmtDate, fmtDay, money, money0, monthOf, monthRange, nowMonth, num, todayIso, type ApiData, type Field, type Period } from '../core/base';
 import { closeDrawer, formError, head, monthNav, openDrawer, opt, toast } from '../core/dom';
 import { normGroup } from '../core/feed';
 import { LS, addDays } from '../core/helpers';
@@ -87,9 +87,11 @@ function billCalendar(bills: ApiData[], cur: Period) {
 function billsView(v: string) { LS.set('billsView', v); location.hash = hashWith({ view: v }); }
 
 /* ---------- Subscriptions that aren't bills yet, and bills whose price went up ---------- */
-// Looks through the last 13 months of spending (one cached request, shared with every visit to this page)
+// Looks through the last 13 months of spending. The months that have ended are one request that stays saved
+// (see settled() in api.ts), so only this month is fetched again each time.
 async function subsPanel(bills: ApiData[]) {
-  const gs = (await getAll('/transactions', { start: addDays(todayIso(), -400), end: todayIso(), type: 'withdrawal' })).map(normGroup);
+  const t = todayIso(), m0 = t.slice(0, 8) + '01', [y, m] = monthOf(new Date(m0 + 'T12:00:00')), from = monthRange(y, m - 13).start;
+  const gs = (await Promise.all([getAll('/transactions', { start: from, end: addDays(m0, -1), type: 'withdrawal' }), getAll('/transactions', { start: m0, end: t, type: 'withdrawal' })])).flat().map(normGroup);
   const charges = gs.flatMap(g => g.splits.filter(x => x.type === 'withdrawal').map(x => ({ date: x.date, amount: x.amount, payeeId: x.destination_id, payee: x.destination_name, billId: x.bill_id })));
   const hidden = new Set(LS.get('subsHidden', [])), names = new Set(bills.map(b => String(b.attributes.name).trim().toLowerCase()));
   const found = findRecurring(charges, todayIso()).filter(r => !hidden.has(r.payeeId) && !names.has(r.payee.trim().toLowerCase()));

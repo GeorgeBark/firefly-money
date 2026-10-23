@@ -834,6 +834,10 @@
     .grab { display: block; width: 40px; height: 5px; border-radius: 99px; background: var(--line); margin: 9px auto -4px; flex: none; }
     .drawer header { padding-top: 14px; touch-action: none; }
     .drawer footer { padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
+    /* More buttons than fit (Delete, Duplicate, Refund…): the ones before the gap go on a row of their own */
+    .drawer footer:has(> .btn + .btn + .grow) { flex-wrap: wrap; }
+    .drawer footer:has(> .btn + .btn + .grow) > .grow { flex: 0 0 100%; margin: -5px 0; }
+    .drawer footer:has(> .btn + .btn + .grow) > .btn { flex: 1 1 0; justify-content: center; text-align: center; padding-left: 8px; padding-right: 8px; }
     html.vt-drawer-open::view-transition-new(drawer) { animation-name: vtInSheet; }
     html.vt-drawer-close::view-transition-old(drawer) { animation-name: vtOutSheet; }
     .cards.editing .w { cursor: default; }

@@ -6,6 +6,7 @@ import { addDays, budgetAlert, daysBetween } from '../core/helpers';
 import { closeDrawer, formError, head, monthNav, openDrawer, opt, toast } from '../core/dom';
 import { invalidate, lists, type Lists } from '../core/lists';
 import { VIEWS, hashWith, route } from '../core/router';
+import { budgetsLessRefunds, insight, refundsIn } from '../features/refunds';
 
 /* ================= Budgets ================= */
 const AUTO_PERIODS = [['weekly', 'Week', '/wk'], ['monthly', 'Month', '/mo'], ['quarterly', 'Quarter', '/qtr'], ['half_year', 'Half year', '/6 mo'], ['yearly', 'Year', '/yr']];
@@ -44,9 +45,10 @@ export async function budgetLimits(cur: Period, L: Lists) {
 VIEWS.budgets = async (r, paint) => {
   const L = await lists();
   const cur = period(), all = !!cur.all;   // All time shows what was spent; amounts are set per month
+  const rs = refundsIn(cur.start, cur.end);   // refunds of purchases on a budget come off what it spent (see refunds.ts)
   const [res, limits, noBudget, avail] = await Promise.all([
-    api('/budgets', { params: { start: cur.start, end: cur.end } }), all ? {} as Record<string, BudgetLimit> : budgetLimits(cur, L),
-    api('/insight/expense/no-budget', { params: { start: cur.start, end: cur.end } }).catch(() => []),
+    Promise.all([api('/budgets', { params: { start: cur.start, end: cur.end } }), rs]).then(([b, x]) => budgetsLessRefunds(arr(b), x)), all ? {} as Record<string, BudgetLimit> : budgetLimits(cur, L),
+    insight('/insight/expense/no-budget', { start: cur.start, end: cur.end }, rs).catch(() => []),
     all ? { data: [] } : api('/available-budgets', { params: { start: cur.start, end: cur.end } }).catch(() => ({ data: [] })),
   ]);
   const available = arr(avail).reduce((s, x) => s + num(x.attributes.amount), 0);

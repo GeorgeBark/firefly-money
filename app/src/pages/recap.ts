@@ -1,5 +1,5 @@
 import { Html, html, htmlList } from '../core/html';
-import { api, getAll } from '../core/api';
+import { getAll } from '../core/api';
 import { App, S, absDiff, arr, fmtDay, money, money0, monthRange, nowMonth, sumDiff, todayIso } from '../core/base';
 import { head, monthNav } from '../core/dom';
 import { nameAvatar, normGroup } from '../core/feed';
@@ -7,6 +7,7 @@ import { addDays } from '../core/helpers';
 import { isAsset, isLiab, lists, normAccount } from '../core/lists';
 import { VIEWS } from '../core/router';
 import { billDays } from './bills';
+import { insight, refundsIn } from '../features/refunds';
 
 /* ================= Monthly recap =================
    One month in review: what came in and went out against last month and the three before it, where the money
@@ -39,7 +40,8 @@ VIEWS.recap = async (r, paint) => {
   const soFar = cur.end >= t, end = soFar ? t : cur.end;
   const p = { start: cur.start, end }, before = { start: monthRange(cur.y, cur.m - 3).start, end: monthRange(cur.y, cur.m - 1).end };
   const year = { start: monthRange(cur.y, cur.m - 12).start, end: addDays(cur.start, -1) };
-  const g = (path: string, params: Record<string, string | number>) => api(path, { params }).catch(() => []);
+  const rs = refundsIn(year.start < before.start ? year.start : before.start, p.end);     // refunds for all three ranges, in one request
+  const g = (path: string, params: { start: string, end: string }) => insight(path, params, rs).catch(() => []);
   const [inc, exp, inc3, exp3, cats, cats3, noCat, noCat3, payees, payees12, spends, bills, nwStart, nwEnd] = await Promise.all([
     g('/insight/income/total', p), g('/insight/expense/total', p), g('/insight/income/total', before), g('/insight/expense/total', before),
     g('/insight/expense/category', p), g('/insight/expense/category', before), g('/insight/expense/no-category', p), g('/insight/expense/no-category', before),

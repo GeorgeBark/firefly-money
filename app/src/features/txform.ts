@@ -6,6 +6,7 @@ import { LS } from '../core/helpers';
 import { closeDrawer, formError, icon, openDrawer, opt, toast, vt, vtName } from '../core/dom';
 import { avatarHtml, normGroup, payeeOf, signed } from '../core/feed';
 import { type Account, invalidate, isAsset, isCard, isLiab, lists } from '../core/lists';
+import { REFUND_TAG, isRefundTag, refundLinkType } from './refunds';
 import { route } from '../core/router';
 
 /* ================= Transaction form ================= */
@@ -14,6 +15,7 @@ export type SplitForm = { jid: string, description: string, amount: string, coun
   tags: string, notes: string, fa: string, fc: string, orig: Partial<Record<string, string>> };
 export type TxForm = { id: string, type: string, date: string, title: string, main: string, src: string, dst: string, rules: boolean, splits: SplitForm[],
   nlBase?: ApiData, nl?: string, nlChips?: Html | '',   // quick add: what was typed and the chips it was read as
+  refundOf?: { jid: string, label: string },              // a refund made from this purchase: linked to it when saved
   draft?: string };                                    // the draft this form was opened from (see drafts below)
 export function blankSplit(): SplitForm { return { jid: '', description: '', amount: '', counter: '', category: '', budget: '', bill: '', tags: '', notes: '', fa: '', fc: '', orig: {} }; }
 export function newTx(preset: { type?: string, date?: string, account?: string, description?: string, amount?: string } = {}) {
@@ -78,11 +80,11 @@ export function renderTxForm() {
   const splitHtml = htmlList(f.splits.map((s, i) =>
     html`<div class="split" data-i="${i}">${multi ? html`<div class="split-head"><span>Split ${i + 1}</span><button type="button" class="link" data-onclick="App.removeSplit(${i})">Remove</button></div>` : ''}<label>Description<input type="text" data-k="description" value="${s.description}" required></label><div class="grid2"><label>Amount<input type="number" data-k="amount" value="${s.amount}" step="0.01" min="0.01" inputmode="decimal" required></label>${f.type !== 'transfer' ? html`<label>${f.type === 'withdrawal' ? 'Paid to' : 'Received from'}<input type="text" data-k="counter" list="dl-counter" value="${s.counter}" placeholder="Name" data-onchange="App.payeeFill(${i}, this.value)"></label>` : html`<span></span>`}</div><div class="grid2"><label>Category<input type="text" data-k="category" list="dl-cat" value="${s.category}" placeholder="None"></label>${f.type === 'withdrawal' ? html`<label>Budget<select data-k="budget">${opt('', 'None', s.budget)}${htmlList(L.budgets.filter(b => b.active || b.id === s.budget).map(b => opt(b.id, b.name, s.budget)))}</select></label>` : html`<span></span>`}</div><div class="grid2">${f.type === 'withdrawal' ? html`<label>Bill<select data-k="bill">${opt('', 'None', s.bill)}${htmlList(L.bills.map(b => opt(b.id, b.name, s.bill)))}</select></label>` : html`<span></span>`}<label>Tags<input type="text" data-k="tags" list="dl-tags" value="${s.tags}" placeholder="Comma separated"></label></div>${L.foreign.length ? html`<div class="grid2"><label>Foreign amount (optional)<input type="number" data-k="fa" step="0.01" min="0" value="${s.fa}"></label><label>Foreign currency<select data-k="fc">${opt('', 'None', s.fc)}${htmlList(L.foreign.map(c => opt(c.code, c.code + ' · ' + c.name, s.fc)))}</select></label></div>` : ''}<label>Notes<textarea data-k="notes" rows="2">${s.notes}</textarea></label></div>`));
   const body =
-    html`<form id="txForm" data-onsubmit="event.preventDefault();App.saveTx(this)">${f.id ? '' : html`<div class="nlq">${icon('spark')}<input type="text" id="nlq" value="${f.nl || ''}" placeholder="Describe it — e.g. starbucks 5.40 amex yesterday" autocomplete="off" enterkeyhint="done" data-oninput="App.nlParse(this.value)" data-onkeydown="App.nlKey(event,this)"><div id="nlChips" class="nlchips">${f.nlChips || ''}</div></div>`}<div class="seg">${typeBtn('withdrawal', 'Expense')}${typeBtn('deposit', 'Income')}${typeBtn('transfer', 'Transfer')}</div><label>Date<input type="date" id="f-date" value="${f.date}" required></label>${accountsHtml}${multi ? html`<label>Title for the whole transaction<input type="text" id="f-title" value="${f.title}" required></label>` : ''}${splitHtml}<button type="button" class="btn small" data-onclick="App.addSplit()" style="margin-bottom:18px">+ Split into another part</button><label class="check"><input type="checkbox" id="f-rules"${f.rules ? ' checked' : ''}> Run my Firefly rules on this transaction</label><datalist id="dl-counter">${htmlList(counterList.map(a => html`<option value="${a.name}">`))}</datalist><datalist id="dl-cat">${htmlList(L.categories.map(c => html`<option value="${c.name}">`))}</datalist><datalist id="dl-tags">${htmlList(L.tags.map(t => html`<option value="${t.name}">`))}</datalist><button type="submit" hidden></button></form>${f.id ? html`<div id="txExtras"><p class="sub-s">Loading attachments and links…</p></div>` : ''}`;
-  const foot = html`${f.id ? html`<button class="btn danger" type="button" data-onclick="App.deleteTx()">Delete</button><button class="btn" type="button" data-onclick="App.duplicateTx()" title="A new transaction with the same details, dated today">Duplicate</button>` : html`<button class="btn" type="button" data-onclick="App.saveDraft()" title="Keep it on this list to finish later; nothing goes to Firefly yet">${f.draft ? 'Update draft' : 'Save as draft'}</button>`}<span class="grow"></span><button class="btn" type="button" data-onclick="App.closeDrawer()">Cancel</button><button class="btn primary" type="button" id="txSave" data-onclick="App.submit('txForm')">${f.id ? 'Save changes' : 'Add transaction'}</button>`;
+    html`<form id="txForm" data-onsubmit="event.preventDefault();App.saveTx(this)">${f.refundOf ? html`<p class="sub-s refund-of">Refund of ${f.refundOf.label}. It goes back into the account you paid from, and Reports and Budgets take it off that spending.</p>` : ''}${f.id ? '' : html`<div class="nlq">${icon('spark')}<input type="text" id="nlq" value="${f.nl || ''}" placeholder="Describe it — e.g. starbucks 5.40 amex yesterday" autocomplete="off" enterkeyhint="done" data-oninput="App.nlParse(this.value)" data-onkeydown="App.nlKey(event,this)"><div id="nlChips" class="nlchips">${f.nlChips || ''}</div></div>`}<div class="seg">${typeBtn('withdrawal', 'Expense')}${typeBtn('deposit', 'Income')}${typeBtn('transfer', 'Transfer')}</div><label>Date<input type="date" id="f-date" value="${f.date}" required></label>${accountsHtml}${multi ? html`<label>Title for the whole transaction<input type="text" id="f-title" value="${f.title}" required></label>` : ''}${splitHtml}<button type="button" class="btn small" data-onclick="App.addSplit()" style="margin-bottom:18px">+ Split into another part</button><label class="check"><input type="checkbox" id="f-rules"${f.rules ? ' checked' : ''}> Run my Firefly rules on this transaction</label><datalist id="dl-counter">${htmlList(counterList.map(a => html`<option value="${a.name}">`))}</datalist><datalist id="dl-cat">${htmlList(L.categories.map(c => html`<option value="${c.name}">`))}</datalist><datalist id="dl-tags">${htmlList(L.tags.map(t => html`<option value="${t.name}">`))}</datalist><button type="submit" hidden></button></form>${f.id ? html`<div id="txExtras"><p class="sub-s">Loading attachments and links…</p></div>` : ''}`;
+  const foot = html`${f.id ? html`<button class="btn danger" type="button" data-onclick="App.deleteTx()">Delete</button><button class="btn" type="button" data-onclick="App.duplicateTx()" title="A new transaction with the same details, dated today">Duplicate</button>${f.type === 'withdrawal' ? html`<button class="btn" type="button" data-onclick="App.refundTx()" title="Money back for this purchase, into the account it was paid from">Refund</button>` : ''}` : html`<button class="btn" type="button" data-onclick="App.saveDraft()" title="Keep it on this list to finish later; nothing goes to Firefly yet">${f.draft ? 'Update draft' : 'Save as draft'}</button>`}<span class="grow"></span><button class="btn" type="button" data-onclick="App.closeDrawer()">Cancel</button><button class="btn primary" type="button" id="txSave" data-onclick="App.submit('txForm')">${f.id ? 'Save changes' : 'Add transaction'}</button>`;
   const wasOpen = el('drawer').classList.contains('open') && el('txForm');
   const scroll = wasOpen ? el('drawerBody').scrollTop : 0;
-  openDrawer(f.id ? 'Edit transaction' : f.draft ? 'Draft' : 'New transaction', body, foot);
+  openDrawer(f.id ? 'Edit transaction' : f.draft ? 'Draft' : f.refundOf ? 'Refund' : 'New transaction', body, foot);
   if (wasOpen) el('drawerBody').scrollTop = scroll;
   if (f.id && (window.App as Partial<AppApi>).loadTxExtras) App.loadTxExtras(f.id, f.splits.map(s => s.jid).filter(Boolean));
 }
@@ -159,7 +161,10 @@ async function saveTx(formEl: HTMLFormElement) {
   if (window.App && App.buzz) App.buzz(8);
   try {
     if (f.id) await api('/transactions/' + f.id, { method: 'PUT', body });
-    else await api('/transactions', { method: 'POST', body });
+    else {
+      const res = await api('/transactions', { method: 'POST', body });
+      if (f.refundOf && f.type === 'deposit') await linkRefund(res, f.refundOf.jid);
+    }
     if (f.draft) dropDraft(f.draft);
     invalidate(); toast(f.id ? 'Transaction updated' : 'Transaction added'); route();
   } catch (e) {
@@ -177,12 +182,34 @@ async function deleteTx() {
 /* ---------- Duplicate ---------- */
 // The open transaction, splits and all, as a new one dated today
 export function copyForm(f: TxForm, date: string): TxForm {
-  return { ...f, id: '', date, rules: true, draft: undefined, nl: '', nlChips: '', splits: f.splits.map(s => ({ ...s, jid: '', orig: {} })) };
+  return { ...f, id: '', date, rules: true, draft: undefined, refundOf: undefined, nl: '', nlChips: '', splits: f.splits.map(s => ({ ...s, jid: '', orig: {} })) };
 }
 function duplicateTx() {
   collectTx(); if (!S.form) return;
   S.drawerHero = null; S.form = copyForm(S.form, todayIso()); renderTxForm();
   toast('Copy ready · change anything, then add it');
+}
+
+/* ---------- Refund: money back for the open purchase ---------- */
+// An income form filled in from the purchase: the same account, payee and category, the whole amount, tagged Refund
+export function refundForm(f: TxForm, date: string): TxForm {
+  const s0 = f.splits[0], total = f.splits.reduce((s, x) => s + Math.abs(num(x.amount)), 0), what = f.title || s0.description;
+  const tags = [...s0.tags.split(',').map(t => t.trim()).filter(t => t && !isRefundTag(t)), REFUND_TAG].join(', ');
+  return { id: '', type: 'deposit', date, title: '', main: f.main, src: f.main, dst: '', rules: true, nl: '', nlChips: '',
+    refundOf: { jid: s0.jid, label: what + ' (' + fmtDay(f.date) + ', ' + money(total) + ')' },
+    splits: [{ ...blankSplit(), description: 'Refund: ' + what, amount: total.toFixed(2), counter: s0.counter, category: s0.category, tags }] };
+}
+function refundTx() {
+  collectTx(); if (!S.form || S.form.type !== 'withdrawal') return;
+  S.drawerHero = null; S.form = refundForm(S.form, todayIso()); renderTxForm();
+  toast('Refund ready · change the amount if only part came back');
+}
+// Links a new refund to its purchase with Firefly's Refund link type ("… (partially) refunds …"), if it still has one
+async function linkRefund(res: ApiData, origJid: string) {
+  try {
+    const jid = String((((res && res.data && res.data.attributes.transactions) || [])[0] || {}).transaction_journal_id || ''), type = await refundLinkType();
+    if (jid && origJid && type) await api('/transaction-links', { method: 'POST', body: { link_type_id: type.id, outward_id: jid, inward_id: origJid } });
+  } catch (e) { if (e instanceof AuthError) throw e; toast('Refund added, but it could not be linked to the purchase'); }
 }
 
 /* ---------- Drafts: a new transaction kept on this list (synced like other settings) until it's added ---------- */
@@ -211,6 +238,7 @@ export function draftsPanel() {
 // The methods markup handlers call (see events.ts), added to App and to its type
 const methods = {
   duplicateTx,
+  refundTx,
   saveDraft,
   openDraft,
   deleteDraft,

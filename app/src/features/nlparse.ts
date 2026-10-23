@@ -5,6 +5,7 @@ import { dayLabel } from '../core/feed';
 import { type Account, isAsset, isLiab } from '../core/lists';
 import { nlDate } from './nldate';
 import { payeeFill } from './polish';
+import { REFUND_TAG, isRefundTag } from './refunds';
 import { collectTx, renderTxForm } from './txform';
 
 /* ---------- Natural-language quick add ---------- */
@@ -20,7 +21,7 @@ function nlAccount(tok: string) {
 function nlParse(text: string, submit?: boolean) {
   const f = S.form; if (!f || f.id) return;
   collectTx();
-  if (!f.nlBase) { const s0 = f.splits[0]; f.nlBase = { type: f.type, date: f.date, main: f.main, src: f.src, dst: f.dst, split: { amount: s0.amount, description: s0.description, counter: s0.counter, category: s0.category } }; }
+  if (!f.nlBase) { const s0 = f.splits[0]; f.nlBase = { type: f.type, date: f.date, main: f.main, src: f.src, dst: f.dst, split: { amount: s0.amount, description: s0.description, counter: s0.counter, category: s0.category, tags: s0.tags } }; }
   const base = f.nlBase, L = S.lists!, ws = text.trim().split(/\s+/).filter(Boolean), used = new Set(), out: any = {};
   // dates first (so "sep 12" isn't read as an amount of 12)
   for (let i = 0; i < ws.length; i++) { if (used.has(i) || out.date) continue; const r = nlDate(ws, i); if (r) { out.date = r[0]; for (let j = 0; j < r[1]; j++) used.add(i + j); if (/^last$/i.test(ws[i - 1] || '')) used.add(i - 1); } }
@@ -53,6 +54,7 @@ function nlParse(text: string, submit?: boolean) {
   if (payee) { sp.description = payee; if (type !== 'transfer') sp.counter = payee; }
   else if (out.kw) sp.description = out.kw;
   if (out.category || out.catHint) sp.category = out.category || out.catHint;
+  if (out.kw === 'Refund' && !sp.tags.split(',').some(isRefundTag)) sp.tags = [sp.tags.trim(), REFUND_TAG].filter(Boolean).join(', ');   // counts against spending, see refunds.ts
   f.main = base.main; f.src = base.src; f.dst = base.dst;
   if (type === 'transfer') {
     const from = accs.find(x => x.from) || accs.find(x => !x.to) || accs[0], to = accs.find(x => x !== from);

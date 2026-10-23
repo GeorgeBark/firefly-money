@@ -50,6 +50,7 @@ export function createMockApi(now = new Date()) {
   acc(6, 'Acme Corp', 'revenue');
   acc(130, 'Online transfer', 'expense'); acc(131, 'Transfer from Everyday', 'revenue');   // see the pair below
   acc(140, 'Old Gym Membership', 'expense'); acc(141, 'Garage sale', 'revenue');   // nothing uses these (for Clean up)
+  acc(142, 'Online Store', 'revenue');   // pays back part of the airline tickets below
   const PAYEES: [string, string, string | null, number, number][] = [  // name, category, budget, typical amount, per-month count
     ['Green Grocer', 'Groceries', 'Food', 64, 5], ['Corner Market', 'Groceries', 'Food', 48, 4], ['SQ *BEAN THERE COFFEE', 'Dining', 'Food', 7, 6],
     ['Burrito Bar', 'Dining', 'Food', 14, 3], ['Taco Stand', 'Dining', 'Food', 22, 2], ['Fuel Stop', 'Gas', null, 42, 3], ['Online Store', 'Shopping', null, 38, 3],
@@ -116,6 +117,11 @@ export function createMockApi(now = new Date()) {
     if (day === 3) addTx(d, 'transfer', 400, 'Rewards Card payment', '1', '3');
   }
   addTx(TODAY - Math.min(9, td - 1) * DAY, 'withdrawal', 312.40, 'Airline tickets', '3', PID['Online Store'], 'Travel');
+  // A refund of part of them, linked to them the way Money makes one (Reports and Budgets take it off spending)
+  const LINKS: { id: string, type: string, attributes: { link_type_id: string, inward_id: string, outward_id: string } }[] = [];
+  addTx(TODAY - Math.min(3, td - 1) * DAY, 'deposit', 80, 'Refund: Airline tickets', '142', '3', 'Travel');
+  TX[TX.length - 1].attributes.transactions[0].tags = ['Refund'];
+  LINKS.push({ id: '1', type: 'transaction_links', attributes: { link_type_id: '2', inward_id: String(TX.length - 1), outward_id: String(TX.length) } });
   // One move to savings that came in from two banks' imports as an expense and an income (Review → Transfers to match)
   addTx(TODAY - 5 * DAY, 'withdrawal', 250, 'Online transfer to savings', '1', '130');
   addTx(TODAY - 4 * DAY, 'deposit', 250, 'Transfer from Everyday Checking', '131', '2');
@@ -214,7 +220,14 @@ export function createMockApi(now = new Date()) {
     if (path === '/piggy-banks') return page(PIGGIES, q);
     if (path === '/bills') return page(BILLS.map(b => billJson(b, q)), q);
     if ((m = path.match(/^\/bills\/(\d+)\/transactions$/))) return page(TX.filter(g => jd(g).bill_id === m![1] && inRange(g, q)), q);
-    if (['/tags', '/recurrences', '/rule-groups', '/rules', '/link-types', '/webhooks', '/available-budgets'].includes(path)) return page([], q);
+    if (path === '/link-types') return page([['1', 'Related', 'relates to', 'relates to'], ['2', 'Refund', 'is (partially) refunded by', '(partially) refunds'], ['3', 'Paid', 'is (partially) paid for by', '(partially) pays for'], ['4', 'Reimbursement', 'is (partially) reimbursed by', '(partially) reimburses']]
+      .map(([id, name, inward, outward]) => ({ id, type: 'link_types', attributes: { name, inward, outward, editable: false } })), q);
+    if ((m = path.match(/^\/tags\/([^/]+)\/transactions$/))) { const tag = decodeURIComponent(m[1]).toLowerCase(); return page(TX.filter(g => jd(g).tags.some(t => t.toLowerCase() === tag) && inRange(g, q) && (!q.type || jd(g).type === q.type)), q); }
+    if ((m = path.match(/^\/transaction-journals\/(\d+)\/links$/))) return page(LINKS.filter(l => [l.attributes.inward_id, l.attributes.outward_id].includes(m![1])), q);
+    if ((m = path.match(/^\/transaction-journals\/(\d+)$/))) return { data: TX.find(g => jd(g).transaction_journal_id === m![1]) };
+    if (path === '/transaction-links' && method === 'POST') { const l = { id: String(LINKS.length + 1), type: 'transaction_links', attributes: { link_type_id: String(body.link_type_id), inward_id: String(body.inward_id), outward_id: String(body.outward_id) } }; LINKS.push(l); return { data: l }; }
+    if ((m = path.match(/^\/transaction-links\/(\d+)$/)) && method === 'DELETE') { const j = LINKS.findIndex(l => l.id === m![1]); if (j >= 0) LINKS.splice(j, 1); return null; }
+    if (['/tags', '/recurrences', '/rule-groups', '/rules', '/webhooks', '/available-budgets'].includes(path)) return page([], q);
     if (path === '/currencies') return page([{ id: '1', attributes: { code: 'USD', name: 'US Dollar', symbol: '$', enabled: true, primary: true } }], q);
     if (path === '/summary/basic') return { 'net-worth-in-USD': { monetary_value: '5418.00' } };
     if (path === '/insight/expense/category') return expenseByCat(q);

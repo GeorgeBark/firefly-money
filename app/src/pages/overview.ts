@@ -13,6 +13,7 @@ import { billAmount } from './bills';
 import { type BudgetLimit, budgetLimits } from './budgets';
 import { loanHistory } from './loans';
 import { type Piggy, normPiggy, paceBits } from './piggy';
+import { budgetsLessRefunds, insight, refundsIn } from '../features/refunds';
 
 /* ================= Overview ================= */
 type CatRow = { name: string, id?: string, amt: number, prev: number };
@@ -35,25 +36,28 @@ VIEWS[''] = async (r, paint) => {
   const cardsShown = shown('cards', isCard, a => a.balance >= 0), loansShown = shown('loans', isLiab, l => !l.debt);
   // Everything is requested at once (the main numbers first, so they reach Firefly first). The page is drawn
   // as soon as those are in; the slower cards show placeholders and fill in when their data arrives.
+  // Refunds come off spending (see refunds.ts): fetched once for the chart's months, and the other ranges use those when they fit
+  const span = { start: months[0].start, end: months[months.length - 1].end }, monthsRs = refundsIn(span.start, span.end);
+  const rsFor = (x: Period) => x.start >= span.start && x.end <= span.end ? monthsRs : undefined;
   const coreP = Promise.all([
     api('/summary/basic', { params: p(cur) }).catch(() => ({})),
-    api('/insight/expense/category', { params: p(cur) }), all ? [] : api('/insight/expense/category', { params: p(prev) }),
-    api('/insight/expense/no-category', { params: p(cur) }).catch(() => []), all ? [] : api('/insight/expense/no-category', { params: p(prev) }).catch(() => []),
-    Promise.all(months.map(mo => Promise.all([api('/insight/income/total', { params: p(mo) }), api('/insight/expense/total', { params: p(mo) })])
+    insight('/insight/expense/category', p(cur), rsFor(cur)), all ? [] : insight('/insight/expense/category', p(prev), rsFor(prev)),
+    insight('/insight/expense/no-category', p(cur), rsFor(cur)).catch(() => []), all ? [] : insight('/insight/expense/no-category', p(prev), rsFor(prev)).catch(() => []),
+    Promise.all(months.map(mo => Promise.all([insight('/insight/income/total', p(mo), monthsRs), insight('/insight/expense/total', p(mo), monthsRs)])
       .then(([i, e]) => ({ label: mo.short, income: sumDiff(i), spend: sumDiff(e), go: 'month:' + mo.y + ':' + mo.m })))),
     api('/transactions', { params: { limit: tileOpt('recent', 'count'), page: 1 } }),
-    api('/budgets', { params: p(cur) }), all ? {} : budgetLimits(cur, L),
+    Promise.all([api('/budgets', { params: p(cur) }), rsFor(cur) || refundsIn(cur.start, cur.end)]).then(([b, rs]) => budgetsLessRefunds(arr(b), rs)), all ? {} : budgetLimits(cur, L),
     getAll('/bills', { start: todayIso(), end: addDays(todayIso(), 45) }),      // same request as the safe-to-spend card
     future ? null : api('/search/transactions', { params: { query: uncatQ, search: uncatQ, limit: 1, page: 1 } }).catch(() => null),
-    all ? Promise.all([api('/insight/income/total', { params: p(cur) }), api('/insight/expense/total', { params: p(cur) })])
+    all ? Promise.all([insight('/insight/income/total', p(cur), rsFor(cur)), insight('/insight/expense/total', p(cur), rsFor(cur))])
       .then(([i, e]) => ({ income: sumDiff(i), spend: sumDiff(e) })) : null,
   ]);
   const slowP = Promise.all([loanHistory(loansShown), App.safeCard(),
     coreP.then(c => App.insightCards({ cur, future: monthOnly, budgets: arr(c[7]), limits: c[8], cards, trend: c[5], max: Math.max(4, dashColumns()) })).catch(() => ''),
     App.balanceSparks([...cashShown, ...cardsShown]).catch(() => ({})),
     monthOnly ? [] : getAll('/transactions', { start: cur.start, end: cur.end, type: 'withdrawal' }).catch(() => []),
-    api('/insight/income/revenue', { params: p(cur) }).catch(() => []),
-    api('/insight/expense/expense', { params: p(cur) }).catch(() => []), all ? [] : api('/insight/expense/expense', { params: p(prev) }).catch(() => []),
+    insight('/insight/income/revenue', p(cur), rsFor(cur)).catch(() => []),
+    insight('/insight/expense/expense', p(cur), rsFor(cur)).catch(() => []), all ? [] : insight('/insight/expense/expense', p(prev), rsFor(prev)).catch(() => []),
     getAll('/piggy-banks').then(ps => ps.map(normPiggy)).catch(() => []), App.netWorthHistory().catch(() => null)]);
   slowP.catch(() => {});
   const [summary, catNow, catPrev, noCatNow, noCatPrev, trend, recent, budgets, limits, bills, uncat, allTot] = await coreP;

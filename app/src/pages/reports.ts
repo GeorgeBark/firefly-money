@@ -1,11 +1,12 @@
 import { html, htmlList, raw } from '../core/html';
-import { api, getAll } from '../core/api';
+import { getAll } from '../core/api';
 import { App, absDiff, el, arr, fmtDate, fmtDay, money, money0, monthOf, monthRange, nowMonth, num, sumDiff, todayIso, type ApiData } from '../core/base';
 import { head, opt, toast } from '../core/dom';
 import { LS, addDays, daysBetween, saveBlob } from '../core/helpers';
 import { type Account, isAsset, isLiab, lists } from '../core/lists';
 import { VIEWS, hashWith, route } from '../core/router';
 import { cashFlow } from './overview';
+import { insight, refundsIn } from '../features/refunds';
 
 // Each account's balance on one day, from two list requests (assets, liabilities) rather than one per account.
 // The net worth chart asks for the same lists, so they're often already saved.
@@ -96,16 +97,17 @@ VIEWS.reports = async (r, paint) => {
     months.push({ start: mr.start < R.start ? R.start : mr.start, end: mr.end > R.end ? R.end : mr.end, label: mr.short + (months.length === 0 || mr.m === 0 ? ' ’' + String(mr.y).slice(2) : '') });
   }
   const own = L.accounts.filter(a => (isAsset(a) || isLiab(a)) && a.active);
-  const g = (path: string) => api(path, { params: p }).catch(() => []);
+  const rs = refundsIn(R.start, R.end), crs = C ? refundsIn(C.start, C.end) : undefined;     // taken off spending (see refunds.ts)
+  const g = (path: string) => insight(path, p, rs).catch(() => []);
   const [inc, exp, xfer, byCat, noCat, byBud, noBud, byTag, byPayee, bySrc, byIncCat, trend, balStart, balEnd] = await Promise.all([
     g('/insight/income/total'), g('/insight/expense/total'), g('/insight/transfer/total'), g('/insight/expense/category'), g('/insight/expense/no-category'),
     g('/insight/expense/budget'), g('/insight/expense/no-budget'), g('/insight/expense/tag'), g('/insight/expense/expense'), g('/insight/income/revenue'), g('/insight/income/category'),
-    Promise.all(months.map(mo => Promise.all([api('/insight/income/total', { params: mo }).catch(() => []), api('/insight/expense/total', { params: mo }).catch(() => [])])
+    Promise.all(months.map(mo => Promise.all([insight('/insight/income/total', mo, rs).catch(() => []), insight('/insight/expense/total', mo, rs).catch(() => [])])
       .then(([i, e]) => ({ label: mo.label, income: sumDiff(i), spend: sumDiff(e), go: 'report:' + mo.start + ':' + mo.end })))),
     balancesOn(own, addDays(R.start, -1)), balancesOn(own, R.end > todayIso() ? todayIso() : R.end),
   ]);
   // The comparison period's totals and breakdowns, by name
-  const gc = (path: string) => C ? api(path, { params: C }).catch(() => []) : Promise.resolve(null);
+  const gc = (path: string) => C ? insight(path, C, crs).catch(() => []) : Promise.resolve(null);
   const [cInc, cExp, cCat, cNoCat, cBud, cNoBud, cPayee, cSrc, cIncCat, cTag] = await Promise.all(['/insight/income/total', '/insight/expense/total', '/insight/expense/category', '/insight/expense/no-category',
     '/insight/expense/budget', '/insight/expense/no-budget', '/insight/expense/expense', '/insight/income/revenue', '/insight/income/category', '/insight/expense/tag'].map(gc));
   const byName = (res: ApiData, extra?: [string, number]) => res == null ? undefined : new Map([...arr(res).map(x => [x.name, absDiff(x)] as [string, number]), ...(extra ? [extra] : [])]);

@@ -8,6 +8,7 @@ import { type Lists, isAsset, isLiab, lists } from '../core/lists';
 import { VIEWS } from '../core/router';
 import { forecastModel } from './forecast';
 import { compareRange, monthSpan } from './reports';
+import { insight } from '../features/refunds';
 
 /* ================= Ask: plain questions answered from your Firefly data =================
    No AI: the question is matched against a few kinds Money knows how to answer, and every answer shows how it was
@@ -84,8 +85,8 @@ async function answer(q: Question, L: Lists): Promise<Answer> {
       more: { label: 'See the transactions', href: linkFor(t) } };
   }
   if (q.intent === 'spent' || q.intent === 'income') {
-    const kind = q.intent === 'income' ? 'income' : 'expense', res = await api('/insight/' + kind + '/total', { params: p }), v = sumDiff(res);
-    const top = await api(kind === 'income' ? '/insight/income/revenue' : '/insight/expense/category', { params: p }).catch(() => []);
+    const kind = q.intent === 'income' ? 'income' : 'expense', res = await insight('/insight/' + kind + '/total', p), v = sumDiff(res);
+    const top = await insight(kind === 'income' ? '/insight/income/revenue' : '/insight/expense/category', p).catch(() => []);
     return { title: html`You ${kind === 'income' ? 'earned' : 'spent'} <strong>${money(v)}</strong> ${r.label}.`,
       lines: arr(top).sort((a, b) => absDiff(b) - absDiff(a)).slice(0, 5).map(x => row(x.name, money0(absDiff(x)), kind === 'income' ? '#/account/' + x.id : '#/transactions?category=' + x.id)),
       how: 'All ' + (kind === 'income' ? 'deposits' : 'withdrawals') + ' from ' + fmtDate(r.start) + ' to ' + fmtDate(r.end) + '; transfers between your own accounts don’t count. Biggest ' + (kind === 'income' ? 'sources' : 'categories') + ' below.',
@@ -96,8 +97,8 @@ async function answer(q: Question, L: Lists): Promise<Answer> {
     const t = todayIso(), cmp = compareRange(r.start, r.end, 'prev')!, sofar = r.start <= t && r.end > t;
     if (sofar) { const gone = daysBetween(r.start, t); p.end = t; cmp.end = addDays(cmp.start, gone) < cmp.end ? addDays(cmp.start, gone) : cmp.end; }
     const before = cmp, n = daysBetween(p.start, p.end) + 1, againstLabel = monthSpan(r.start, r.end) ? (sofar ? 'the same days last month' : 'the month before') : 'the ' + n + ' days before';
-    const [cNow, cWas, tNow, tWas] = await Promise.all([api('/insight/expense/category', { params: p }), api('/insight/expense/category', { params: before }).catch(() => []),
-      api('/insight/expense/total', { params: p }), api('/insight/expense/total', { params: before }).catch(() => [])]);
+    const [cNow, cWas, tNow, tWas] = await Promise.all([insight('/insight/expense/category', p), insight('/insight/expense/category', before).catch(() => []),
+      insight('/insight/expense/total', p), insight('/insight/expense/total', before).catch(() => [])]);
     const now = sumDiff(tNow), was = sumDiff(tWas), names = new Map<string, { id: string, now: number, was: number }>();
     arr(cNow).forEach(x => names.set(x.name, { id: x.id, now: absDiff(x), was: 0 }));
     arr(cWas).forEach(x => { const e = names.get(x.name) || { id: x.id, now: 0, was: 0 }; e.was = absDiff(x); names.set(x.name, e); });

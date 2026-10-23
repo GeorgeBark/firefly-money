@@ -1,9 +1,9 @@
 import { type Html, html, htmlList } from '../core/html';
-import { api } from '../core/api';
 import { type ApiData, App, type Period, absDiff, arr, el, fmtDay, isoDate, money, money0, monthRange, nowMonth, num, sumDiff, todayIso } from '../core/base';
 import { vt, vtName } from '../core/dom';
 import { LS, addDays, budgetAlert, daysBetween } from '../core/helpers';
 import { type Account, ordinal } from '../core/lists';
+import { insight, refundsIn } from './refunds';
 
 /* =====================================================================
    Insight cards: short, auto-generated observations on the Overview.
@@ -26,11 +26,12 @@ async function insightCards({ cur: period, future, budgets, limits, cards, trend
   const dim = daysBetween(cur.start, cur.end) + 1, N = isCur ? daysBetween(cur.start, todayIso()) + 1 : dim;
   const win = (mr: Period & { y: number, m: number }) => { const e = addDays(mr.start, N - 1); return { start: mr.start, end: e < mr.end ? e : mr.end }; };
   const pull = async (w: { start: string, end: string }) => {
-    const [c, u] = await Promise.all([api('/insight/expense/category', { params: w }), api('/insight/expense/no-category', { params: w }).catch(() => [])]);
+    const [c, u] = await Promise.all([insight('/insight/expense/category', w, rs), insight('/insight/expense/no-category', w, rs).catch(() => [])]);
     const m = new Map<string, { id: string, amt: number }>(); arr(c).forEach(x => m.set(x.name, { id: x.id, amt: (m.get(x.name) || { amt: 0 }).amt + absDiff(x) }));
     return { cats: m, total: sumDiff(c) + sumDiff(u) };
   };
   const nowW = win(cur), past = [1, 2, 3].map(i => win(monthRange(cur.y, cur.m - i)));
+  const rs = refundsIn(past[2].start, nowW.end);     // one request for all four windows
   const [me, ...hist] = await Promise.all([pull(nowW), ...past.map(pull)]);
   const used = hist.filter(h => h.total > 0);
   if (!used.length) return '';

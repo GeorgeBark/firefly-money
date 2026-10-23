@@ -10,6 +10,7 @@ import './core/lists';
 import './core/dom';
 import './core/auth';
 import { parseHash, refreshAll } from './core/router';
+import './features/refunds';
 import './features/txform';
 import './features/bulk';
 import './features/attachments';

@@ -5,14 +5,15 @@ import { App, S, absDiff, arr, el, money, money0, monthRange, period, type ApiDa
 import { closeDrawer, confirmBox, formError, head, monthNav, openDrawer, toast } from '../core/dom';
 import { invalidate, lists } from '../core/lists';
 import { VIEWS, route } from '../core/router';
+import { insight } from '../features/refunds';
 
 /* ================= Categories & tags ================= */
 VIEWS.categories = async (r, paint) => {
   const L = await lists(true);
   const cur = period(), all = !!cur.all, prev = monthRange(S.y, S.m - 1), p = (x: Period) => ({ start: x.start, end: x.end });
   const [spNow, spPrev, inNow] = await Promise.all([
-    api('/insight/expense/category', { params: p(cur) }), all ? [] : api('/insight/expense/category', { params: p(prev) }),
-    api('/insight/income/category', { params: p(cur) }).catch(() => []),
+    insight('/insight/expense/category', p(cur)), all ? [] : insight('/insight/expense/category', p(prev)),
+    insight('/insight/income/category', p(cur)).catch(() => []),
   ]);
   const by = (res: ApiData) => Object.fromEntries(arr(res).map(x => [String(x.id), absDiff(x)]));
   const a = by(spNow), b = by(spPrev), c = by(inNow);

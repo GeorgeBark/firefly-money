@@ -222,7 +222,7 @@ python3 dev/mock_server.py
 
 It implements only the endpoints the UI needs. Writes are accepted but not saved (deletes are the exception).
 
-The online demo is the same data ported to TypeScript (`app/src/demo/mockapi.ts`), answered in the browser by `demo.ts`, so it's plain files on GitHub Pages. `npm run build:demo` builds it into `site/`, and `.github/workflows/pages.yml` publishes it on every push to `main` (one-time setup: **Settings → Pages → Source: GitHub Actions**). If you change the demo data, change both copies.
+The online demo is the same data ported to TypeScript (`app/src/demo/mockapi.ts`), answered in the browser by `demo.ts`, so it's plain files on GitHub Pages. `npm run build:demo` builds it into `site/`, and `.github/workflows/pages.yml` publishes it on every push to `main` (one-time setup: **Settings → Pages → Source: GitHub Actions**). If you change the demo data, change both copies. To see how many people visit the demo, set a repository variable `GOATCOUNTER` (**Settings → Secrets and variables → Actions → Variables**) to your [GoatCounter](https://www.goatcounter.com) site code: it counts page views without cookies or personal data, and only the demo has it, never the app you host.
 
 ## Development
 

@@ -1,6 +1,7 @@
 /* The online demo (npm run build:demo, published to GitHub Pages). It runs before the app and answers the
    app's /api/v1 calls in the browser with made-up data from mockapi.ts, so the demo needs no server at all.
-   It's signed in from the start (nothing checks the session) and adds a small "Demo" badge that links to the repo. */
+   It's signed in from the start (nothing checks the session) and adds a small "Demo" badge that links to the repo.
+   When built with GOATCOUNTER set, it also counts visits to each page for GoatCounter (no cookies, no personal data). */
 import { NotFound, createMockApi } from './mockapi';
 
 const handle = createMockApi();
@@ -30,6 +31,12 @@ window.fetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
 
 // No offline service worker: the app registers /sw.js at the site root, which on GitHub Pages isn't the demo's
 try { if (navigator.serviceWorker) navigator.serviceWorker.register = () => Promise.reject(new Error('Not in the demo')); } catch (e) { /* ignore */ }
+
+// GoatCounter counts the address without the #, so every page would look like the front page. Count the page
+// part of the hash instead (#/reports, not #/transactions?category=…), and count again on every page change.
+type GoatCounter = { path?: (p: string) => string, count?: () => void };
+const gc: GoatCounter = ((window as unknown as { goatcounter?: GoatCounter }).goatcounter = { path: () => location.pathname + (location.hash.split('?')[0] || '#/') });
+addEventListener('hashchange', () => gc.count?.());
 
 addEventListener('DOMContentLoaded', () => {
   const a = document.createElement('a');

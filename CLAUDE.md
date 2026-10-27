@@ -49,13 +49,15 @@ finds these instructions. Plans are read and written in that main checkout, on
 
 ### Starting work on a plan
 
-The agent in the main checkout (on `georgebark`) talks plans through with the
-user and keeps `plans/` current. When a plan is ready for code:
+The flow is always: review the plan in the main checkout, then launch the agent
+that implements it from there. The agent in the main checkout (on `georgebark`)
+talks plans through with the user and keeps `plans/` current. It launches an
+implementing agent only when the user has reviewed the plan and asks for it to
+start. Then:
 
 1. Sync `main` (see [Branches](#branches)) and set the plan's status to
    `in progress`, with its branch, in a plans-only commit.
-2. Create the worktree with an agent in it, either from the Orca app (new
-   workspace on firefly-money, named after the plan) or from the CLI:
+2. Create the worktree with an agent in it through the Orca CLI:
 
    ```sh
    orca worktree create --repo path:/Users/bark/developer/projects/firefly-money \

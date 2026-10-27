@@ -56,8 +56,7 @@ finds these instructions. Plans are read and written in that main checkout, on
 - Upstream's `docker.yml` and `pages.yml` are disabled in this fork's Actions
   settings and are left unchanged.
 - The deployment lives in the user's home-infra repo
-  (`/Users/bark/developer/projects/home-infra`), `stacks/firefly-money/`, on the
-  host vegeta. Deploying means bumping the image tag there and following that
+  (`/Users/bark/developer/projects/home-infra`), `stacks/firefly-money/`, on a homelab host. Deploying means bumping the image tag there and following that
   stack's README. Do not deploy without being asked.
 
 ## Working on the code

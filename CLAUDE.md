@@ -13,21 +13,21 @@ parent directory (see [Worktrees](#worktrees)).
 | Branch | Starts from | Holds | Goes to |
 |---|---|---|---|
 | `main` | — | an exact mirror of `upstream/main`, never a commit of ours | — |
-| `feat/<name>` | `upstream/main` | one change, code only | merged into `georgebark`; optionally a PR upstream |
+| `feat/<name>` | `main` | one change, code only | merged into `georgebark`; optionally a PR upstream |
 | `gb/<name>` | `georgebark` | a change that only makes sense for this fork | merged into `georgebark` |
 | `georgebark` | — | the default branch: `main` + our merged changes + `plans/` + this file | tagged and deployed |
 
 Rules:
 
-- **Upstream-worthy work goes on `feat/*` from `upstream/main`.** That branch is
+- **Upstream-worthy work goes on `feat/*` from `main`.** That branch is
   what a pull request to Muffy0906 would be, so it must never contain `plans/`,
   this file, `AGENTS.md` or `.github/workflows/georgebark.yml`.
 - **Bring a branch into `georgebark` with a merge** (`git merge --no-ff`), never
-  a cherry-pick. A `feat/*` branch may be rebased onto `upstream/main` while it
-  is open; `georgebark` and its tags are never rewritten.
+  a cherry-pick. A `feat/*` branch may be rebased onto `main` while it is open; `georgebark` and its tags are never rewritten.
 - **Never mix `plans/` and code in one commit.**
 - **Sync with upstream:** `git fetch upstream`, fast-forward `main` to
-  `upstream/main`, then merge `main` into `georgebark`.
+  `upstream/main` and push it to `origin`, then merge `main` into `georgebark`.
+  Sync before starting a `feat/*` branch, so it starts from upstream's latest.
 - Do not push to `upstream`. Opening a pull request upstream is the user's call.
 
 ## Plans
@@ -39,8 +39,9 @@ by writing or updating its plan, and keep the status current. See
 
 ## Worktrees
 
-Orca creates worktrees under `~/orca/workspaces/firefly-money/<name>`, with
-`upstream/main` as the default base ref for this repo. That directory holds
+Orca creates worktrees under `~/orca/workspaces/firefly-money/<name>`, on a
+`feat/<name>` branch, with `origin/main` (this fork's `main`) as the default
+base ref for this repo. That directory holds
 symlinks `CLAUDE.md` and `AGENTS.md` to this checkout's copies
 (`/Users/bark/developer/projects/firefly-money`), so an agent in any worktree
 finds these instructions. Plans are read and written in that main checkout, on

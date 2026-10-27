@@ -1,0 +1,57 @@
+# The fork's own image build. Lives only on the georgebark branch, so it never
+# reaches upstream: pull request branches start from upstream/main.
+# Upstream's docker.yml is left unchanged and disabled in this fork's Actions
+# settings, so syncing main builds nothing. Based on docker.yml at v1.4.0.
+name: Docker image (georgebark)
+on:
+  push:
+    branches: [georgebark]
+    tags: ["v*-gb.*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # latest follows the georgebark branch; a tag v1.4.0-gb.1 gives 1.4.0-gb.1.
+      - id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/georgebark' }}
+            type=semver,pattern={{version}}
+            type=sha,format=short
+
+      # e.g. "c78fd51 · 2026-09-30", or "v1.4.0-gb.1 (c78fd51 · 2026-09-30)" for a tag (no commas: build-args may split on them)
+      - name: Version stamp
+        run: |
+          v="${GITHUB_SHA::7} · $(date -u +%Y-%m-%d)"
+          if [ "$GITHUB_REF_TYPE" = tag ]; then v="$GITHUB_REF_NAME ($v)"; fi
+          echo "MONEY_VERSION=$v" >> "$GITHUB_ENV"
+
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: MONEY_VERSION=${{ env.MONEY_VERSION }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

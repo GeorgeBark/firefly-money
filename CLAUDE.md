@@ -47,6 +47,31 @@ symlinks `CLAUDE.md` and `AGENTS.md` to this checkout's copies
 finds these instructions. Plans are read and written in that main checkout, on
 `georgebark`, not in the feature worktree.
 
+### Starting work on a plan
+
+The agent in the main checkout (on `georgebark`) talks plans through with the
+user and keeps `plans/` current. When a plan is ready for code:
+
+1. Sync `main` (see [Branches](#branches)) and set the plan's status to
+   `in progress`, with its branch, in a plans-only commit.
+2. Create the worktree with an agent in it, either from the Orca app (new
+   workspace on firefly-money, named after the plan) or from the CLI:
+
+   ```sh
+   orca worktree create --repo path:/Users/bark/developer/projects/firefly-money \
+     --name locale --agent claude \
+     --prompt "Implement P-01. The plan is /Users/bark/developer/projects/firefly-money/plans/01-es-locale.md."
+   ```
+
+   The worktree starts from `origin/main` on branch `feat/<name>`. Run
+   `npm ci` in it before building; worktrees start without `node_modules`.
+3. The agent in the worktree writes code only. It reads the plan by its path in
+   the main checkout and does not edit it; it reports what it did and what is
+   left, and the main-checkout agent records that in the plan.
+4. When the user accepts the work, merge `feat/<name>` into `georgebark`
+   (`--no-ff`), update the plan's status, and remove the worktree with
+   `orca worktree rm`. The branch stays if a PR upstream is still wanted.
+
 ## Releases and deployment
 
 - Tag `georgebark` as `v<upstream version>-gb.<n>` (for example `v1.4.0-gb.2`)

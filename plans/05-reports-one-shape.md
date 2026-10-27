@@ -1,4 +1,4 @@
-# Reports with one shape
+# P-05 — Reports with one shape
 
 - **Status:** to discuss
 - **Branch:** feat/… (to decide)

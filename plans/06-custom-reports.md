@@ -1,4 +1,4 @@
-# Custom reports
+# P-06 — Custom reports
 
 - **Status:** to discuss
 - **Branch:** feat/custom-reports
@@ -23,4 +23,4 @@ preset and comparison, synced in `money_settings`) and has a card dashboard. A
 saved custom report would be one more card. Firefly's insight endpoints group by
 category, tag, account or budget, which covers most single cuts; a second-level
 split needs the transactions themselves. Groups depend on
-[category groups](category-groups.md).
+[category groups](03-category-groups.md).

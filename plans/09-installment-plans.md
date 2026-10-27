@@ -1,4 +1,4 @@
-# Installment plans
+# P-09 — Installment plans
 
 - **Status:** to discuss (later, not in the first version)
 - **Branch:** to decide

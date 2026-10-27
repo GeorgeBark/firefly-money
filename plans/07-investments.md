@@ -1,4 +1,4 @@
-# Investments, assets and wallets
+# P-07 — Investments, assets and wallets
 
 - **Status:** to discuss
 - **Branch:** to decide; probably mostly outside Money

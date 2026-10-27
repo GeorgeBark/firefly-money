@@ -1,4 +1,4 @@
-# AI assistant
+# P-10 — AI assistant
 
 - **Status:** to discuss
 - **Branch:** to decide; needs a server

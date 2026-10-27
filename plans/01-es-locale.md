@@ -1,4 +1,4 @@
-# Regional formats (locale)
+# P-01 — Regional formats (locale)
 
 - **Status:** discussed
 - **Branch:** feat/locale

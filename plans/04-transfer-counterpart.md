@@ -1,4 +1,4 @@
-# Transfers name the other account
+# P-04 — Transfers name the other account
 
 - **Status:** to discuss
 - **Branch:** feat/transfer-counterpart

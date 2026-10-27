@@ -1,4 +1,4 @@
-# Dollar-cost averaging
+# P-08 — Dollar-cost averaging
 
 - **Status:** to discuss (later, not in the first version)
 - **Branch:** to decide
@@ -10,5 +10,5 @@ Seen in WYGIWYH (`/dca/`): a strategy of periodic contributions to one
 investment, tracking amount paid, units bought, average cost and return. The user
 wants it eventually, after the basics.
 
-Needs units and prices, so it builds on [investments](investments.md) and its
+Needs units and prices, so it builds on [investments](07-investments.md) and its
 store.

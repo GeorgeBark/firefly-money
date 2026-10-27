@@ -1,4 +1,4 @@
-# Category groups
+# P-03 — Category groups
 
 - **Status:** to discuss
 - **Branch:** feat/category-groups
